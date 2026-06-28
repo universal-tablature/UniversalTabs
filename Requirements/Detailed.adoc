@@ -8,8 +8,8 @@ requirements will be made normative and assigned stable identifiers.
 
 == Design principles
 
-* Describe operations at the instrument boundary through actuators, actions,
-  states, and gestures.
+* Describe operations at the instrument boundary through actuators, geometry,
+  interactions, techniques, states, and gestures.
 * Keep streams, performers, and instrument instances independent.
 * Separate persistent configuration from excitation.
 * Permit explicit low-level events as well as profile-defined gestures.
@@ -26,12 +26,15 @@ instances, optional performers, streams, and events.
 {
   "utabVersion": "0.1-draft",
   "profiles": [
-    { "id": "profile:guitar", "uri": "https://example.org/utab/guitar.json" }
+    {
+      "id": "profile:fretted-string",
+      "uri": "https://example.org/utab/fretted-string.json"
+    }
   ],
   "instruments": [
     {
       "id": "instrument:guitar-1",
-      "profile": "profile:guitar",
+      "profile": "profile:fretted-string",
       "configuration": { "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"] }
     }
   ],
@@ -55,42 +58,142 @@ Open questions:
 * Are events stored globally or nested under streams?
 * Which identifiers must be globally unique rather than document-local?
 
-== Profiles and actuators
+== Profile structure
 
-A profile defines actuator types and supported actions. An instrument instance
-binds abstract profile elements to a specific configuration.
+A profile separates instrument actuators, physical geometry, permitted
+interaction methods, techniques, and optional performer defaults. An
+instrument instance binds these abstract profile elements to a specific
+configuration.
 
 [source,json]
 ----
 {
-  "id": "profile:guitar",
+  "id": "profile:fretted-string",
   "profileVersion": "0.1-draft",
-  "actuatorGroups": [
-    {
-      "id": "strings",
-      "count": 6,
-      "actuatorType": "string",
-      "positionControl": "continuous"
+  "actuators": {
+    "strings": {
+      "count": 6
     }
-  ],
-  "actions": [
-    { "id": "setPosition", "target": "string", "stateful": true },
-    { "id": "releasePosition", "target": "string", "stateful": true },
-    { "id": "pluck", "target": "string", "stateful": false },
-    { "id": "strum", "target": "strings", "stateful": false }
-  ]
+  },
+  "geometry": {
+    "frets": {
+      "movable": false
+    }
+  },
+  "interactions": {
+    "stopString": {
+      "effectors": ["finger"]
+    },
+    "exciteString": {
+      "effectors": ["finger", "pick"]
+    },
+    "dampString": {
+      "effectors": ["finger", "palm"]
+    }
+  },
+  "performerDefaults": {
+    "stoppingFingers": 4
+  },
+  "techniques": {
+    "bend": {
+      "target": "string",
+      "parameters": {
+        "pitchOffset": {
+          "type": "interval",
+          "continuous": true
+        }
+      }
+    },
+    "slide": { "target": "string" },
+    "vibrato": { "target": "string" },
+    "hammerOn": {
+      "target": "string",
+      "requires": { "stringSounding": true },
+      "changes": ["stoppingPosition"]
+    },
+    "pullOff": { "target": "string" },
+    "harmonic": { "target": "string" }
+  }
 }
 ----
 
-The example deliberately models a fret position as continuous at the generic
-profile level. A particular fretted instrument can constrain it to configured
-fret locations, while an unfretted instrument need not do so.
+Frets belong to geometry because they constrain valid stopping positions but
+are not normally actuated. Fingers, picks, and palms are effectors used by
+interaction methods rather than instrument actuators. The performer default of
+four stopping fingers is overridable and is not an instrument constraint.
+
+Technique entries range from declarations to fuller definitions in this early
+sketch. A normative profile must define each technique's targets, parameters,
+preconditions, and state effects sufficiently for consistent interpretation.
 
 Open questions:
 
 * Should actuator groups be addressable targets or only selection shortcuts?
 * How are derived actuators and coupled controls represented?
 * Should profiles inherit from other profiles or compose named capabilities?
+* Should interaction effectors use a core vocabulary, profile-local values, or
+  namespaced identifiers?
+
+== Bitset actuator groups
+
+Banks of predominantly binary controls, including the keys and holes of many
+woodwind instruments, can be represented as a bitset. The profile assigns a
+stable meaning to each bit position; the core format does not assign musical
+meaning to a bit by itself.
+
+[source,json]
+----
+{
+  "id": "profile:saxophone",
+  "actuators": {
+    "keys": {
+      "representation": "bitset",
+      "width": 24,
+      "bits": [
+        { "index": 0, "actuator": "octave-key" },
+        { "index": 1, "actuator": "left-hand-b" },
+        { "index": 2, "actuator": "left-hand-a" },
+        { "index": 3, "actuator": "left-hand-g" }
+      ],
+      "bitValue": {
+        "0": "released",
+        "1": "pressed"
+      }
+    }
+  }
+}
+----
+
+Bitsets are serialized as hexadecimal strings rather than JSON numbers. This
+preserves the declared width and avoids dependence on an implementation's
+integer precision. Bit index zero corresponds to the least-significant bit of
+the decoded value. A conforming serializer should pad the value to the number
+of hexadecimal digits required by the declared width.
+
+[source,json]
+----
+{
+  "target": "keys",
+  "parameter": "state",
+  "value": { "encoding": "hex", "data": "0x00000f" }
+}
+----
+
+A bitset value is a complete snapshot of the group. Explicit masked updates
+may be added if event size or independent control streams make them necessary,
+but their precedence and conflict rules must first be specified.
+
+Bitsets are not suitable for every wind-instrument control. Partially covered
+tone holes, breath pressure, embouchure, slides, and other continuous inputs
+remain ordinary discrete or continuous actuators. Profiles may therefore
+combine bitset groups with individually addressed controls.
+
+Open questions:
+
+* Should a profile be permitted to reserve unnamed bits for future expansion?
+* Is hexadecimal sufficient, or is a base64 encoding needed for very large
+  actuator banks?
+* Should common named fingerings be aliases for bitset values?
 
 == Common event envelope
 
@@ -174,9 +277,11 @@ without repeating the fingering.
     "at": { "absolute": { "value": 2.4, "unit": "s" } },
     "type": "state",
     "changes": [
-      { "target": "keys[octave]", "parameter": "pressed", "value": true },
-      { "target": "keys[1]", "parameter": "pressed", "value": true },
-      { "target": "keys[2]", "parameter": "pressed", "value": false }
+      {
+        "target": "keys",
+        "parameter": "state",
+        "value": { "encoding": "hex", "data": "0x000003" }
+      }
     ]
   },
   {

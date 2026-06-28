@@ -38,7 +38,20 @@ assign stable identifiers to normative requirements.
 
 * An instrument performance profile MUST describe the actuators exposed by an
   instrument type and the actions that can be applied to them.
+* A profile MUST distinguish instrument actuators, instrument geometry,
+  interaction methods, techniques, and performer capabilities.
+* Instrument geometry MUST be able to constrain actuator positions or actions
+  without being modeled as an actuator. For example, fixed frets constrain
+  string-stopping positions but are not themselves normally actuated.
+* Interaction methods MUST describe how an instrument can be operated without
+  requiring a specific performer anatomy. Fingers, picks, bows, mallets, and
+  similar effectors MAY be named by interaction methods when musically
+  relevant.
+* Techniques MUST define their valid targets, parameters, preconditions, and
+  state effects where applicable.
 * A profile MUST distinguish discrete actuators from continuous actuators.
+* A profile MUST be able to group binary actuators into an ordered bitset. The
+  profile MUST define the actuator associated with each bit position.
 * A profile MUST be able to define persistent actuator state, momentary
   actions, and continuous changes.
 * A profile MUST be able to define valid actuator combinations, ranges, and
@@ -60,6 +73,9 @@ assign stable identifiers to normative requirements.
   excitation. For example, guitar fingering and strumming are separate
   operations, as are wind-instrument fingering and blowing.
 * The format MUST support simultaneous actions on multiple actuators.
+* A state event MUST be able to set the complete state of a bitset actuator
+  group in one operation. This is the preferred representation for fingering
+  systems dominated by open/closed or pressed/released controls.
 * The format MUST support explicit action sequences and reusable higher-level
   gestures such as strums, arpeggios, rolls, trills, and tremolos.
 * A gesture MUST have an unambiguous expansion or interpretation under its
@@ -112,6 +128,9 @@ architecture.
   digits, or other anatomy.
 * Optional performer-capability profiles MAY describe anatomy, reach,
   endurance, breath, or other performer-specific constraints.
+* Conventional performer assumptions, such as four stopping fingers for a
+  fretted string instrument, MAY be supplied as defaults but MUST be
+  overridable and MUST NOT be treated as instrument constraints.
 * Instrument constraints and performer constraints MUST remain separately
   identifiable when both are present.
 
