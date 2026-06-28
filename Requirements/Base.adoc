@@ -1,0 +1,167 @@
+= Universal Tabs Baseline Requirements
+
+== Purpose
+
+Universal Tabs (`utab`) is an interchange format for describing how music is
+performed on instruments. It records the controls of an instrument and the
+actions applied to them over time.
+
+The primary abstraction is the instrument actuator, not the performer's
+anatomy. An actuator is any controllable part or input of an instrument, such
+as a string, key, valve, tone hole, pedal, membrane, breath input, antenna, or
+continuous controller.
+
+The format is intended to complement music notation. It MAY contain musical
+context needed to interpret a performance, but it is not intended to encode
+every visual or semantic feature of conventional notation.
+
+== Requirement language
+
+The key words `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` express
+requirement strength. Detailed specifications derived from this document MUST
+assign stable identifiers to normative requirements.
+
+== Scope
+
+=== Performance documents
+
+* A document MUST be able to contain multiple synchronized performance
+  streams.
+* Streams, performers, and instrument instances MUST have separate identities.
+* A stream MUST identify the instrument instance whose actuators it controls.
+* A stream MAY identify a performer.
+* One performer MAY control multiple streams or instrument instances.
+* Multiple performers MAY control one instrument instance.
+* A document MUST support simultaneous and overlapping events.
+
+=== Instrument performance profiles
+
+* An instrument performance profile MUST describe the actuators exposed by an
+  instrument type and the actions that can be applied to them.
+* A profile MUST distinguish discrete actuators from continuous actuators.
+* A profile MUST be able to define persistent actuator state, momentary
+  actions, and continuous changes.
+* A profile MUST be able to define valid actuator combinations, ranges, and
+  transitions where these affect performance.
+* Profiles MUST be composable so that instruments combining multiple
+  performance mechanisms do not require an unrelated event model.
+* Profiles MUST be extensible with instrument-specific actuators, actions,
+  techniques, and constraints.
+* Construction details that do not affect performance are outside the core
+  scope.
+
+=== Performance events
+
+* An event MUST identify its time and the stream to which it belongs.
+* An actuator event MUST identify an action and its target actuator or actuator
+  group.
+* Events MUST support instantaneous actions, durations, and continuous values.
+* Events MUST be able to change persistent state independently of sound
+  excitation. For example, guitar fingering and strumming are separate
+  operations, as are wind-instrument fingering and blowing.
+* The format MUST support simultaneous actions on multiple actuators.
+* The format MUST support explicit action sequences and reusable higher-level
+  gestures such as strums, arpeggios, rolls, trills, and tremolos.
+* A gesture MUST have an unambiguous expansion or interpretation under its
+  referenced profile.
+* Events MAY carry dynamics, articulation, technique, and other
+  profile-defined performance parameters.
+
+=== Instrument coverage
+
+The profile and event models MUST be capable of representing at least:
+
+* fretted and movable-fret string instruments;
+* unfretted string instruments;
+* keyboard instruments;
+* woodwind and brass instruments;
+* pitched and unpitched percussion;
+* electronic and continuously controlled instruments;
+* voice;
+* composite instruments, including the nyckelharpa and hurdy-gurdy; and
+* instruments that do not fit an existing standard profile.
+
+This list establishes minimum coverage; it does not prescribe the profile
+architecture.
+
+=== Pitch and tuning
+
+* The format MUST NOT assume twelve-tone equal temperament.
+* Profiles MUST support fixed, alternate, open, movable, and microtonal
+  tunings.
+* A pitch representation MUST support exact tuning relationships or
+  frequencies in addition to conventional pitch names.
+* The format MUST distinguish an actuator position from the resulting pitch
+  where context or technique can alter that pitch.
+
+=== Time
+
+* Events MUST be expressible in musical time and in absolute elapsed time.
+* Musical time MUST support meter, tempo, tempo changes, and positions within
+  measures and beats.
+* Absolute time MUST use a defined unit and reference point.
+* A document using both time domains MUST define how they map to one another.
+* The time model MUST support performances without a regular meter.
+* Additional time systems MAY be defined by extensions.
+
+=== Physical and performance constraints
+
+* Instrument profiles SHOULD describe constraints imposed by the instrument,
+  including invalid actuator combinations, ranges, and transition timing.
+* The core format MUST NOT require actions to be assigned to human limbs,
+  digits, or other anatomy.
+* Optional performer-capability profiles MAY describe anatomy, reach,
+  endurance, breath, or other performer-specific constraints.
+* Instrument constraints and performer constraints MUST remain separately
+  identifiable when both are present.
+
+=== Metadata and provenance
+
+* Documents and profiles MUST support stable identifiers and format versions.
+* Documents SHOULD support title, authorship, revision, source, licensing, and
+  annotation metadata.
+* Profiles SHOULD support provenance and citations, particularly for
+  historical or style-specific performance practices.
+* The format SHOULD permit uncertainty and editorial interpretation to be
+  recorded without changing the underlying performance event.
+
+=== Serialization and compatibility
+
+* The initial interchange serialization MUST be JSON encoded as UTF-8.
+* The data model MUST remain independent of JSON so that binary or other
+  serializations can be defined later.
+* JSON documents MUST declare their format version.
+* The specification MUST define required fields, units, reference behavior,
+  numerical interpretation, and handling of unknown fields.
+* Extensions MUST be distinguishable from fields defined by the core format.
+* Implementations MUST be able to validate documents and profiles against a
+  versioned schema.
+* Future versions SHOULD preserve backward compatibility where doing so does
+  not make interpretation ambiguous.
+
+== Conformance
+
+The detailed specification MUST define:
+
+* conformance classes for documents, profiles, readers, and writers;
+* machine-readable schemas;
+* valid and invalid examples;
+* a representative instrument and performance test corpus; and
+* round-trip expectations for conforming implementations.
+
+Claims of broad instrument coverage MUST be evaluated against the test corpus,
+not inferred solely from an instrument classification system.
+
+== Intended uses
+
+The format is intended to support:
+
+* music teaching and guided-performance software;
+* tablature rendering;
+* interchange with notation and composition software;
+* live, electronic, and robotic performance systems;
+* preservation and study of historical performance practices; and
+* generation and validation of physically realizable performances.
+
+These uses are informative. Conformance is determined by the normative
+requirements and the detailed specification.

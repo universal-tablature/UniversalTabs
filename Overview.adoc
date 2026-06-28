@@ -1,0 +1,22 @@
+= Overview (Non-Normative)
+
+== Use Cases
+
+The use cases are:
+
+* Music teaching apps (e.g. Yousician, Simply Piano, Flowkey, Rocksmith, Slopsmith etc.)
+
+* Tabulature rendering apps (e.g. Guitar Pro, TuxGuitar, MuseScore etc.)
+
+* Music notation apps (e.g. Finale, Sibelius, Dorico etc.)
+
+* Music composition apps (e.g. Ableton Live, Logic Pro, Cubase etc.)
+
+* Music performance apps (e.g. GarageBand, BandLab, Soundtrap etc.)
+
+* Historical music research, e.g. capturing how performance is done on a particular instrument, or how a particular instrument is played in a particular style.
+
+* Robotic performance of instruments, e.g. for museums.
+
+* Improved AI music generation, i.e. no music requiring 11 fingers to play, or 3 hands, or 2 mouths, or 4 arms.
+

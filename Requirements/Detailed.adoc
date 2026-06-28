@@ -1,0 +1,297 @@
+= Universal Tabs Detailed Requirements: Initial Sketch
+
+Status: exploratory, non-normative.
+
+This document sketches a data model for review. Field names and JSON shapes are
+examples, not a stable serialization contract. Once agreed, individual
+requirements will be made normative and assigned stable identifiers.
+
+== Design principles
+
+* Describe operations at the instrument boundary through actuators, actions,
+  states, and gestures.
+* Keep streams, performers, and instrument instances independent.
+* Separate persistent configuration from excitation.
+* Permit explicit low-level events as well as profile-defined gestures.
+* Keep the common event envelope small; put instrument semantics in referenced
+  profiles.
+
+== Document structure
+
+A document is expected to declare its version, referenced profiles, instrument
+instances, optional performers, streams, and events.
+
+[source,json]
+----
+{
+  "utabVersion": "0.1-draft",
+  "profiles": [
+    { "id": "profile:guitar", "uri": "https://example.org/utab/guitar.json" }
+  ],
+  "instruments": [
+    {
+      "id": "instrument:guitar-1",
+      "profile": "profile:guitar",
+      "configuration": { "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"] }
+    }
+  ],
+  "performers": [
+    { "id": "performer:alex", "name": "Alex" }
+  ],
+  "streams": [
+    {
+      "id": "stream:guitar-1",
+      "instrument": "instrument:guitar-1",
+      "performer": "performer:alex"
+    }
+  ],
+  "events": []
+}
+----
+
+Open questions:
+
+* Are profiles embedded, referenced, or both?
+* Are events stored globally or nested under streams?
+* Which identifiers must be globally unique rather than document-local?
+
+== Profiles and actuators
+
+A profile defines actuator types and supported actions. An instrument instance
+binds abstract profile elements to a specific configuration.
+
+[source,json]
+----
+{
+  "id": "profile:guitar",
+  "profileVersion": "0.1-draft",
+  "actuatorGroups": [
+    {
+      "id": "strings",
+      "count": 6,
+      "actuatorType": "string",
+      "positionControl": "continuous"
+    }
+  ],
+  "actions": [
+    { "id": "setPosition", "target": "string", "stateful": true },
+    { "id": "releasePosition", "target": "string", "stateful": true },
+    { "id": "pluck", "target": "string", "stateful": false },
+    { "id": "strum", "target": "strings", "stateful": false }
+  ]
+}
+----
+
+The example deliberately models a fret position as continuous at the generic
+profile level. A particular fretted instrument can constrain it to configured
+fret locations, while an unfretted instrument need not do so.
+
+Open questions:
+
+* Should actuator groups be addressable targets or only selection shortcuts?
+* How are derived actuators and coupled controls represented?
+* Should profiles inherit from other profiles or compose named capabilities?
+
+== Common event envelope
+
+Every event needs an identity, stream, time, type, and payload. Duration is
+optional because some events are instantaneous or persist until explicitly
+changed.
+
+[source,json]
+----
+{
+  "id": "event:42",
+  "stream": "stream:guitar-1",
+  "at": { "musical": { "measure": 8, "beat": "3/2" } },
+  "type": "action",
+  "action": "pluck",
+  "target": { "group": "strings", "index": 2 },
+  "parameters": { "intensity": 0.72 }
+}
+----
+
+Candidate rules:
+
+* Event order MUST be determined by time, not JSON array position.
+* Simultaneous events MUST be representable without artificial ordering.
+* Values with physical dimensions MUST declare or inherit defined units.
+* Profiles MUST define the meaning and allowed range of action parameters.
+
+== Persistent state and excitation
+
+Chord fingering is state applied to individual strings. A subsequent strum is
+a separate gesture over some or all strings.
+
+[source,json]
+----
+[
+  {
+    "id": "event:chord-c",
+    "stream": "stream:guitar-1",
+    "at": { "musical": { "measure": 1, "beat": 1 } },
+    "type": "state",
+    "changes": [
+      { "target": "strings[1]", "parameter": "position", "value": 0 },
+      { "target": "strings[2]", "parameter": "position", "value": 1 },
+      { "target": "strings[3]", "parameter": "position", "value": 0 },
+      { "target": "strings[4]", "parameter": "position", "value": 2 },
+      { "target": "strings[5]", "parameter": "position", "value": 3 },
+      { "target": "strings[6]", "parameter": "muted", "value": true }
+    ]
+  },
+  {
+    "id": "event:strum-c",
+    "stream": "stream:guitar-1",
+    "at": { "musical": { "measure": 1, "beat": 1 } },
+    "type": "gesture",
+    "gesture": "strum",
+    "target": "strings[1..5]",
+    "parameters": {
+      "order": "ascending-index",
+      "spread": { "value": 45, "unit": "ms" },
+      "intensity": 0.8
+    }
+  }
+]
+----
+
+The string numbering and the meaning of ascending index must be declared by
+the instrument profile rather than assumed by the core format.
+
+== Independent controls on wind instruments
+
+Fingering and breath are separate actuator state. This permits a fingering
+change during sustained airflow and allows breath contours to be represented
+without repeating the fingering.
+
+[source,json]
+----
+[
+  {
+    "id": "event:sax-fingering",
+    "stream": "stream:sax-1",
+    "at": { "absolute": { "value": 2.4, "unit": "s" } },
+    "type": "state",
+    "changes": [
+      { "target": "keys[octave]", "parameter": "pressed", "value": true },
+      { "target": "keys[1]", "parameter": "pressed", "value": true },
+      { "target": "keys[2]", "parameter": "pressed", "value": false }
+    ]
+  },
+  {
+    "id": "event:sax-breath",
+    "stream": "stream:sax-1",
+    "at": { "absolute": { "value": 2.4, "unit": "s" } },
+    "duration": { "value": 0.8, "unit": "s" },
+    "type": "control",
+    "target": "breath",
+    "parameter": "pressure",
+    "curve": [
+      { "offset": 0.0, "value": 0.0 },
+      { "offset": 0.08, "value": 0.7 },
+      { "offset": 0.7, "value": 0.65 },
+      { "offset": 0.8, "value": 0.0 }
+    ]
+  }
+]
+----
+
+The pressure values above are normalized. Profiles may instead require a
+physical unit where that distinction is meaningful and measurable.
+
+== Gestures and expansion
+
+Gestures compactly encode common patterns such as arpeggios, rolls, and
+trills. A profile must define enough semantics for consistent interpretation.
+
+[source,json]
+----
+{
+  "id": "event:arpeggio-1",
+  "stream": "stream:guitar-1",
+  "at": { "musical": { "measure": 4, "beat": 1 } },
+  "duration": { "musical": "1/2" },
+  "type": "gesture",
+  "gesture": "arpeggio",
+  "target": "strings[1..6]",
+  "parameters": {
+    "pattern": [6, 4, 3, 2, 1, 2, 3, 4],
+    "timing": "even"
+  }
+}
+----
+
+Open questions:
+
+* Must every gesture expand deterministically into primitive actions?
+* Can a gesture intentionally retain performer discretion?
+* If discretion is allowed, how is its permitted range expressed?
+
+== Time domains
+
+Musical and absolute time require an explicit mapping. A tempo map is the
+initial candidate for metrically organized music.
+
+[source,json]
+----
+{
+  "time": {
+    "musical": {
+      "ticksPerQuarter": 960,
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 120 }
+      ]
+    },
+    "absoluteOrigin": { "value": 0, "unit": "s" }
+  }
+}
+----
+
+Using both rational musical positions and integer ticks may be redundant. The
+detailed time model must select a canonical representation and specify exact
+conversion and rounding behavior.
+
+== Constraints
+
+Instrument constraints describe the instrument, independent of who or what
+operates it.
+
+[source,json]
+----
+{
+  "constraints": [
+    {
+      "type": "mutualExclusion",
+      "targets": ["pedals[sustain]", "pedals[practice]"]
+    },
+    {
+      "type": "transitionTime",
+      "from": { "action": "released", "target": "valves[1]" },
+      "to": { "action": "pressed", "target": "valves[1]" },
+      "minimum": { "value": 8, "unit": "ms" }
+    }
+  ]
+}
+----
+
+Performer-capability profiles may add anatomical or ability constraints, but
+those constraints are optional and must not alter the meaning of instrument
+events.
+
+== Topics still requiring detailed requirements
+
+* stable identifier and reference syntax;
+* profile composition and extension namespaces;
+* pitch, tuning, temperament, and pitch-result derivation;
+* articulation and technique vocabularies;
+* continuous-curve interpolation;
+* event precedence and conflicting state changes;
+* uncertainty, alternatives, and editorial annotations;
+* profile discovery, embedding, and integrity verification;
+* compatibility and unknown-field behavior;
+* schema and semantic validation; and
+* conformance classes and test fixtures.
