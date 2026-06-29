@@ -2,3 +2,4 @@
 .swiftpm/
 *.mid
 *.midi
+.DS_Store
