@@ -4,6 +4,10 @@
 File. The first implementation writes MIDI 1 SMF format 1 with one conductor
 track and one MIDI track per `utab` event track.
 
+The package uses Swift 6 and cross-platform Foundation APIs. It has no Apple
+framework dependency and declares no Apple-only package platform. Platform C
+runtimes are imported conditionally only for command-line exit status.
+
 == Build and test
 
 [source,shell]

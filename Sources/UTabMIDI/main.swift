@@ -1,6 +1,14 @@
 import Foundation
 import UniversalTabs
 
+#if os(Windows)
+import ucrt
+#elseif canImport(Glibc)
+import Glibc
+#else
+import Darwin
+#endif
+
 private func usage() {
     print("""
     Usage: utab-midi [--strict] <input.utab.json> <output.mid>

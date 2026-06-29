@@ -4,7 +4,6 @@ import PackageDescription
 
 let package = Package(
     name: "UniversalTabs",
-    platforms: [.macOS(.v13)],
     products: [
         .library(name: "UniversalTabs", targets: ["UniversalTabs"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"])
