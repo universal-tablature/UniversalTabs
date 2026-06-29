@@ -1,0 +1,55 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:xylophone",
+    "title": "Xylophone Melody and Roll"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:xylophone",
+        "name": "Chromatic Xylophone",
+        "actuators": {
+          "bars": {
+            "members": [
+              { "id": "bar-c5", "pitch": "C5" },
+              { "id": "bar-d5", "pitch": "D5" },
+              { "id": "bar-e5", "pitch": "E5" },
+              { "id": "bar-g5", "pitch": "G5" }
+            ]
+          }
+        },
+        "interactions": {
+          "strike": { "effectors": ["mallet"] },
+          "damp": { "effectors": ["hand", "mallet"] }
+        },
+        "techniques": {
+          "roll": { "target": "bar", "parameters": ["rate", "intensity"] }
+        }
+      }
+    ],
+    "instruments": [
+      { "id": "xylophone-1", "profile": "profile:xylophone" }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 132 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:xylophone",
+      "instrument": "xylophone-1",
+      "events": [
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "bar-c5", "parameters": { "mallet": 1, "intensity": 0.65 } },
+        { "at": { "musical": { "measure": 1, "beat": "3/2" } }, "action": "strike", "target": "bar-d5", "parameters": { "mallet": 2, "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "bar-e5", "parameters": { "mallet": 1, "intensity": 0.68 } },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "duration": { "musical": "1" }, "type": "gesture", "gesture": "roll", "target": "bar-g5", "parameters": { "rate": { "value": 12, "unit": "strikes/s" }, "intensity": 0.72 } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:guitar-techniques",
+    "title": "Guitar Strumming, Fingerstyle, and Melody"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:guitar",
+        "name": "Six-string Fretted Guitar",
+        "actuators": { "strings": { "count": 6 } },
+        "geometry": { "frets": { "count": 20, "movable": false } },
+        "interactions": {
+          "setPosition": { "targets": ["strings"] },
+          "pluck": { "targets": ["strings"], "effectors": ["finger", "pick"] },
+          "strum": { "targets": ["strings"], "effectors": ["finger", "pick"] }
+        },
+        "techniques": {
+          "slide": { "target": "string" },
+          "bend": { "target": "string" },
+          "vibrato": { "target": "string" }
+        }
+      }
+    ],
+    "instruments": [
+      {
+        "id": "guitar-1",
+        "profile": "profile:guitar",
+        "configuration": { "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"] }
+      }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 100 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:guitar-strumming",
+      "name": "Strumming",
+      "instrument": "guitar-1",
+      "events": [
+        {
+          "at": { "musical": { "measure": 1, "beat": 1 } },
+          "type": "state",
+          "changes": [
+            { "target": "strings[1]", "parameter": "fret", "value": 0 },
+            { "target": "strings[2]", "parameter": "fret", "value": 1 },
+            { "target": "strings[3]", "parameter": "fret", "value": 0 },
+            { "target": "strings[4]", "parameter": "fret", "value": 2 },
+            { "target": "strings[5]", "parameter": "fret", "value": 3 },
+            { "target": "strings[6]", "parameter": "muted", "value": true }
+          ]
+        },
+        {
+          "at": { "musical": { "measure": 1, "beat": 1 } },
+          "type": "gesture",
+          "gesture": "strum",
+          "target": "strings[1..5]",
+          "parameters": { "order": "ascending-index", "spread": { "value": 40, "unit": "ms" } }
+        }
+      ]
+    },
+    {
+      "id": "track:guitar-fingerstyle",
+      "name": "Fingerstyle Pattern",
+      "instrument": "guitar-1",
+      "events": [
+        { "at": { "musical": { "measure": 2, "beat": 1 } }, "action": "pluck", "target": "strings[6]", "parameters": { "effector": "thumb" } },
+        { "at": { "musical": { "measure": 2, "beat": "3/2" } }, "action": "pluck", "target": "strings[3]", "parameters": { "effector": "finger" } },
+        { "at": { "musical": { "measure": 2, "beat": 2 } }, "action": "pluck", "target": "strings[2]", "parameters": { "effector": "finger" } },
+        { "at": { "musical": { "measure": 2, "beat": "5/2" } }, "action": "pluck", "target": "strings[1]", "parameters": { "effector": "finger" } }
+      ]
+    },
+    {
+      "id": "track:guitar-melody",
+      "name": "Single-string Melody",
+      "instrument": "guitar-1",
+      "events": [
+        { "at": { "musical": { "measure": 3, "beat": 1 } }, "action": "setPosition", "target": "strings[1]", "parameters": { "fret": 5 } },
+        { "at": { "musical": { "measure": 3, "beat": 1 } }, "action": "pluck", "target": "strings[1]" },
+        { "at": { "musical": { "measure": 3, "beat": 2 } }, "action": "setPosition", "target": "strings[1]", "techniques": ["slide"], "parameters": { "fromFret": 5, "toFret": 7 } },
+        { "at": { "musical": { "measure": 3, "beat": 3 } }, "action": "pluck", "target": "strings[1]", "techniques": ["bend", "vibrato"], "parameters": { "pitchOffset": "1/1 tone" } }
+      ]
+    }
+  ]
+}

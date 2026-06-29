@@ -1,0 +1,57 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:drum-kit",
+    "title": "Drum Kit Groove"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:drum-kit",
+        "name": "Basic Drum Kit",
+        "actuators": {
+          "surfaces": {
+            "members": [
+              { "id": "kick", "type": "membrane" },
+              { "id": "snare-head", "type": "membrane" },
+              { "id": "closed-hi-hat", "type": "cymbal-pair" },
+              { "id": "crash", "type": "cymbal" }
+            ]
+          },
+          "hiHatPedal": { "type": "continuous", "range": [0, 1] }
+        },
+        "interactions": {
+          "strike": { "effectors": ["stick", "beater", "hand"] },
+          "choke": { "effectors": ["hand"] },
+          "setPedal": { "targets": ["hiHatPedal"] }
+        }
+      }
+    ],
+    "instruments": [
+      { "id": "drum-kit-1", "profile": "profile:drum-kit" }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 120 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:drum-kit",
+      "instrument": "drum-kit-1",
+      "events": [
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "setPedal", "target": "hiHatPedal", "parameters": { "value": 1.0 } },
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "kick", "parameters": { "intensity": 0.85 } },
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "closed-hi-hat", "parameters": { "intensity": 0.55 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "snare-head", "parameters": { "intensity": 0.78 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "closed-hi-hat", "parameters": { "intensity": 0.52 } },
+        { "at": { "musical": { "measure": 1, "beat": 4 } }, "action": "strike", "target": "crash", "parameters": { "intensity": 0.9 } },
+        { "at": { "musical": { "measure": 1, "beat": "17/4" } }, "action": "choke", "target": "crash" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:handpan",
+    "title": "D Minor Handpan Example"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:handpan:d-minor",
+        "name": "D Minor Handpan",
+        "actuators": {
+          "toneFields": {
+            "members": [
+              { "id": "ding", "pitch": "D3" },
+              { "id": "field-1", "pitch": "A3" },
+              { "id": "field-2", "pitch": "C4" },
+              { "id": "field-3", "pitch": "D4" }
+            ]
+          }
+        },
+        "interactions": {
+          "strike": { "effectors": ["hand", "finger"] },
+          "damp": { "effectors": ["hand", "finger"] }
+        }
+      }
+    ],
+    "instruments": [
+      { "id": "handpan-1", "profile": "profile:handpan:d-minor" }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 90 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:handpan",
+      "instrument": "handpan-1",
+      "events": [
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "ding", "parameters": { "intensity": 0.8 } },
+        { "at": { "musical": { "measure": 1, "beat": "3/2" } }, "action": "strike", "target": "field-1", "parameters": { "intensity": 0.55 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "field-2", "parameters": { "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "action": "strike", "target": "field-3", "parameters": { "intensity": 0.7 } }
+      ]
+    }
+  ]
+}

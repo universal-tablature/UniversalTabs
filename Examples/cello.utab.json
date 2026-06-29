@@ -1,0 +1,52 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:cello",
+    "title": "Cello Bowing and Pizzicato"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:cello",
+        "name": "Four-string Cello",
+        "actuators": {
+          "strings": { "count": 4, "positionControl": "continuous" },
+          "bowContact": { "type": "continuous" }
+        },
+        "interactions": {
+          "stopString": { "effectors": ["finger"] },
+          "bow": { "effectors": ["bow"] },
+          "pluck": { "effectors": ["finger"] }
+        },
+        "techniques": {
+          "vibrato": { "target": "string" },
+          "pizzicato": { "target": "string" }
+        }
+      }
+    ],
+    "instruments": [
+      {
+        "id": "cello-1",
+        "profile": "profile:cello",
+        "configuration": { "tuning": ["C2", "G2", "D3", "A3"] }
+      }
+    ],
+    "time": {
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 72 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:cello",
+      "instrument": "cello-1",
+      "events": [
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "type": "state", "changes": [{ "target": "strings[3]", "parameter": "position", "value": { "ratioFromNut": 0.1091 } }] },
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "duration": { "musical": "2" }, "action": "bow", "target": "strings[3]", "techniques": ["vibrato"], "parameters": { "direction": "down", "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "type": "state", "changes": [{ "target": "strings[2]", "parameter": "position", "value": { "ratioFromNut": 0.0 } }] },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "action": "pluck", "target": "strings[2]", "techniques": ["pizzicato"], "parameters": { "intensity": 0.7 } }
+      ]
+    }
+  ]
+}

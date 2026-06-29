@@ -1,0 +1,83 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:nyckelharpa",
+    "title": "Nyckelharpa Composite Profile Example"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:nyckelharpa",
+        "name": "Chromatic Nyckelharpa",
+        "actuators": {
+          "melodyStrings": { "count": 4 },
+          "sympatheticStrings": { "count": 12, "directlyActuated": false },
+          "keys": { "representation": "bitset", "width": 37 },
+          "bowContact": { "type": "continuous" }
+        },
+        "interactions": {
+          "setKeyState": { "targets": ["keys"] },
+          "bow": { "targets": ["melodyStrings"], "effectors": ["bow"] }
+        },
+        "techniques": {
+          "vibrato": { "target": "melodyString" },
+          "doubleStop": { "target": "melodyStrings" }
+        }
+      }
+    ],
+    "instruments": [
+      {
+        "id": "nyckelharpa-1",
+        "profile": "profile:nyckelharpa",
+        "configuration": {
+          "melodyStringTuning": ["G3", "C4", "A4", "C5"]
+        }
+      }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 3, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 108 }
+      ]
+    }
+  },
+  "tracks": [
+    {
+      "id": "track:nyckelharpa",
+      "instrument": "nyckelharpa-1",
+      "events": [
+        {
+          "at": { "musical": { "measure": 1, "beat": 1 } },
+          "type": "state",
+          "changes": [
+            { "target": "keys", "parameter": "state", "value": { "encoding": "hex", "data": "0x0000000042" } }
+          ]
+        },
+        {
+          "at": { "musical": { "measure": 1, "beat": 1 } },
+          "duration": { "musical": "1/2" },
+          "action": "bow",
+          "target": "melodyStrings[2]",
+          "parameters": { "direction": "down", "intensity": 0.65 }
+        },
+        {
+          "at": { "musical": { "measure": 1, "beat": 2 } },
+          "type": "state",
+          "changes": [
+            { "target": "keys", "parameter": "state", "value": { "encoding": "hex", "data": "0x0000000102" } }
+          ]
+        },
+        {
+          "at": { "musical": { "measure": 1, "beat": 2 } },
+          "duration": { "musical": "1/2" },
+          "action": "bow",
+          "target": "melodyStrings[2]",
+          "techniques": ["vibrato"],
+          "parameters": { "direction": "up", "intensity": 0.58 }
+        }
+      ]
+    }
+  ]
+}

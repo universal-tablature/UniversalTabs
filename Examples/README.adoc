@@ -1,0 +1,21 @@
+= Universal Tabs Examples
+
+These files are exploratory examples of the draft `utab` data model. They are
+valid JSON, but they are not yet conformance fixtures and may change with the
+detailed requirements.
+
+* `handpan.utab.json` demonstrates individually pitched tone fields and hand
+  strikes.
+* `nyckelharpa.utab.json` demonstrates a composite instrument with keys,
+  bowed melody strings, and sympathetic strings.
+* `guitar.utab.json` demonstrates chord state, strumming, fingerstyle picking,
+  and a melody with slide and bend techniques.
+* `cello.utab.json` demonstrates continuous stopping position, bow control,
+  vibrato, and pizzicato.
+* `drum-kit.utab.json` demonstrates unpitched surfaces, cymbal choking, and a
+  continuous hi-hat pedal.
+* `xylophone.utab.json` demonstrates pitched bars, alternating strikes, and a
+  roll gesture.
+
+Each example is self-contained by embedding a minimal profile in `setup`.
+Production files should also be able to reference reusable external profiles.

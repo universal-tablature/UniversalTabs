@@ -25,12 +25,12 @@ assign stable identifiers to normative requirements.
 
 === Performance documents
 
-* A document MUST be able to contain multiple synchronized performance
-  streams.
-* Streams, performers, and instrument instances MUST have separate identities.
-* A stream MUST identify the instrument instance whose actuators it controls.
-* A stream MAY identify a performer.
-* One performer MAY control multiple streams or instrument instances.
+* A document MUST be able to contain multiple synchronized event tracks.
+* Tracks, performers, and instrument instances MUST have separate identities.
+* A track containing actuator events MUST identify the instrument instance
+  whose actuators it controls.
+* A track MAY identify a performer.
+* One performer MAY control multiple tracks or instrument instances.
 * Multiple performers MAY control one instrument instance.
 * A document MUST support simultaneous and overlapping events.
 
@@ -65,7 +65,7 @@ assign stable identifiers to normative requirements.
 
 === Performance events
 
-* An event MUST identify its time and the stream to which it belongs.
+* An event MUST identify its time and belong to exactly one track.
 * An actuator event MUST identify an action and its target actuator or actuator
   group.
 * Events MUST support instantaneous actions, durations, and continuous values.

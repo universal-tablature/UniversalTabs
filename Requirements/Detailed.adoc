@@ -10,7 +10,7 @@ requirements will be made normative and assigned stable identifiers.
 
 * Describe operations at the instrument boundary through actuators, geometry,
   interactions, techniques, states, and gestures.
-* Keep streams, performers, and instrument instances independent.
+* Keep tracks, performers, and instrument instances independent.
 * Separate persistent configuration from excitation.
 * Permit explicit low-level events as well as profile-defined gestures.
 * Keep the common event envelope small; put instrument semantics in referenced
@@ -18,45 +18,82 @@ requirements will be made normative and assigned stable identifiers.
 
 == Document structure
 
-A document is expected to declare its version, referenced profiles, instrument
-instances, optional performers, streams, and events.
+A document has three broad sections: file metadata, performance setup, and
+event tracks. The `utab` section identifies the file and format. The `setup`
+section contains definitions and configuration required to interpret events.
+The `tracks` section contains the actual performance events.
 
 [source,json]
 ----
 {
-  "utabVersion": "0.1-draft",
-  "profiles": [
-    {
-      "id": "profile:fretted-string",
-      "uri": "https://example.org/utab/fretted-string.json"
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example-song",
+    "title": "Example Song",
+    "authors": ["Example Author"]
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:fretted-string",
+        "source": "profiles/fretted-string.json"
+      }
+    ],
+    "instruments": [
+      {
+        "id": "guitar-1",
+        "name": "Acoustic Guitar",
+        "profile": "profile:fretted-string",
+        "configuration": {
+          "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"]
+        }
+      }
+    ],
+    "performers": [
+      { "id": "performer:alex", "name": "Alex" }
+    ],
+    "time": {
+      "meter": { "numerator": 4, "denominator": 4 },
+      "tempo": { "quarterNotesPerMinute": 120 }
     }
-  ],
-  "instruments": [
+  },
+  "tracks": [
     {
-      "id": "instrument:guitar-1",
-      "profile": "profile:fretted-string",
-      "configuration": { "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"] }
+      "id": "track:guitar-1",
+      "name": "Acoustic Guitar",
+      "instrument": "guitar-1",
+      "performer": "performer:alex",
+      "events": [
+        {
+          "id": "event:1",
+          "at": { "musical": { "measure": 1, "beat": 1 } },
+          "action": "pluck",
+          "target": "strings[1]"
+        }
+      ]
     }
-  ],
-  "performers": [
-    { "id": "performer:alex", "name": "Alex" }
-  ],
-  "streams": [
-    {
-      "id": "stream:guitar-1",
-      "instrument": "instrument:guitar-1",
-      "performer": "performer:alex"
-    }
-  ],
-  "events": []
+  ]
 }
 ----
+
+`setup` is not merely descriptive metadata. Profile selection, instrument
+configuration, and the time map directly affect the interpretation of track
+events. Profiles may be referenced or embedded, subject to rules still to be
+defined.
+
+Events are nested in tracks. The containing track supplies their instrument
+and optional performer assignment, so individual events do not repeat those
+references. Multiple tracks may reference the same instrument, and a performer
+may be assigned to multiple tracks.
 
 Open questions:
 
 * Are profiles embedded, referenced, or both?
-* Are events stored globally or nested under streams?
 * Which identifiers must be globally unique rather than document-local?
+* Can a track change its instrument or performer assignment, or should that
+  require a separate track?
+* Are non-performance tracks, such as lyrics, annotations, or conductor cues,
+  part of the core format or extensions?
 
 == Profile structure
 
@@ -180,7 +217,7 @@ of hexadecimal digits required by the declared width.
 ----
 
 A bitset value is a complete snapshot of the group. Explicit masked updates
-may be added if event size or independent control streams make them necessary,
+may be added if event size or independent control tracks make them necessary,
 but their precedence and conflict rules must first be specified.
 
 Bitsets are not suitable for every wind-instrument control. Partially covered
@@ -197,15 +234,14 @@ Open questions:
 
 == Common event envelope
 
-Every event needs an identity, stream, time, type, and payload. Duration is
-optional because some events are instantaneous or persist until explicitly
-changed.
+Every event needs an identity, time, type, and payload. Its containing track
+provides the instrument and optional performer context. Duration is optional
+because some events are instantaneous or persist until explicitly changed.
 
 [source,json]
 ----
 {
   "id": "event:42",
-  "stream": "stream:guitar-1",
   "at": { "musical": { "measure": 8, "beat": "3/2" } },
   "type": "action",
   "action": "pluck",
@@ -224,14 +260,14 @@ Candidate rules:
 == Persistent state and excitation
 
 Chord fingering is state applied to individual strings. A subsequent strum is
-a separate gesture over some or all strings.
+a separate gesture over some or all strings. The example array is the `events`
+value of a guitar track.
 
 [source,json]
 ----
 [
   {
     "id": "event:chord-c",
-    "stream": "stream:guitar-1",
     "at": { "musical": { "measure": 1, "beat": 1 } },
     "type": "state",
     "changes": [
@@ -245,7 +281,6 @@ a separate gesture over some or all strings.
   },
   {
     "id": "event:strum-c",
-    "stream": "stream:guitar-1",
     "at": { "musical": { "measure": 1, "beat": 1 } },
     "type": "gesture",
     "gesture": "strum",
@@ -266,14 +301,14 @@ the instrument profile rather than assumed by the core format.
 
 Fingering and breath are separate actuator state. This permits a fingering
 change during sustained airflow and allows breath contours to be represented
-without repeating the fingering.
+without repeating the fingering. The example array belongs to a saxophone
+track.
 
 [source,json]
 ----
 [
   {
     "id": "event:sax-fingering",
-    "stream": "stream:sax-1",
     "at": { "absolute": { "value": 2.4, "unit": "s" } },
     "type": "state",
     "changes": [
@@ -286,7 +321,6 @@ without repeating the fingering.
   },
   {
     "id": "event:sax-breath",
-    "stream": "stream:sax-1",
     "at": { "absolute": { "value": 2.4, "unit": "s" } },
     "duration": { "value": 0.8, "unit": "s" },
     "type": "control",
@@ -314,7 +348,6 @@ trills. A profile must define enough semantics for consistent interpretation.
 ----
 {
   "id": "event:arpeggio-1",
-  "stream": "stream:guitar-1",
   "at": { "musical": { "measure": 4, "beat": 1 } },
   "duration": { "musical": "1/2" },
   "type": "gesture",
@@ -400,3 +433,10 @@ events.
 * compatibility and unknown-field behavior;
 * schema and semantic validation; and
 * conformance classes and test fixtures.
+
+== Exploratory examples
+
+The self-contained files under `Examples/` exercise the current sketch with a
+handpan, nyckelharpa, guitar, cello, drum kit, and xylophone. They are design
+examples rather than conformance fixtures; unresolved fields and semantics in
+these files should drive subsequent detailed requirements.
