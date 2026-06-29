@@ -47,6 +47,13 @@ The converter currently handles:
 * percussion mapping for the draft drum-kit example; and
 * roll gestures.
 
+General MIDI instrument numbers in documentation are conventionally one-based
+(`1...128`), while Program Change messages encode them as `0...127`. The
+converter names documented program numbers in source and subtracts one only at
+the MIDI boundary. Instruments without a direct General MIDI equivalent use a
+declared approximation; nyckelharpa currently uses program 111, Fiddle, and
+handpan uses program 115, Steel Drums.
+
 The converter warns about actuator bitsets that do not define how their state
 maps to sounding pitch. Pitch bends, continuous controller curves, later tempo
 or meter changes, and richer MIDI expression remain to be implemented.

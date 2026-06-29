@@ -284,12 +284,18 @@ public final class UTabMIDIConverter {
 
     private func program(for profileName: String) -> Int {
         let name = profileName.lowercased()
-        if name.contains("guitar") { return 24 }
-        if name.contains("cello") { return 42 }
-        if name.contains("xylophone") { return 13 }
-        if name.contains("handpan") { return 108 }
-        if name.contains("nyckelharpa") { return 110 }
-        return 0
+        if name.contains("guitar") { return generalMIDIProgram(26) } // Acoustic Guitar (steel)
+        if name.contains("cello") { return generalMIDIProgram(43) }
+        if name.contains("xylophone") { return generalMIDIProgram(14) }
+        if name.contains("handpan") { return generalMIDIProgram(115) } // Steel Drums
+        if name.contains("nyckelharpa") { return generalMIDIProgram(111) } // Fiddle
+        return generalMIDIProgram(1) // Acoustic Grand Piano
+    }
+
+    /// General MIDI documentation numbers programs from 1 through 128, while
+    /// the MIDI Program Change message carries values from 0 through 127.
+    private func generalMIDIProgram(_ documentedProgram: Int) -> Int {
+        min(128, max(1, documentedProgram)) - 1
     }
 
     private func string(_ value: Any?) -> String? { value as? String }
