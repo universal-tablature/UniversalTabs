@@ -1,0 +1,315 @@
+import Foundation
+
+public struct ConversionResult: Sendable {
+    public let midi: Data
+    public let diagnostics: [String]
+}
+
+public enum UTabConversionError: Error, CustomStringConvertible {
+    case invalidRoot
+    case missingSection(String)
+    case invalidJSON(Error)
+
+    public var description: String {
+        switch self {
+        case .invalidRoot: "the input must be a JSON object"
+        case .missingSection(let name): "the input is missing the '\(name)' section"
+        case .invalidJSON(let error): "invalid JSON: \(error.localizedDescription)"
+        }
+    }
+}
+
+public final class UTabMIDIConverter {
+    private let division = StandardMIDIFile.ticksPerQuarter
+    private var diagnostics: [String] = []
+    private var bpm = 120.0
+    private var numerator = 4
+    private var denominator = 4
+
+    public init() {}
+
+    public func convert(data: Data) throws -> ConversionResult {
+        diagnostics = []
+        let json: Any
+        do { json = try JSONSerialization.jsonObject(with: data) }
+        catch { throw UTabConversionError.invalidJSON(error) }
+        guard let root = json as? [String: Any] else { throw UTabConversionError.invalidRoot }
+        guard root["utab"] is [String: Any] else { throw UTabConversionError.missingSection("utab") }
+        guard let setup = root["setup"] as? [String: Any] else { throw UTabConversionError.missingSection("setup") }
+        guard let tracks = root["tracks"] as? [[String: Any]] else { throw UTabConversionError.missingSection("tracks") }
+
+        readTime(setup["time"] as? [String: Any])
+        let profiles = indexed(setup["profiles"] as? [[String: Any]] ?? [])
+        let instruments = indexed(setup["instruments"] as? [[String: Any]] ?? [])
+        var midiTracks: [[MIDIMessage]] = []
+
+        for (index, track) in tracks.enumerated() {
+            let name = string(track["name"]) ?? string(track["id"]) ?? "Track \(index + 1)"
+            guard let instrumentID = string(track["instrument"]), let instrument = instruments[instrumentID] else {
+                diagnostics.append("\(name): skipped because its instrument reference is unresolved")
+                continue
+            }
+            let profileID = string(instrument["profile"])
+            let profile = profileID.flatMap { profiles[$0] } ?? [:]
+            let events = track["events"] as? [[String: Any]] ?? []
+            midiTracks.append(convertTrack(name: name, instrument: instrument, profile: profile, events: events, channel: index % 9))
+        }
+
+        let conductor = StandardMIDIFile.conductorTrack(bpm: bpm, numerator: numerator, denominator: denominator)
+        return ConversionResult(midi: StandardMIDIFile.make(conductor: conductor, tracks: midiTracks), diagnostics: diagnostics)
+    }
+
+    private func convertTrack(name: String, instrument: [String: Any], profile: [String: Any], events: [[String: Any]], channel: Int) -> [MIDIMessage] {
+        let profileName = string(profile["name"]) ?? ""
+        let isDrums = profileName.localizedCaseInsensitiveContains("drum kit")
+        let midiChannel = isDrums ? 9 : channel
+        var output = [StandardMIDIFile.trackName(name)]
+        if !isDrums {
+            output.append(MIDIMessage(tick: 0, priority: 0, bytes: [UInt8(0xC0 | midiChannel), UInt8(program(for: profileName))]))
+        }
+
+        let tuning = ((instrument["configuration"] as? [String: Any])?["tuning"] as? [String]) ??
+            ((instrument["configuration"] as? [String: Any])?["melodyStringTuning"] as? [String]) ?? []
+        let indexOrder = string((instrument["configuration"] as? [String: Any])?["stringIndexOrder"]) ?? "lowest-to-highest"
+        let directPitches = collectMemberPitches(profile)
+        var frets: [Int: Int] = [:]
+        var ratios: [Int: Double] = [:]
+        var muted = Set<Int>()
+        var pitchesFromBitsets: [String: Int] = [:]
+
+        let sortedEvents = events.enumerated().sorted {
+            let leftTick = eventTick($0.element)
+            let rightTick = eventTick($1.element)
+            return leftTick == rightTick ? $0.offset < $1.offset : leftTick < rightTick
+        }
+        for (_, event) in sortedEvents {
+            let tick = eventTick(event)
+            if let changes = event["changes"] as? [[String: Any]] {
+                for change in changes {
+                    guard let target = string(change["target"]), let parameter = string(change["parameter"]) else { continue }
+                    if let stringIndex = targetIndex(target, group: "strings") ?? targetIndex(target, group: "melodyStrings") {
+                        if parameter == "fret", let value = int(change["value"]) { frets[stringIndex] = value }
+                        if parameter == "muted", bool(change["value"]) == true { muted.insert(stringIndex) }
+                        if parameter == "muted", bool(change["value"]) == false { muted.remove(stringIndex) }
+                        if parameter == "position", let object = change["value"] as? [String: Any], let ratio = double(object["ratioFromNut"]) { ratios[stringIndex] = ratio }
+                    } else if parameter == "state", let value = change["value"] as? [String: Any] {
+                        if let resolved = bitsetPitches(profile: profile, group: target, value: value) {
+                            pitchesFromBitsets = resolved
+                        } else {
+                            diagnostics.append("\(name): bitset state at tick \(tick) has no pitch mapping and was ignored")
+                        }
+                    }
+                }
+            }
+
+            let action = string(event["action"])
+            let gesture = string(event["gesture"])
+            let target = string(event["target"])
+            let parameters = event["parameters"] as? [String: Any] ?? [:]
+            if action == "setPosition", let target, let index = targetIndex(target, group: "strings"), let fret = int(parameters["fret"]) {
+                frets[index] = fret
+                continue
+            }
+
+            if action == "strum" || gesture == "strum", let target {
+                let indices = targetRange(target, group: "strings")
+                let spreadMS = double((parameters["spread"] as? [String: Any])?["value"]) ?? 30
+                let spreadTicks = Int((spreadMS / 1000 * bpm / 60 * Double(division)).rounded())
+                for (offset, index) in indices.enumerated() where !muted.contains(index) {
+                    if let note = stringNote(index: index, tuning: tuning, order: indexOrder, fret: frets[index] ?? 0, ratio: ratios[index]) {
+                        addNote(&output, tick: tick + offset * spreadTicks, duration: defaultDuration(), channel: midiChannel, note: note, velocity: velocity(parameters))
+                    }
+                }
+                continue
+            }
+
+            if gesture == "roll", let target, let note = directPitches[target] {
+                let duration = durationTicks(event)
+                let rate = double((parameters["rate"] as? [String: Any])?["value"]) ?? 12
+                let interval = max(1, Int((Double(division) * bpm / 60 / rate).rounded()))
+                var strikeTick = tick
+                while strikeTick < tick + duration {
+                    addNote(&output, tick: strikeTick, duration: min(interval, defaultDuration()), channel: midiChannel, note: note, velocity: velocity(parameters))
+                    strikeTick += interval
+                }
+                continue
+            }
+
+            guard let action, let target else { continue }
+            if action == "pluck" || action == "bow" {
+                let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
+                let stringIndex = targetIndex(target, group: group)
+                let note = pitchesFromBitsets[target] ?? stringIndex.flatMap {
+                    stringNote(index: $0, tuning: tuning, order: indexOrder, fret: frets[$0] ?? 0, ratio: ratios[$0])
+                }
+                if let index = stringIndex, !muted.contains(index), let note {
+                    addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                } else {
+                    diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                }
+            } else if action == "strike" {
+                if isDrums, let note = drumNote(target) {
+                    addNote(&output, tick: tick, duration: defaultDuration() / 2, channel: 9, note: note, velocity: velocity(parameters))
+                } else if let note = directPitches[target] {
+                    addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                } else {
+                    diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                }
+            }
+        }
+        return output
+    }
+
+    private func readTime(_ time: [String: Any]?) {
+        guard let time else { return }
+        if let first = (time["tempoMap"] as? [[String: Any]])?.first, let value = double(first["quarterNotesPerMinute"]) { bpm = value }
+        if let first = (time["meterMap"] as? [[String: Any]])?.first {
+            numerator = int(first["numerator"]) ?? numerator
+            denominator = int(first["denominator"]) ?? denominator
+        }
+        if let tempo = time["tempo"] as? [String: Any], let value = double(tempo["quarterNotesPerMinute"]) { bpm = value }
+        if let meter = time["meter"] as? [String: Any] {
+            numerator = int(meter["numerator"]) ?? numerator
+            denominator = int(meter["denominator"]) ?? denominator
+        }
+    }
+
+    private func eventTick(_ event: [String: Any]) -> Int {
+        guard let at = event["at"] as? [String: Any] else { return 0 }
+        if let musical = at["musical"] as? [String: Any] {
+            let measure = int(musical["measure"]) ?? 1
+            let beat = rational(musical["beat"]) ?? 1
+            let quarterBeats = Double(measure - 1) * Double(numerator) * 4 / Double(denominator) + (beat - 1) * 4 / Double(denominator)
+            return max(0, Int((quarterBeats * Double(division)).rounded()))
+        }
+        if let absolute = at["absolute"] as? [String: Any], let value = double(absolute["value"]) {
+            return max(0, Int((value * bpm / 60 * Double(division)).rounded()))
+        }
+        return 0
+    }
+
+    private func durationTicks(_ event: [String: Any]) -> Int {
+        guard let duration = event["duration"] as? [String: Any] else { return defaultDuration() }
+        if let musical = rational(duration["musical"]) { return max(1, Int((musical * Double(division)).rounded())) }
+        if let value = double(duration["value"]) {
+            let unit = string(duration["unit"]) ?? "s"
+            if unit == "ms" { return max(1, Int((value / 1000 * bpm / 60 * Double(division)).rounded())) }
+            return max(1, Int((value * bpm / 60 * Double(division)).rounded()))
+        }
+        return defaultDuration()
+    }
+
+    private func defaultDuration() -> Int { Int(Double(division) * 0.45) }
+
+    private func addNote(_ output: inout [MIDIMessage], tick: Int, duration: Int, channel: Int, note: Int, velocity: Int) {
+        let safeNote = UInt8(clamping: note)
+        output.append(MIDIMessage(tick: tick, priority: 2, bytes: [UInt8(0x90 | channel), safeNote, UInt8(clamping: velocity)]))
+        output.append(MIDIMessage(tick: tick + max(1, duration), priority: 1, bytes: [UInt8(0x80 | channel), safeNote, 0]))
+    }
+
+    private func stringNote(index: Int, tuning: [String], order: String, fret: Int, ratio: Double?) -> Int? {
+        guard !tuning.isEmpty else { return nil }
+        let tuningIndex = order == "highest-to-lowest" ? tuning.count - index : index - 1
+        guard tuning.indices.contains(tuningIndex), let base = Pitch.midiNote(tuning[tuningIndex]) else { return nil }
+        if let ratio, ratio >= 0, ratio < 1 {
+            return base + Int((-12 * log2(1 - ratio)).rounded())
+        }
+        return base + fret
+    }
+
+    private func collectMemberPitches(_ profile: [String: Any]) -> [String: Int] {
+        guard let actuators = profile["actuators"] as? [String: Any] else { return [:] }
+        var result: [String: Int] = [:]
+        for value in actuators.values {
+            guard let group = value as? [String: Any], let members = group["members"] as? [[String: Any]] else { continue }
+            for member in members {
+                if let id = string(member["id"]), let pitch = string(member["pitch"]), let note = Pitch.midiNote(pitch) { result[id] = note }
+            }
+        }
+        return result
+    }
+
+    private func bitsetPitches(profile: [String: Any], group: String, value: [String: Any]) -> [String: Int]? {
+        guard string(value["encoding"]) == "hex",
+              let text = string(value["data"]),
+              text.lowercased().hasPrefix("0x"),
+              let mask = UInt64(text.dropFirst(2), radix: 16),
+              let actuators = profile["actuators"] as? [String: Any],
+              let actuatorGroup = actuators[group] as? [String: Any],
+              let bits = actuatorGroup["bits"] as? [[String: Any]] else { return nil }
+
+        var result: [String: Int] = [:]
+        for bit in bits {
+            guard let index = int(bit["index"]), (0..<64).contains(index),
+                  mask & (UInt64(1) << UInt64(index)) != 0,
+                  let effects = bit["effects"] as? [[String: Any]] else { continue }
+            for effect in effects {
+                if let target = string(effect["target"]),
+                   let pitch = string(effect["pitch"]),
+                   let note = Pitch.midiNote(pitch) {
+                    result[target] = note
+                }
+            }
+        }
+        return result
+    }
+
+    private func indexed(_ items: [[String: Any]]) -> [String: [String: Any]] {
+        Dictionary(uniqueKeysWithValues: items.compactMap { item in string(item["id"]).map { ($0, item) } })
+    }
+
+    private func targetIndex(_ target: String, group: String) -> Int? {
+        guard target.hasPrefix("\(group)["), target.hasSuffix("]") else { return nil }
+        return Int(target.dropFirst(group.count + 1).dropLast())
+    }
+
+    private func targetRange(_ target: String, group: String) -> [Int] {
+        guard target.hasPrefix("\(group)["), target.hasSuffix("]") else { return [] }
+        let body = String(target.dropFirst(group.count + 1).dropLast())
+        let parts = body.components(separatedBy: "..")
+        if parts.count == 2, let first = Int(parts[0]), let last = Int(parts[1]) {
+            return first <= last ? Array(first...last) : Array((last...first).reversed())
+        }
+        return Int(body).map { [$0] } ?? []
+    }
+
+    private func velocity(_ parameters: [String: Any]) -> Int {
+        let intensity = min(1, max(0, double(parameters["intensity"]) ?? 0.7))
+        return max(1, Int((intensity * 127).rounded()))
+    }
+
+    private func drumNote(_ target: String) -> Int? {
+        ["kick": 36, "snare-head": 38, "closed-hi-hat": 42, "crash": 49][target]
+    }
+
+    private func program(for profileName: String) -> Int {
+        let name = profileName.lowercased()
+        if name.contains("guitar") { return 24 }
+        if name.contains("cello") { return 42 }
+        if name.contains("xylophone") { return 13 }
+        if name.contains("handpan") { return 108 }
+        if name.contains("nyckelharpa") { return 110 }
+        return 0
+    }
+
+    private func string(_ value: Any?) -> String? { value as? String }
+    private func int(_ value: Any?) -> Int? {
+        if let value = value as? Int { return value }
+        if let value = value as? NSNumber { return value.intValue }
+        return nil
+    }
+    private func double(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? NSNumber { return value.doubleValue }
+        if let value = value as? String { return Double(value) }
+        return nil
+    }
+    private func bool(_ value: Any?) -> Bool? { (value as? NSNumber)?.boolValue }
+    private func rational(_ value: Any?) -> Double? {
+        if let number = double(value) { return number }
+        guard let text = value as? String else { return nil }
+        let parts = text.split(separator: "/")
+        if parts.count == 2, let numerator = Double(parts[0]), let denominator = Double(parts[1]), denominator != 0 { return numerator / denominator }
+        return Double(text)
+    }
+}

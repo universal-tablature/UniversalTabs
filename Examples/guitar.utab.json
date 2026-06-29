@@ -27,7 +27,10 @@
       {
         "id": "guitar-1",
         "profile": "profile:guitar",
-        "configuration": { "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"] }
+        "configuration": {
+          "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"],
+          "stringIndexOrder": "highest-to-lowest"
+        }
       }
     ],
     "time": {

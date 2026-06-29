@@ -12,7 +12,33 @@
         "actuators": {
           "melodyStrings": { "count": 4 },
           "sympatheticStrings": { "count": 12, "directlyActuated": false },
-          "keys": { "representation": "bitset", "width": 37 },
+          "keys": {
+            "representation": "bitset",
+            "width": 37,
+            "bits": [
+              {
+                "index": 1,
+                "actuator": "key-2",
+                "effects": [
+                  { "target": "melodyStrings[1]", "pitch": "A3" }
+                ]
+              },
+              {
+                "index": 6,
+                "actuator": "key-7",
+                "effects": [
+                  { "target": "melodyStrings[2]", "pitch": "D4" }
+                ]
+              },
+              {
+                "index": 8,
+                "actuator": "key-9",
+                "effects": [
+                  { "target": "melodyStrings[2]", "pitch": "E4" }
+                ]
+              }
+            ]
+          },
           "bowContact": { "type": "continuous" }
         },
         "interactions": {
@@ -30,7 +56,8 @@
         "id": "nyckelharpa-1",
         "profile": "profile:nyckelharpa",
         "configuration": {
-          "melodyStringTuning": ["G3", "C4", "A4", "C5"]
+          "melodyStringTuning": ["G3", "C4", "A4", "C5"],
+          "stringIndexOrder": "lowest-to-highest"
         }
       }
     ],

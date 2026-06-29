@@ -28,7 +28,10 @@
       {
         "id": "cello-1",
         "profile": "profile:cello",
-        "configuration": { "tuning": ["C2", "G2", "D3", "A3"] }
+        "configuration": {
+          "tuning": ["C2", "G2", "D3", "A3"],
+          "stringIndexOrder": "lowest-to-highest"
+        }
       }
     ],
     "time": {

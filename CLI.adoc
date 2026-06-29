@@ -1,0 +1,56 @@
+= `utab-midi` Command-Line Tool
+
+`utab-midi` converts a draft Universal Tabs JSON document into a Standard MIDI
+File. The first implementation writes MIDI 1 SMF format 1 with one conductor
+track and one MIDI track per `utab` event track.
+
+== Build and test
+
+[source,shell]
+----
+xcrun swift build
+xcrun swift test
+----
+
+If SwiftPM is itself executed inside a filesystem sandbox, its internal
+sandbox may need to be disabled and its caches redirected to a writable
+directory. This is an environment concern rather than a project requirement.
+
+== Usage
+
+[source,shell]
+----
+xcrun swift run utab-midi Examples/guitar.utab.json guitar.mid
+----
+
+Use `--strict` to reject a conversion when any semantics could not be mapped:
+
+[source,shell]
+----
+xcrun swift run utab-midi --strict input.utab.json output.mid
+----
+
+Without `--strict`, the tool writes the useful subset and reports unsupported
+events as warnings. This behavior is intentional during specification design:
+the diagnostics identify information that profiles or event definitions still
+need to supply.
+
+== Initial conversion coverage
+
+The converter currently handles:
+
+* musical and absolute event positions;
+* the first tempo and meter entries;
+* pitched actuator members, such as handpan fields and xylophone bars;
+* string tuning, fret state, continuous stopping ratios, plucking, bowing, and
+  strumming;
+* percussion mapping for the draft drum-kit example; and
+* roll gestures.
+
+The converter warns about actuator bitsets that do not define how their state
+maps to sounding pitch. Pitch bends, continuous controller curves, later tempo
+or meter changes, and richer MIDI expression remain to be implemented.
+
+MIDI 2 output is deferred until the core event and pitch-expression model is
+more stable. Standard MIDI Files provide a simpler, widely playable iteration
+target without preventing a later MIDI 2 backend.

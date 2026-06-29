@@ -220,6 +220,12 @@ A bitset value is a complete snapshot of the group. Explicit masked updates
 may be added if event size or independent control tracks make them necessary,
 but their precedence and conflict rules must first be specified.
 
+For coupled mechanisms, a bit definition may declare effects on other
+actuators. A nyckelharpa key can, for example, assign a stopped pitch to a
+particular melody string. These effects allow a renderer to derive sounding
+pitch from the key bitset and the bowed string. Conflicting effects in one
+bitset require deterministic profile-defined precedence or must be invalid.
+
 Bitsets are not suitable for every wind-instrument control. Partially covered
 tone holes, breath pressure, embouchure, slides, and other continuous inputs
 remain ordinary discrete or continuous actuators. Profiles may therefore
