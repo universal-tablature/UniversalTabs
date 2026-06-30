@@ -14,3 +14,8 @@ semantic validator in addition to JSON Schema.
 The schemas intentionally allow additional properties while the vocabulary is
 being developed. Tightening unknown-field behavior is a versioning decision,
 not an incidental validation change.
+
+Complete documents may use linear track `events` or section-local `parts`.
+Sectioned tracks reference shared `sections` and `arrangement` entries from
+`setup`; the Swift semantic validator checks those cross-references and the
+MIDI converter expands the arrangement into linear time.

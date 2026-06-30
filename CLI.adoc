@@ -57,6 +57,8 @@ The converter currently handles:
   strumming;
 * percussion mapping for the draft drum-kit example; and
 * roll gestures.
+* flat section arrangements, repeated entries, and track parts using `replace`
+  or `overlay` specialization.
 
 General MIDI instrument numbers in documentation are conventionally one-based
 (`1...128`), while Program Change messages encode them as `0...127`. The

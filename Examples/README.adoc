@@ -16,6 +16,8 @@ detailed requirements.
   continuous hi-hat pedal.
 * `xylophone.utab.json` demonstrates pitched bars, alternating strikes, and a
   roll gesture.
+* `sectioned-song.utab.json` demonstrates reusable verse and chorus parts,
+  repeated arrangement entries, and entry-specific vocal performances.
 
 Each example is self-contained by embedding a minimal profile in `setup`.
 Production files should also be able to reference reusable external profiles.

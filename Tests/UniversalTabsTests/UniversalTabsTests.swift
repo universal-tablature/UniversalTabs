@@ -31,7 +31,7 @@ import Testing
     let files = try FileManager.default.contentsOfDirectory(at: examples, includingPropertiesForKeys: nil)
         .filter { $0.lastPathComponent.hasSuffix(".utab.json") }
 
-    #expect(files.count == 6)
+    #expect(files.count == 7)
     for file in files {
         let document = try JSONDecoder().decode(UTabDocument.self, from: Data(contentsOf: file))
         #expect(!document.utab.version.isEmpty)
@@ -47,4 +47,19 @@ import Testing
     let diagnostics = UTabValidator().validate(document)
     #expect(diagnostics.count == 2)
     #expect(diagnostics.allSatisfy { $0.severity == .error })
+}
+
+@Test func expandsRepeatedSectionsAndEntrySpecificParts() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let example = repositoryRoot
+        .appendingPathComponent("Examples")
+        .appendingPathComponent("sectioned-song.utab.json")
+    let result = try UTabMIDIConverter().convert(data: Data(contentsOf: example))
+
+    #expect(result.diagnostics.isEmpty)
+    #expect(result.midi.filter { $0 == 0x90 }.count == 4)
+    #expect(result.midi.filter { $0 == 0x91 }.count == 4)
 }

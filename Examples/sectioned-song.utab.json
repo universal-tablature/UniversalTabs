@@ -1,0 +1,103 @@
+{
+  "utab": {
+    "version": "0.1-draft",
+    "documentId": "example:sectioned-song",
+    "title": "Repeated Sections with Unique Vocals"
+  },
+  "setup": {
+    "profiles": [
+      {
+        "id": "profile:guitar",
+        "name": "Six-string Fretted Guitar",
+        "actuators": { "strings": { "count": 6 } },
+        "interactions": { "pluck": { "targets": ["strings"] } }
+      },
+      {
+        "id": "profile:voice",
+        "name": "Voice",
+        "actuators": { "voice": { "type": "continuous" } },
+        "interactions": { "sing": { "targets": ["voice"] } }
+      }
+    ],
+    "instruments": [
+      {
+        "id": "guitar-1",
+        "profile": "profile:guitar",
+        "configuration": {
+          "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"],
+          "stringIndexOrder": "highest-to-lowest"
+        }
+      },
+      { "id": "voice-1", "profile": "profile:voice" }
+    ],
+    "time": {
+      "meterMap": [
+        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
+      ],
+      "tempoMap": [
+        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 100 }
+      ]
+    },
+    "sections": [
+      { "id": "verse", "name": "Verse", "role": "verse", "length": { "measures": 1 } },
+      { "id": "chorus", "name": "Chorus", "role": "chorus", "length": { "measures": 1 } }
+    ],
+    "arrangement": [
+      { "id": "verse-1", "section": "verse" },
+      { "id": "chorus-1", "section": "chorus", "playCount": 2 },
+      { "id": "verse-2", "section": "verse" }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "track:guitar",
+      "instrument": "guitar-1",
+      "parts": [
+        {
+          "section": "verse",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "pluck", "target": "strings[6]" }
+          ]
+        },
+        {
+          "section": "chorus",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "pluck", "target": "strings[5]" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track:vocals",
+      "instrument": "voice-1",
+      "parts": [
+        {
+          "section": "verse",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "sing", "target": "voice", "parameters": { "pitch": "G4" } }
+          ]
+        },
+        {
+          "entry": "verse-1",
+          "mode": "replace",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "sing", "target": "voice", "parameters": { "pitch": "A4" } }
+          ]
+        },
+        {
+          "entry": "verse-2",
+          "mode": "replace",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "sing", "target": "voice", "parameters": { "pitch": "B4" } }
+          ]
+        },
+        {
+          "section": "chorus",
+          "events": [
+            { "at": { "measure": 1, "beat": 1 }, "action": "sing", "target": "voice", "parameters": { "pitch": "C5" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

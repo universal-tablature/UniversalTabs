@@ -33,6 +33,15 @@ assign stable identifiers to normative requirements.
 * One performer MAY control multiple tracks or instrument instances.
 * Multiple performers MAY control one instrument instance.
 * A document MUST support simultaneous and overlapping events.
+* A document MUST support named sections and a shared arrangement that orders
+  and repeats section occurrences across all tracks.
+* Section definitions, arrangement entries, and track parts MUST have separate
+  identities or references where their distinction affects reuse.
+* A track MUST be able to provide reusable events for every occurrence of a
+  section and different events for a specific arrangement entry.
+* Repetition counts MUST state the total number of performances unambiguously.
+* The specification MUST define how persistent actuator state crosses section
+  and repetition boundaries.
 
 === Instrument performance profiles
 

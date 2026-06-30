@@ -17,6 +17,11 @@ public enum UTabConversionError: Error, CustomStringConvertible {
 }
 
 public final class UTabMIDIConverter {
+    private struct PositionedEvent {
+        let event: PerformanceEvent
+        let offset: Int
+    }
+
     private let division = StandardMIDIFile.ticksPerQuarter
     private var diagnostics: [String] = []
     private var bpm = 120.0
@@ -63,7 +68,7 @@ public final class UTabMIDIConverter {
                 diagnostics.append("\(name): external profile '\(profile.id)' is not loaded")
             }
             midiTracks.append(convertTrack(
-                track,
+                expandedEvents(for: track, setup: document.setup),
                 name: name,
                 instrument: instrument,
                 profile: profile,
@@ -83,7 +88,7 @@ public final class UTabMIDIConverter {
     }
 
     private func convertTrack(
-        _ track: EventTrack,
+        _ positionedEvents: [PositionedEvent],
         name: String,
         instrument: InstrumentInstance,
         profile: InstrumentProfile,
@@ -112,14 +117,15 @@ public final class UTabMIDIConverter {
         var muted = Set<Int>()
         var pitchesFromBitsets: [String: Int] = [:]
 
-        let sortedEvents = track.events.enumerated().sorted {
-            let leftTick = eventTick($0.element)
-            let rightTick = eventTick($1.element)
+        let sortedEvents = positionedEvents.enumerated().sorted {
+            let leftTick = eventTick($0.element.event) + $0.element.offset
+            let rightTick = eventTick($1.element.event) + $1.element.offset
             return leftTick == rightTick ? $0.offset < $1.offset : leftTick < rightTick
         }
 
-        for (_, event) in sortedEvents {
-            let tick = eventTick(event)
+        for (_, positioned) in sortedEvents {
+            let event = positioned.event
+            let tick = eventTick(event) + positioned.offset
             for change in event.changes ?? [] {
                 if let stringIndex = targetIndex(change.target, group: "strings")
                     ?? targetIndex(change.target, group: "melodyStrings") {
@@ -250,9 +256,60 @@ public final class UTabMIDIConverter {
                 } else {
                     diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
                 }
+            } else if action == "sing" {
+                if let pitch = string(parameters["pitch"]), let note = Pitch.midiNote(pitch) {
+                    addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                } else {
+                    diagnostics.append("\(name): singing event at tick \(tick) has no supported pitch")
+                }
             }
         }
         return output
+    }
+
+    private func expandedEvents(for track: EventTrack, setup: PerformanceSetup) -> [PositionedEvent] {
+        if let events = track.events {
+            return events.map { PositionedEvent(event: $0, offset: 0) }
+        }
+        guard let parts = track.parts,
+              let arrangement = setup.arrangement,
+              let sections = setup.sections else { return [] }
+
+        let sectionsByID = Dictionary(sections.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let reusableParts = Dictionary(
+            parts.compactMap { part in part.section.map { ($0, part) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let entryParts = Dictionary(
+            parts.compactMap { part in part.entry.map { ($0, part) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        var result: [PositionedEvent] = []
+        var offset = 0
+        for entry in arrangement {
+            guard let section = sectionsByID[entry.section] else { continue }
+            for _ in 0..<max(0, entry.effectivePlayCount) {
+                let reusable = reusableParts[entry.section]
+                let specific = entryParts[entry.id]
+                let selected: [TrackPart]
+                if let specific {
+                    selected = specific.mode == .overlay ? [reusable, specific].compactMap { $0 } : [specific]
+                } else {
+                    selected = reusable.map { [$0] } ?? []
+                }
+                for part in selected {
+                    result.append(contentsOf: part.events.map { PositionedEvent(event: $0, offset: offset) })
+                }
+                offset += sectionTicks(section)
+            }
+        }
+        return result
+    }
+
+    private func sectionTicks(_ section: SectionDefinition) -> Int {
+        let quarterNotesPerMeasure = Double(numerator) * 4 / Double(denominator)
+        return max(0, Int((Double(section.length.measures) * quarterNotesPerMeasure * Double(division)).rounded()))
     }
 
     private func readTime(_ time: TimeSetup?) {
@@ -407,6 +464,7 @@ public final class UTabMIDIConverter {
         if name.contains("xylophone") { return generalMIDIProgram(14) }
         if name.contains("handpan") { return generalMIDIProgram(115) }
         if name.contains("nyckelharpa") { return generalMIDIProgram(111) }
+        if name == "voice" { return generalMIDIProgram(53) }
         return generalMIDIProgram(1)
     }
 

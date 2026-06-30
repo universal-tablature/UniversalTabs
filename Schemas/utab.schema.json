@@ -58,7 +58,15 @@
           "type": "array",
           "items": { "$ref": "#/$defs/performer" }
         },
-        "time": { "$ref": "#/$defs/timeSetup" }
+        "time": { "$ref": "#/$defs/timeSetup" },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/section" }
+        },
+        "arrangement": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/arrangementEntry" }
+        }
       },
       "additionalProperties": true
     },
@@ -88,6 +96,34 @@
       "properties": {
         "id": { "$ref": "#/$defs/identifier" },
         "name": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "section": {
+      "type": "object",
+      "required": ["id", "length"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "length": {
+          "type": "object",
+          "required": ["measures"],
+          "properties": {
+            "measures": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "arrangementEntry": {
+      "type": "object",
+      "required": ["id", "section"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "section": { "$ref": "#/$defs/identifier" },
+        "playCount": { "type": "integer", "minimum": 1, "default": 1 }
       },
       "additionalProperties": true
     },
@@ -129,7 +165,7 @@
     },
     "track": {
       "type": "object",
-      "required": ["id", "instrument", "events"],
+      "required": ["id", "instrument"],
       "properties": {
         "id": { "$ref": "#/$defs/identifier" },
         "name": { "type": "string" },
@@ -139,9 +175,35 @@
         "events": {
           "type": "array",
           "items": { "$ref": "#/$defs/event" }
+        },
+        "parts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/trackPart" }
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "oneOf": [
+        { "required": ["events"] },
+        { "required": ["parts"] }
+      ]
+    },
+    "trackPart": {
+      "type": "object",
+      "required": ["events"],
+      "properties": {
+        "section": { "$ref": "#/$defs/identifier" },
+        "entry": { "$ref": "#/$defs/identifier" },
+        "mode": { "enum": ["replace", "overlay"] },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/event" }
+        }
+      },
+      "additionalProperties": true,
+      "oneOf": [
+        { "required": ["section"] },
+        { "required": ["entry"] }
+      ]
     },
     "event": {
       "type": "object",
@@ -196,6 +258,9 @@
         {
           "required": ["absolute"],
           "properties": { "absolute": { "$ref": "#/$defs/quantity" } }
+        },
+        {
+          "$ref": "#/$defs/musicalPosition"
         }
       ]
     },

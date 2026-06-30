@@ -49,6 +49,27 @@ public struct PerformanceSetup: Codable, Sendable {
     public let instruments: [InstrumentInstance]
     public let performers: [Performer]?
     public let time: TimeSetup?
+    public let sections: [SectionDefinition]?
+    public let arrangement: [ArrangementEntry]?
+}
+
+public struct SectionDefinition: Codable, Sendable {
+    public let id: String
+    public let name: String?
+    public let role: String?
+    public let length: SectionLength
+}
+
+public struct SectionLength: Codable, Sendable {
+    public let measures: Int
+}
+
+public struct ArrangementEntry: Codable, Sendable {
+    public let id: String
+    public let section: String
+    public let playCount: Int?
+
+    public var effectivePlayCount: Int { playCount ?? 1 }
 }
 
 public struct InstrumentProfile: Codable, Sendable {
@@ -137,7 +158,20 @@ public struct EventTrack: Codable, Sendable {
     public let instrument: String
     public let performer: String?
     public let role: String?
+    public let events: [PerformanceEvent]?
+    public let parts: [TrackPart]?
+}
+
+public struct TrackPart: Codable, Sendable {
+    public let section: String?
+    public let entry: String?
+    public let mode: PartMode?
     public let events: [PerformanceEvent]
+}
+
+public enum PartMode: String, Codable, Sendable {
+    case replace
+    case overlay
 }
 
 public struct PerformanceEvent: Codable, Sendable {
@@ -164,11 +198,41 @@ public struct StateChange: Codable, Sendable {
 public struct EventTime: Codable, Sendable {
     public let musical: MusicalPosition?
     public let absolute: Quantity?
+
+    private enum CodingKeys: String, CodingKey {
+        case musical, absolute, measure, beat
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        absolute = try container.decodeIfPresent(Quantity.self, forKey: .absolute)
+        if let wrapped = try container.decodeIfPresent(MusicalPosition.self, forKey: .musical) {
+            musical = wrapped
+        } else if let measure = try container.decodeIfPresent(Int.self, forKey: .measure) {
+            musical = MusicalPosition(
+                measure: measure,
+                beat: try container.decodeIfPresent(JSONValue.self, forKey: .beat)
+            )
+        } else {
+            musical = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(musical, forKey: .musical)
+        try container.encodeIfPresent(absolute, forKey: .absolute)
+    }
 }
 
 public struct MusicalPosition: Codable, Sendable {
     public let measure: Int
     public let beat: JSONValue?
+
+    public init(measure: Int, beat: JSONValue?) {
+        self.measure = measure
+        self.beat = beat
+    }
 }
 
 public struct EventDuration: Codable, Sendable {

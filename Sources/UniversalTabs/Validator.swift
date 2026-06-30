@@ -50,6 +50,31 @@ public struct UTabValidator: Sendable {
             id: \.id,
             diagnostics: &diagnostics
         )
+        let sections = index(
+            document.setup.sections ?? [],
+            path: "setup.sections",
+            id: \.id,
+            diagnostics: &diagnostics
+        )
+        let arrangement = index(
+            document.setup.arrangement ?? [],
+            path: "setup.arrangement",
+            id: \.id,
+            diagnostics: &diagnostics
+        )
+
+        for (entryIndex, entry) in (document.setup.arrangement ?? []).enumerated() {
+            if sections[entry.section] == nil {
+                diagnostics.append(.init(severity: .error, path: "setup.arrangement[\(entryIndex)].section", message: "unresolved section '\(entry.section)'"))
+            }
+            if entry.effectivePlayCount < 1 {
+                diagnostics.append(.init(severity: .error, path: "setup.arrangement[\(entryIndex)].playCount", message: "must be positive"))
+            }
+        }
+        for (sectionIndex, section) in (document.setup.sections ?? []).enumerated()
+            where section.length.measures < 1 {
+            diagnostics.append(.init(severity: .error, path: "setup.sections[\(sectionIndex)].length.measures", message: "must be positive"))
+        }
 
         for (profileIndex, profile) in document.setup.profiles.enumerated() {
             validateProfile(profile, path: "setup.profiles[\(profileIndex)]", diagnostics: &diagnostics)
@@ -83,7 +108,7 @@ public struct UTabValidator: Sendable {
                 ))
             }
             guard let profile = profiles[instrument.profile] else { continue }
-            validateTrack(track, profile: profile, path: trackPath, diagnostics: &diagnostics)
+            validateTrack(track, profile: profile, sections: sections, arrangement: arrangement, path: trackPath, diagnostics: &diagnostics)
         }
         return diagnostics
     }
@@ -152,6 +177,8 @@ public struct UTabValidator: Sendable {
     private func validateTrack(
         _ track: EventTrack,
         profile: InstrumentProfile,
+        sections: [String: SectionDefinition],
+        arrangement: [String: ArrangementEntry],
         path: String,
         diagnostics: inout [ValidationDiagnostic]
     ) {
@@ -164,9 +191,69 @@ public struct UTabValidator: Sendable {
             return
         }
 
+        if track.events != nil && track.parts != nil {
+            diagnostics.append(.init(severity: .error, path: path, message: "track cannot contain both events and parts"))
+        }
+        if track.events == nil && track.parts == nil {
+            diagnostics.append(.init(severity: .error, path: path, message: "track must contain events or parts"))
+        }
+        if track.parts != nil && arrangement.isEmpty {
+            diagnostics.append(.init(severity: .error, path: "\(path).parts", message: "sectioned tracks require a non-empty arrangement"))
+        }
+
+        if let events = track.events {
+            validateEvents(events, profile: profile, path: "\(path).events", diagnostics: &diagnostics)
+        }
+
+        let parts = track.parts ?? []
+        var sectionPartIndices: [String: Int] = [:]
+        var entryPartIndices: [String: Int] = [:]
+        for (partIndex, part) in parts.enumerated() {
+            if let section = part.section,
+               sectionPartIndices.updateValue(partIndex, forKey: section) != nil {
+                diagnostics.append(.init(severity: .error, path: "\(path).parts[\(partIndex)].section", message: "duplicate reusable part for section '\(section)'"))
+            }
+            if let entry = part.entry,
+               entryPartIndices.updateValue(partIndex, forKey: entry) != nil {
+                diagnostics.append(.init(severity: .error, path: "\(path).parts[\(partIndex)].entry", message: "duplicate entry-specific part for arrangement entry '\(entry)'"))
+            }
+        }
+        for (partIndex, part) in parts.enumerated() {
+            let partPath = "\(path).parts[\(partIndex)]"
+            if (part.section == nil) == (part.entry == nil) {
+                diagnostics.append(.init(severity: .error, path: partPath, message: "part must reference exactly one section or arrangement entry"))
+            }
+            if let section = part.section {
+                if sections[section] == nil {
+                    diagnostics.append(.init(severity: .error, path: "\(partPath).section", message: "unresolved section '\(section)'"))
+                }
+                if part.mode != nil {
+                    diagnostics.append(.init(severity: .error, path: "\(partPath).mode", message: "mode is only valid on entry-specific parts"))
+                }
+            }
+            if let entry = part.entry {
+                guard let arrangementEntry = arrangement[entry] else {
+                    diagnostics.append(.init(severity: .error, path: "\(partPath).entry", message: "unresolved arrangement entry '\(entry)'"))
+                    validateEvents(part.events, profile: profile, path: "\(partPath).events", diagnostics: &diagnostics)
+                    continue
+                }
+                if sectionPartIndices[arrangementEntry.section] != nil && part.mode == nil {
+                    diagnostics.append(.init(severity: .error, path: "\(partPath).mode", message: "mode is required when an entry-specific part has reusable section content"))
+                }
+            }
+            validateEvents(part.events, profile: profile, path: "\(partPath).events", diagnostics: &diagnostics)
+        }
+    }
+
+    private func validateEvents(
+        _ events: [PerformanceEvent],
+        profile: InstrumentProfile,
+        path: String,
+        diagnostics: inout [ValidationDiagnostic]
+    ) {
         var stateAtTime: [String: [String: JSONValue]] = [:]
-        for (eventIndex, event) in track.events.enumerated() {
-            let eventPath = "\(path).events[\(eventIndex)]"
+        for (eventIndex, event) in events.enumerated() {
+            let eventPath = "\(path)[\(eventIndex)]"
             if let action = event.action, !supports(action, in: profile.interactions) {
                 diagnostics.append(.init(
                     severity: .error,

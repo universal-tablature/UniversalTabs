@@ -372,6 +372,100 @@ Open questions:
 * Can a gesture intentionally retain performer discretion?
 * If discretion is allowed, how is its permitted range expressed?
 
+== Sections, arrangements, and repetition
+
+Sections describe reusable spans of musical structure. Arrangement entries are
+specific occurrences of those sections in playback order. Tracks contain
+section-local parts, while the arrangement synchronizes repetition across all
+tracks.
+
+[source,json]
+----
+{
+  "setup": {
+    "sections": [
+      {
+        "id": "verse",
+        "name": "Verse",
+        "role": "verse",
+        "length": { "measures": 8 }
+      },
+      {
+        "id": "chorus",
+        "name": "Chorus",
+        "role": "chorus",
+        "length": { "measures": 8 }
+      }
+    ],
+    "arrangement": [
+      { "id": "verse-1", "section": "verse", "playCount": 1 },
+      { "id": "chorus-1", "section": "chorus", "playCount": 2 },
+      { "id": "verse-2", "section": "verse", "playCount": 1 }
+    ]
+  },
+  "tracks": [
+    {
+      "id": "track:guitar",
+      "instrument": "guitar-1",
+      "parts": [
+        {
+          "section": "verse",
+          "events": [
+            {
+              "at": { "measure": 1, "beat": 1 },
+              "action": "strum",
+              "target": "strings[1..6]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track:vocals",
+      "instrument": "voice-1",
+      "parts": [
+        {
+          "entry": "verse-1",
+          "events": []
+        },
+        {
+          "entry": "verse-2",
+          "events": []
+        }
+      ]
+    }
+  ]
+}
+----
+
+`playCount` is the total number of performances of an arrangement entry. A
+value of two therefore means that the entry is played twice, not once followed
+by two additional repetitions.
+
+A track part targets exactly one of:
+
+* `section`, making its events reusable for every arrangement occurrence of
+  that section; or
+* `entry`, making its events specific to one arrangement occurrence.
+
+When a track contains both a reusable section part and an entry-specific part,
+the entry-specific part MUST declare `mode` as either `replace` or `overlay`.
+`replace` suppresses the reusable part for that entry. `overlay` combines both
+event sets before ordering and conflict validation.
+
+Event times inside parts are section-local. Measures and beats start at one.
+Arrangement expansion maps them onto the document timeline before absolute
+ordering, tempo conversion, or MIDI rendering.
+
+Persistent actuator state carries through section and repetition boundaries by
+default. A reusable part SHOULD explicitly establish any state on which its
+correct interpretation depends. A future reset mechanism MAY provide an
+explicit state boundary, but editors and renderers must not infer resets from
+section labels alone.
+
+Initial arrangement support is flat. Nested arrangements, arbitrary repeat
+regions, codas, and per-repetition overrides remain future extensions.
+
 == Time domains
 
 Musical and absolute time require an explicit mapping. A tempo map is the
