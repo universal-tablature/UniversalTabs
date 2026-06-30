@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "profile.schema.json",
+  "title": "Universal Tabs Instrument Profile",
+  "description": "Exploratory schema for a utab 0.1-draft instrument performance profile.",
+  "type": "object",
+  "required": ["id", "actuators"],
+  "properties": {
+    "id": { "$ref": "#/$defs/identifier" },
+    "name": { "type": "string", "minLength": 1 },
+    "profileVersion": { "type": "string", "minLength": 1 },
+    "actuators": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/actuator" }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": { "type": "object" }
+    },
+    "interactions": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/interaction" }
+    },
+    "techniques": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/technique" }
+    },
+    "performerDefaults": { "type": "object" },
+    "constraints": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s]+$"
+    },
+    "actuator": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 },
+        "representation": { "enum": ["bitset"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "positionControl": { "enum": ["discrete", "continuous"] },
+        "directlyActuated": { "type": "boolean" },
+        "range": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "members": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/actuatorMember" }
+        },
+        "bits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bit" }
+        },
+        "bitValue": {
+          "type": "object",
+          "properties": {
+            "0": { "type": "string" },
+            "1": { "type": "string" }
+          },
+          "required": ["0", "1"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "representation": { "const": "bitset" } },
+            "required": ["representation"]
+          },
+          "then": { "required": ["width"] }
+        }
+      ]
+    },
+    "actuatorMember": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": { "type": "string" },
+        "pitch": { "type": "string" },
+        "basePitch": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "bit": {
+      "type": "object",
+      "required": ["index", "actuator"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "actuator": { "$ref": "#/$defs/identifier" },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["target"],
+            "properties": {
+              "target": { "type": "string", "minLength": 1 },
+              "pitch": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "interaction": {
+      "type": "object",
+      "properties": {
+        "targets": { "type": "array", "items": { "type": "string" } },
+        "effectors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "technique": {
+      "type": "object",
+      "properties": {
+        "target": { "type": "string" },
+        "parameters": {},
+        "requires": { "type": "object" },
+        "changes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

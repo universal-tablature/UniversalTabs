@@ -21,3 +21,21 @@ import Testing
     #expect(result.midi.starts(with: Data("MThd".utf8)))
     #expect(result.diagnostics.isEmpty)
 }
+
+@Test func decodesAllDraftExamplesIntoTypedModels() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let examples = repositoryRoot.appendingPathComponent("Examples")
+    let files = try FileManager.default.contentsOfDirectory(at: examples, includingPropertiesForKeys: nil)
+        .filter { $0.lastPathComponent.hasSuffix(".utab.json") }
+
+    #expect(files.count == 6)
+    for file in files {
+        let document = try JSONDecoder().decode(UTabDocument.self, from: Data(contentsOf: file))
+        #expect(!document.utab.version.isEmpty)
+        #expect(!document.setup.instruments.isEmpty)
+        #expect(!document.tracks.isEmpty)
+    }
+}

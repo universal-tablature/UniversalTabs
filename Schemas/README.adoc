@@ -1,0 +1,16 @@
+= Universal Tabs JSON Schemas
+
+These JSON Schema 2020-12 files describe the permissive `0.1-draft` JSON
+serialization:
+
+* `utab.schema.json` validates complete performance documents.
+* `profile.schema.json` validates embedded or standalone instrument profiles.
+
+The schemas validate document shape and local value constraints. They do not
+yet validate semantic references, actuator targets, profile-defined actions,
+bitset width, state conflicts, or event ordering. Those checks require a
+semantic validator in addition to JSON Schema.
+
+The schemas intentionally allow additional properties while the vocabulary is
+being developed. Tightening unknown-field behavior is a versioning decision,
+not an incidental validation change.

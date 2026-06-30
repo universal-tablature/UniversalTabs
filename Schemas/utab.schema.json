@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "utab.schema.json",
+  "title": "Universal Tabs Document",
+  "description": "Exploratory schema for the utab 0.1-draft JSON serialization.",
+  "type": "object",
+  "required": ["utab", "setup", "tracks"],
+  "properties": {
+    "utab": { "$ref": "#/$defs/metadata" },
+    "setup": { "$ref": "#/$defs/setup" },
+    "tracks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/track" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s]+$"
+    },
+    "rational": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "pattern": "^-?[0-9]+(?:/[1-9][0-9]*)?$" }
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "documentId": { "$ref": "#/$defs/identifier" },
+        "title": { "type": "string" },
+        "authors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "setup": {
+      "type": "object",
+      "required": ["profiles", "instruments"],
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "profile.schema.json" },
+              { "$ref": "#/$defs/profileReference" }
+            ]
+          }
+        },
+        "instruments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/instrument" }
+        },
+        "performers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/performer" }
+        },
+        "time": { "$ref": "#/$defs/timeSetup" }
+      },
+      "additionalProperties": true
+    },
+    "profileReference": {
+      "type": "object",
+      "required": ["id", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "source": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "instrument": {
+      "type": "object",
+      "required": ["id", "profile"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string" },
+        "profile": { "$ref": "#/$defs/identifier" },
+        "configuration": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "performer": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "timeSetup": {
+      "type": "object",
+      "properties": {
+        "meter": { "$ref": "#/$defs/meter" },
+        "tempo": { "$ref": "#/$defs/tempo" },
+        "meterMap": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/meter" }
+        },
+        "tempoMap": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tempo" }
+        },
+        "absoluteOrigin": { "$ref": "#/$defs/quantity" }
+      },
+      "additionalProperties": true
+    },
+    "meter": {
+      "type": "object",
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "at": { "type": "object" },
+        "numerator": { "type": "integer", "minimum": 1 },
+        "denominator": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "tempo": {
+      "type": "object",
+      "required": ["quarterNotesPerMinute"],
+      "properties": {
+        "at": { "type": "object" },
+        "quarterNotesPerMinute": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "track": {
+      "type": "object",
+      "required": ["id", "instrument", "events"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string" },
+        "instrument": { "$ref": "#/$defs/identifier" },
+        "performer": { "$ref": "#/$defs/identifier" },
+        "role": { "type": "string" },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/event" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "event": {
+      "type": "object",
+      "required": ["at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "at": { "$ref": "#/$defs/timePosition" },
+        "duration": { "$ref": "#/$defs/duration" },
+        "type": { "enum": ["action", "state", "control", "gesture"] },
+        "action": { "type": "string", "minLength": 1 },
+        "gesture": { "type": "string", "minLength": 1 },
+        "target": { "type": ["string", "object"] },
+        "parameter": { "type": "string" },
+        "parameters": { "type": "object" },
+        "techniques": { "type": "array", "items": { "type": "string" } },
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stateChange" }
+        },
+        "curve": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": true,
+      "anyOf": [
+        { "required": ["action", "target"] },
+        { "required": ["gesture", "target"] },
+        { "required": ["changes"] },
+        { "required": ["target", "parameter", "curve"] }
+      ]
+    },
+    "stateChange": {
+      "type": "object",
+      "required": ["target", "parameter", "value"],
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "parameter": { "type": "string", "minLength": 1 },
+        "value": {}
+      },
+      "additionalProperties": true
+    },
+    "timePosition": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["musical"],
+          "properties": { "musical": { "$ref": "#/$defs/musicalPosition" } }
+        },
+        {
+          "required": ["absolute"],
+          "properties": { "absolute": { "$ref": "#/$defs/quantity" } }
+        }
+      ]
+    },
+    "musicalPosition": {
+      "type": "object",
+      "required": ["measure"],
+      "properties": {
+        "measure": { "type": "integer", "minimum": 1 },
+        "beat": { "$ref": "#/$defs/rational" }
+      },
+      "additionalProperties": true
+    },
+    "duration": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["musical"],
+          "properties": { "musical": { "$ref": "#/$defs/rational" } }
+        },
+        {
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "quantity": {
+      "type": "object",
+      "required": ["value", "unit"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    }
+  }
+}
