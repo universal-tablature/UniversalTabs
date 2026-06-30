@@ -39,6 +39,13 @@ events as warnings. This behavior is intentional during specification design:
 the diagnostics identify information that profiles or event definitions still
 need to supply.
 
+Before conversion, the tool performs semantic validation beyond JSON decoding.
+It checks duplicate and unresolved identifiers, instrument and performer
+references, actuator target ranges, profile-defined actions and techniques,
+bitset encodings and widths, and conflicting simultaneous state changes.
+Validation diagnostics are warnings during exploratory conversion and prevent
+output when `--strict` is used.
+
 == Initial conversion coverage
 
 The converter currently handles:

@@ -33,14 +33,20 @@ public final class UTabMIDIConverter {
             throw UTabConversionError.invalidDocument(error)
         }
 
-        diagnostics = []
+        diagnostics = UTabValidator().validate(document).map(\.description)
         bpm = 120
         numerator = 4
         denominator = 4
         readTime(document.setup.time)
 
-        let profiles = Dictionary(uniqueKeysWithValues: document.setup.profiles.map { ($0.id, $0) })
-        let instruments = Dictionary(uniqueKeysWithValues: document.setup.instruments.map { ($0.id, $0) })
+        let profiles = Dictionary(
+            document.setup.profiles.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let instruments = Dictionary(
+            document.setup.instruments.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         var midiTracks: [[MIDIMessage]] = []
 
         for (index, track) in document.tracks.enumerated() {
