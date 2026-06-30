@@ -75,9 +75,9 @@
       "instrument": "guitar-1",
       "events": [
         { "at": { "musical": { "measure": 2, "beat": 1 } }, "action": "pluck", "target": "strings[6]", "parameters": { "effector": "thumb" } },
-        { "at": { "musical": { "measure": 2, "beat": "3/2" } }, "action": "pluck", "target": "strings[3]", "parameters": { "effector": "finger" } },
+        { "at": { "musical": { "measure": 2, "beat": 1, "offset": "1/2" } }, "action": "pluck", "target": "strings[3]", "parameters": { "effector": "finger" } },
         { "at": { "musical": { "measure": 2, "beat": 2 } }, "action": "pluck", "target": "strings[2]", "parameters": { "effector": "finger" } },
-        { "at": { "musical": { "measure": 2, "beat": "5/2" } }, "action": "pluck", "target": "strings[1]", "parameters": { "effector": "finger" } }
+        { "at": { "musical": { "measure": 2, "beat": 2, "offset": "1/2" } }, "action": "pluck", "target": "strings[1]", "parameters": { "effector": "finger" } }
       ]
     },
     {

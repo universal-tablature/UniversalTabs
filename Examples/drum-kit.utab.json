@@ -50,7 +50,7 @@
         { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "snare-head", "parameters": { "intensity": 0.78 } },
         { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "closed-hi-hat", "parameters": { "intensity": 0.52 } },
         { "at": { "musical": { "measure": 1, "beat": 4 } }, "action": "strike", "target": "crash", "parameters": { "intensity": 0.9 } },
-        { "at": { "musical": { "measure": 1, "beat": "17/4" } }, "action": "choke", "target": "crash" }
+        { "at": { "musical": { "measure": 1, "beat": 4, "offset": "1/4" } }, "action": "choke", "target": "crash" }
       ]
     }
   ]

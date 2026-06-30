@@ -22,8 +22,8 @@
     },
     "rational": {
       "oneOf": [
-        { "type": "number" },
-        { "type": "string", "pattern": "^-?[0-9]+(?:/[1-9][0-9]*)?$" }
+        { "type": "integer" },
+        { "type": "string", "pattern": "^-?(?:0|[1-9][0-9]*)(?:/[1-9][0-9]*)?$" }
       ]
     },
     "metadata": {
@@ -113,6 +113,10 @@
             "measures": { "type": "integer", "minimum": 1 }
           },
           "additionalProperties": false
+        },
+        "meterMap": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/meter" }
         }
       },
       "additionalProperties": true
@@ -258,9 +262,6 @@
         {
           "required": ["absolute"],
           "properties": { "absolute": { "$ref": "#/$defs/quantity" } }
-        },
-        {
-          "$ref": "#/$defs/musicalPosition"
         }
       ]
     },
@@ -269,7 +270,8 @@
       "required": ["measure"],
       "properties": {
         "measure": { "type": "integer", "minimum": 1 },
-        "beat": { "$ref": "#/$defs/rational" }
+        "beat": { "type": "integer", "minimum": 1 },
+        "offset": { "$ref": "#/$defs/rational" }
       },
       "additionalProperties": true
     },
@@ -277,8 +279,8 @@
       "type": "object",
       "oneOf": [
         {
-          "required": ["musical"],
-          "properties": { "musical": { "$ref": "#/$defs/rational" } }
+          "required": ["quarterNotes"],
+          "properties": { "quarterNotes": { "$ref": "#/$defs/rational" } }
         },
         {
           "required": ["value", "unit"],

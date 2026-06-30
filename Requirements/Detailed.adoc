@@ -248,7 +248,7 @@ because some events are instantaneous or persist until explicitly changed.
 ----
 {
   "id": "event:42",
-  "at": { "musical": { "measure": 8, "beat": "3/2" } },
+  "at": { "musical": { "measure": 8, "beat": 1, "offset": "1/2" } },
   "type": "action",
   "action": "pluck",
   "target": { "group": "strings", "index": 2 },
@@ -355,7 +355,7 @@ trills. A profile must define enough semantics for consistent interpretation.
 {
   "id": "event:arpeggio-1",
   "at": { "musical": { "measure": 4, "beat": 1 } },
-  "duration": { "musical": "1/2" },
+  "duration": { "quarterNotes": "1/2" },
   "type": "gesture",
   "gesture": "arpeggio",
   "target": "strings[1..6]",
@@ -412,7 +412,7 @@ tracks.
           "section": "verse",
           "events": [
             {
-              "at": { "measure": 1, "beat": 1 },
+              "at": { "musical": { "measure": 1, "beat": 1 } },
               "action": "strum",
               "target": "strings[1..6]"
             }
@@ -468,30 +468,98 @@ regions, codas, and per-repetition overrides remain future extensions.
 
 == Time domains
 
-Musical and absolute time require an explicit mapping. A tempo map is the
-initial candidate for metrically organized music.
+Musical time is exact and section-local for events inside track parts. A
+position contains a one-based measure, a one-based integer beat, and an
+optional rational `offset` measured in beats. Beat 3 with offset `"1/2"` is
+halfway between beats 3 and 4. Fractional values MUST NOT be placed directly in
+`beat`.
 
 [source,json]
 ----
 {
-  "time": {
+  "at": {
     "musical": {
-      "ticksPerQuarter": 960,
-      "meterMap": [
-        { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 }
-      ],
-      "tempoMap": [
-        { "at": { "measure": 1, "beat": 1 }, "quarterNotesPerMinute": 120 }
-      ]
-    },
-    "absoluteOrigin": { "value": 0, "unit": "s" }
+      "measure": 2,
+      "beat": 3,
+      "offset": "1/2"
+    }
+  },
+  "duration": {
+    "quarterNotes": "3/2"
   }
 }
 ----
 
-Using both rational musical positions and integer ticks may be redundant. The
-detailed time model must select a canonical representation and specify exact
-conversion and rounding behavior.
+Musical durations are exact rational counts of quarter notes. This keeps a
+duration stable across meter changes. Rational values use integers or canonical
+`numerator/denominator` strings with a positive denominator. Absolute durations
+use a numeric `value` and an explicit unit such as `s` or `ms`.
+
+Meter belongs to section structure. Meter changes initially occur only at
+measure boundaries. Each section supplies a meter map or inherits the document
+default.
+
+[source,json]
+----
+{
+  "id": "verse",
+  "length": { "measures": 8 },
+  "meterMap": [
+    { "at": { "measure": 1 }, "numerator": 4, "denominator": 4 },
+    { "at": { "measure": 7 }, "numerator": 3, "denominator": 4 }
+  ]
+}
+----
+
+Tempo belongs to the expanded arrangement performance. A tempo entry may
+address an arrangement entry and a local musical position, allowing different
+occurrences of the same section to use different tempos.
+
+[source,json]
+----
+{
+  "tempoMap": [
+    {
+      "at": { "entry": "verse-1", "measure": 1, "beat": 1 },
+      "quarterNotesPerMinute": 100
+    },
+    {
+      "at": { "entry": "chorus-1", "measure": 1, "beat": 1 },
+      "quarterNotesPerMinute": 112
+    }
+  ],
+  "absoluteOrigin": { "value": 0, "unit": "s" }
+}
+----
+
+Arrangement expansion determines musical positions before tempo is applied:
+
+* entries expand in array order;
+* each entry expands exactly `playCount` times;
+* section-local positions resolve through the section meter map;
+* entry-specific replacement or overlay is applied;
+* expanded quarter-note positions resolve through the tempo map; and
+* absolute times or serialization ticks are derived last.
+
+At an identical expanded position, state changes take effect before actions and
+gestures. Non-conflicting actions are simultaneous. JSON array order has no
+musical meaning.
+
+Events in a part MUST begin within the referenced section and MUST use musical
+positions. Persistent actuator state carries across sections and repetitions.
+Events in legacy linear tracks may use absolute positions.
+
+[source,json]
+----
+{
+  "absolute": {
+    "value": 2.4,
+    "unit": "s"
+  }
+}
+----
+
+Serialization ticks are derived values and are not part of the core time model.
 
 == Constraints
 

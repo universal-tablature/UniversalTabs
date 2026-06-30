@@ -84,7 +84,7 @@
         },
         {
           "at": { "musical": { "measure": 1, "beat": 1 } },
-          "duration": { "musical": "1/2" },
+          "duration": { "quarterNotes": "1/2" },
           "action": "bow",
           "target": "melodyStrings[2]",
           "parameters": { "direction": "down", "intensity": 0.65 }
@@ -98,7 +98,7 @@
         },
         {
           "at": { "musical": { "measure": 1, "beat": 2 } },
-          "duration": { "musical": "1/2" },
+          "duration": { "quarterNotes": "1/2" },
           "action": "bow",
           "target": "melodyStrings[2]",
           "techniques": ["vibrato"],

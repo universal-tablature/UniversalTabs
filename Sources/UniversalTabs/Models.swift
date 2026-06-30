@@ -58,6 +58,7 @@ public struct SectionDefinition: Codable, Sendable {
     public let name: String?
     public let role: String?
     public let length: SectionLength
+    public let meterMap: [MeterChange]?
 }
 
 public struct SectionLength: Codable, Sendable {
@@ -198,45 +199,22 @@ public struct StateChange: Codable, Sendable {
 public struct EventTime: Codable, Sendable {
     public let musical: MusicalPosition?
     public let absolute: Quantity?
-
-    private enum CodingKeys: String, CodingKey {
-        case musical, absolute, measure, beat
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        absolute = try container.decodeIfPresent(Quantity.self, forKey: .absolute)
-        if let wrapped = try container.decodeIfPresent(MusicalPosition.self, forKey: .musical) {
-            musical = wrapped
-        } else if let measure = try container.decodeIfPresent(Int.self, forKey: .measure) {
-            musical = MusicalPosition(
-                measure: measure,
-                beat: try container.decodeIfPresent(JSONValue.self, forKey: .beat)
-            )
-        } else {
-            musical = nil
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(musical, forKey: .musical)
-        try container.encodeIfPresent(absolute, forKey: .absolute)
-    }
 }
 
 public struct MusicalPosition: Codable, Sendable {
     public let measure: Int
-    public let beat: JSONValue?
+    public let beat: Int?
+    public let offset: JSONValue?
 
-    public init(measure: Int, beat: JSONValue?) {
+    public init(measure: Int, beat: Int?, offset: JSONValue? = nil) {
         self.measure = measure
         self.beat = beat
+        self.offset = offset
     }
 }
 
 public struct EventDuration: Codable, Sendable {
-    public let musical: JSONValue?
+    public let quarterNotes: JSONValue?
     public let value: Double?
     public let unit: String?
 }

@@ -29,20 +29,27 @@ public enum StandardMIDIFile {
     }
 
     public static func conductorTrack(bpm: Double, numerator: Int, denominator: Int) -> [MIDIMessage] {
-        let safeBPM = max(1, bpm)
-        let microseconds = Int((60_000_000 / safeBPM).rounded())
-        let denominatorPower = UInt8(max(0, Int(log2(Double(max(1, denominator))))))
         return [
-            MIDIMessage(tick: 0, priority: 0, bytes: [
-                0xFF, 0x51, 0x03,
-                UInt8((microseconds >> 16) & 0xFF),
-                UInt8((microseconds >> 8) & 0xFF),
-                UInt8(microseconds & 0xFF)
-            ]),
-            MIDIMessage(tick: 0, priority: 0, bytes: [
-                0xFF, 0x58, 0x04, UInt8(clamping: numerator), denominatorPower, 24, 8
-            ])
+            tempoChange(bpm: bpm, tick: 0),
+            meterChange(numerator: numerator, denominator: denominator, tick: 0)
         ]
+    }
+
+    public static func tempoChange(bpm: Double, tick: Int) -> MIDIMessage {
+        let microseconds = Int((60_000_000 / max(1, bpm)).rounded())
+        return MIDIMessage(tick: tick, priority: 0, bytes: [
+            0xFF, 0x51, 0x03,
+            UInt8((microseconds >> 16) & 0xFF),
+            UInt8((microseconds >> 8) & 0xFF),
+            UInt8(microseconds & 0xFF)
+        ])
+    }
+
+    public static func meterChange(numerator: Int, denominator: Int, tick: Int) -> MIDIMessage {
+        let denominatorPower = UInt8(max(0, Int(log2(Double(max(1, denominator))))))
+        return MIDIMessage(tick: tick, priority: 0, bytes: [
+            0xFF, 0x58, 0x04, UInt8(clamping: numerator), denominatorPower, 24, 8
+        ])
     }
 
     public static func trackName(_ name: String) -> MIDIMessage {

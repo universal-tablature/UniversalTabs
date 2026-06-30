@@ -20,6 +20,7 @@ public final class UTabMIDIConverter {
     private struct PositionedEvent {
         let event: PerformanceEvent
         let offset: Int
+        let section: SectionDefinition?
     }
 
     private let division = StandardMIDIFile.ticksPerQuarter
@@ -76,11 +77,7 @@ public final class UTabMIDIConverter {
             ))
         }
 
-        let conductor = StandardMIDIFile.conductorTrack(
-            bpm: bpm,
-            numerator: numerator,
-            denominator: denominator
-        )
+        let conductor = conductorTrack(for: document.setup)
         return ConversionResult(
             midi: StandardMIDIFile.make(conductor: conductor, tracks: midiTracks),
             diagnostics: diagnostics
@@ -118,14 +115,17 @@ public final class UTabMIDIConverter {
         var pitchesFromBitsets: [String: Int] = [:]
 
         let sortedEvents = positionedEvents.enumerated().sorted {
-            let leftTick = eventTick($0.element.event) + $0.element.offset
-            let rightTick = eventTick($1.element.event) + $1.element.offset
-            return leftTick == rightTick ? $0.offset < $1.offset : leftTick < rightTick
+            let leftTick = eventTick($0.element.event, section: $0.element.section) + $0.element.offset
+            let rightTick = eventTick($1.element.event, section: $1.element.section) + $1.element.offset
+            if leftTick != rightTick { return leftTick < rightTick }
+            let leftPriority = $0.element.event.changes == nil ? 1 : 0
+            let rightPriority = $1.element.event.changes == nil ? 1 : 0
+            return leftPriority == rightPriority ? $0.offset < $1.offset : leftPriority < rightPriority
         }
 
         for (_, positioned) in sortedEvents {
             let event = positioned.event
-            let tick = eventTick(event) + positioned.offset
+            let tick = eventTick(event, section: positioned.section) + positioned.offset
             for change in event.changes ?? [] {
                 if let stringIndex = targetIndex(change.target, group: "strings")
                     ?? targetIndex(change.target, group: "melodyStrings") {
@@ -269,7 +269,7 @@ public final class UTabMIDIConverter {
 
     private func expandedEvents(for track: EventTrack, setup: PerformanceSetup) -> [PositionedEvent] {
         if let events = track.events {
-            return events.map { PositionedEvent(event: $0, offset: 0) }
+            return events.map { PositionedEvent(event: $0, offset: 0, section: nil) }
         }
         guard let parts = track.parts,
               let arrangement = setup.arrangement,
@@ -299,7 +299,7 @@ public final class UTabMIDIConverter {
                     selected = reusable.map { [$0] } ?? []
                 }
                 for part in selected {
-                    result.append(contentsOf: part.events.map { PositionedEvent(event: $0, offset: offset) })
+                    result.append(contentsOf: part.events.map { PositionedEvent(event: $0, offset: offset, section: section) })
                 }
                 offset += sectionTicks(section)
             }
@@ -308,8 +308,11 @@ public final class UTabMIDIConverter {
     }
 
     private func sectionTicks(_ section: SectionDefinition) -> Int {
-        let quarterNotesPerMeasure = Double(numerator) * 4 / Double(denominator)
-        return max(0, Int((Double(section.length.measures) * quarterNotesPerMeasure * Double(division)).rounded()))
+        let quarters = (1...section.length.measures).reduce(0.0) { total, measure in
+            let meter = meter(for: measure, in: section)
+            return total + Double(meter.numerator) * 4 / Double(meter.denominator)
+        }
+        return max(0, Int((quarters * Double(division)).rounded()))
     }
 
     private func readTime(_ time: TimeSetup?) {
@@ -326,11 +329,72 @@ public final class UTabMIDIConverter {
         }
     }
 
-    private func eventTick(_ event: PerformanceEvent) -> Int {
+    private func conductorTrack(for setup: PerformanceSetup) -> [MIDIMessage] {
+        var messages = StandardMIDIFile.conductorTrack(bpm: bpm, numerator: numerator, denominator: denominator)
+        guard let arrangement = setup.arrangement, let sections = setup.sections else { return messages }
+        let sectionsByID = Dictionary(sections.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var entryOffsets: [String: Int] = [:]
+        var offset = 0
+        for entry in arrangement {
+            guard let section = sectionsByID[entry.section] else { continue }
+            entryOffsets[entry.id] = offset
+            for _ in 0..<max(0, entry.effectivePlayCount) {
+                for meterChange in section.meterMap ?? [] {
+                    let measure = int(meterChange.at?["measure"]) ?? 1
+                    let tick = offset + tickAtStart(ofMeasure: measure, in: section)
+                    if tick != 0 || meterChange.numerator != numerator || meterChange.denominator != denominator {
+                        messages.append(StandardMIDIFile.meterChange(numerator: meterChange.numerator, denominator: meterChange.denominator, tick: tick))
+                    }
+                }
+                offset += sectionTicks(section)
+            }
+        }
+        for tempo in setup.time?.tempoMap ?? [] {
+            guard let entryID = string(tempo.at?["entry"]),
+                  let entryOffset = entryOffsets[entryID],
+                  let entry = arrangement.first(where: { $0.id == entryID }),
+                  let section = sectionsByID[entry.section] else { continue }
+            let measure = int(tempo.at?["measure"]) ?? 1
+            let beat = int(tempo.at?["beat"]) ?? 1
+            let localTick = tickAtStart(ofMeasure: measure, in: section)
+                + tickWithinMeasure(beat: beat, offset: rational(tempo.at?["offset"]) ?? 0, meter: meter(for: measure, in: section))
+            let tick = entryOffset + localTick
+            if tick != 0 || tempo.quarterNotesPerMinute != bpm {
+                messages.append(StandardMIDIFile.tempoChange(bpm: tempo.quarterNotesPerMinute, tick: tick))
+            }
+        }
+        return messages
+    }
+
+    private func tickAtStart(ofMeasure measure: Int, in section: SectionDefinition) -> Int {
+        guard measure > 1 else { return 0 }
+        let quarters = (1..<measure).reduce(0.0) { total, priorMeasure in
+            let meter = meter(for: priorMeasure, in: section)
+            return total + Double(meter.numerator) * 4 / Double(meter.denominator)
+        }
+        return Int((quarters * Double(division)).rounded())
+    }
+
+    private func tickWithinMeasure(beat: Int, offset: Double, meter: MeterChange) -> Int {
+        Int(((Double(beat - 1) + offset) * 4 / Double(meter.denominator) * Double(division)).rounded())
+    }
+
+    private func eventTick(_ event: PerformanceEvent, section: SectionDefinition? = nil) -> Int {
         if let musical = event.at.musical {
-            let beat = rational(musical.beat) ?? 1
-            let quarterBeats = Double(musical.measure - 1) * Double(numerator) * 4 / Double(denominator)
-                + (beat - 1) * 4 / Double(denominator)
+            let beat = musical.beat ?? 1
+            let offset = rational(musical.offset) ?? 0
+            let quarterBeats: Double
+            if let section {
+                let preceding = musical.measure > 1 ? (1..<musical.measure).reduce(0.0) { total, measure in
+                    let meter = meter(for: measure, in: section)
+                    return total + Double(meter.numerator) * 4 / Double(meter.denominator)
+                } : 0
+                let activeMeter = meter(for: musical.measure, in: section)
+                quarterBeats = preceding + (Double(beat - 1) + offset) * 4 / Double(activeMeter.denominator)
+            } else {
+                quarterBeats = Double(musical.measure - 1) * Double(numerator) * 4 / Double(denominator)
+                    + (Double(beat - 1) + offset) * 4 / Double(denominator)
+            }
             return max(0, Int((quarterBeats * Double(division)).rounded()))
         }
         if let absolute = event.at.absolute {
@@ -342,8 +406,8 @@ public final class UTabMIDIConverter {
 
     private func durationTicks(_ event: PerformanceEvent) -> Int {
         guard let duration = event.duration else { return defaultDuration() }
-        if let musical = rational(duration.musical) {
-            return max(1, Int((musical * Double(division)).rounded()))
+        if let quarterNotes = rational(duration.quarterNotes) {
+            return max(1, Int((quarterNotes * Double(division)).rounded()))
         }
         if let value = duration.value {
             let seconds = duration.unit == "ms" ? value / 1000 : value
@@ -354,6 +418,16 @@ public final class UTabMIDIConverter {
 
     private func defaultDuration() -> Int {
         Int(Double(division) * 0.45)
+    }
+
+    private func meter(for measure: Int, in section: SectionDefinition) -> MeterChange {
+        let fallback = MeterChange(at: nil, numerator: numerator, denominator: denominator)
+        return (section.meterMap ?? [])
+            .filter { meter in
+                guard case .number(let start)? = meter.at?["measure"] else { return false }
+                return Int(start) <= measure
+            }
+            .last ?? fallback
     }
 
     private func addNote(

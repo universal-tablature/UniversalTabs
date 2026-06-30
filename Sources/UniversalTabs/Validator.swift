@@ -75,6 +75,40 @@ public struct UTabValidator: Sendable {
             where section.length.measures < 1 {
             diagnostics.append(.init(severity: .error, path: "setup.sections[\(sectionIndex)].length.measures", message: "must be positive"))
         }
+        for (sectionIndex, section) in (document.setup.sections ?? []).enumerated() {
+            var previousMeasure = 0
+            for (meterIndex, meter) in (section.meterMap ?? []).enumerated() {
+                let meterPath = "setup.sections[\(sectionIndex)].meterMap[\(meterIndex)]"
+                guard let measure = integer(meter.at?["measure"]) else {
+                    diagnostics.append(.init(severity: .error, path: "\(meterPath).at.measure", message: "meter change requires an integer measure"))
+                    continue
+                }
+                if measure < 1 || measure > section.length.measures || measure <= previousMeasure {
+                    diagnostics.append(.init(severity: .error, path: "\(meterPath).at.measure", message: "meter changes must be ordered section measure boundaries"))
+                }
+                previousMeasure = measure
+                if meter.numerator < 1 || meter.denominator < 1 {
+                    diagnostics.append(.init(severity: .error, path: meterPath, message: "meter values must be positive"))
+                }
+            }
+        }
+        for (tempoIndex, tempo) in (document.setup.time?.tempoMap ?? []).enumerated() {
+            guard let entryID = string(tempo.at?["entry"]) else { continue }
+            let tempoPath = "setup.time.tempoMap[\(tempoIndex)]"
+            guard let entry = arrangement[entryID], let section = sections[entry.section] else {
+                diagnostics.append(.init(severity: .error, path: "\(tempoPath).at.entry", message: "unresolved arrangement entry '\(entryID)'"))
+                continue
+            }
+            let measure = integer(tempo.at?["measure"]) ?? 1
+            let beat = integer(tempo.at?["beat"]) ?? 1
+            let activeMeter = meter(for: measure, in: section)
+            if measure < 1 || measure > section.length.measures || beat < 1 || beat > activeMeter.numerator {
+                diagnostics.append(.init(severity: .error, path: "\(tempoPath).at", message: "tempo position is outside its section"))
+            }
+            if tempo.quarterNotesPerMinute <= 0 {
+                diagnostics.append(.init(severity: .error, path: "\(tempoPath).quarterNotesPerMinute", message: "tempo must be positive"))
+            }
+        }
 
         for (profileIndex, profile) in document.setup.profiles.enumerated() {
             validateProfile(profile, path: "setup.profiles[\(profileIndex)]", diagnostics: &diagnostics)
@@ -202,7 +236,7 @@ public struct UTabValidator: Sendable {
         }
 
         if let events = track.events {
-            validateEvents(events, profile: profile, path: "\(path).events", diagnostics: &diagnostics)
+            validateEvents(events, profile: profile, section: nil, path: "\(path).events", diagnostics: &diagnostics)
         }
 
         let parts = track.parts ?? []
@@ -234,26 +268,30 @@ public struct UTabValidator: Sendable {
             if let entry = part.entry {
                 guard let arrangementEntry = arrangement[entry] else {
                     diagnostics.append(.init(severity: .error, path: "\(partPath).entry", message: "unresolved arrangement entry '\(entry)'"))
-                    validateEvents(part.events, profile: profile, path: "\(partPath).events", diagnostics: &diagnostics)
+                    validateEvents(part.events, profile: profile, section: nil, path: "\(partPath).events", diagnostics: &diagnostics)
                     continue
                 }
                 if sectionPartIndices[arrangementEntry.section] != nil && part.mode == nil {
                     diagnostics.append(.init(severity: .error, path: "\(partPath).mode", message: "mode is required when an entry-specific part has reusable section content"))
                 }
             }
-            validateEvents(part.events, profile: profile, path: "\(partPath).events", diagnostics: &diagnostics)
+            let section = part.section.flatMap { sections[$0] }
+                ?? part.entry.flatMap { arrangement[$0] }.flatMap { sections[$0.section] }
+            validateEvents(part.events, profile: profile, section: section, path: "\(partPath).events", diagnostics: &diagnostics)
         }
     }
 
     private func validateEvents(
         _ events: [PerformanceEvent],
         profile: InstrumentProfile,
+        section: SectionDefinition?,
         path: String,
         diagnostics: inout [ValidationDiagnostic]
     ) {
         var stateAtTime: [String: [String: JSONValue]] = [:]
         for (eventIndex, event) in events.enumerated() {
             let eventPath = "\(path)[\(eventIndex)]"
+            validateTime(event, section: section, path: eventPath, diagnostics: &diagnostics)
             if let action = event.action, !supports(action, in: profile.interactions) {
                 diagnostics.append(.init(
                     severity: .error,
@@ -314,6 +352,57 @@ public struct UTabValidator: Sendable {
                 } else {
                     stateAtTime[timedKey] = ["value": change.value]
                 }
+            }
+        }
+    }
+
+    private func validateTime(
+        _ event: PerformanceEvent,
+        section: SectionDefinition?,
+        path: String,
+        diagnostics: inout [ValidationDiagnostic]
+    ) {
+        if (event.at.musical == nil) == (event.at.absolute == nil) {
+            diagnostics.append(.init(severity: .error, path: "\(path).at", message: "event time must use exactly one time domain"))
+        }
+        if section != nil, event.at.absolute != nil {
+            diagnostics.append(.init(severity: .error, path: "\(path).at", message: "section-local events cannot use absolute time"))
+        }
+        guard let musical = event.at.musical else {
+            if section != nil && event.at.absolute == nil {
+                diagnostics.append(.init(severity: .error, path: "\(path).at", message: "section-local event requires musical time"))
+            }
+            return
+        }
+        if musical.measure < 1 || (section != nil && musical.measure > section!.length.measures) {
+            diagnostics.append(.init(severity: .error, path: "\(path).at.musical.measure", message: "measure is outside the section"))
+        }
+        let beat = musical.beat ?? 1
+        let activeMeter = section.map { meter(for: musical.measure, in: $0) }
+        if beat < 1 || (activeMeter != nil && beat > activeMeter!.numerator) {
+            diagnostics.append(.init(severity: .error, path: "\(path).at.musical.beat", message: "beat is outside the active meter"))
+        }
+        if let offset = rational(musical.offset), !(0..<1).contains(offset) {
+            diagnostics.append(.init(severity: .error, path: "\(path).at.musical.offset", message: "offset must be at least zero and less than one beat"))
+        } else if musical.offset != nil && rational(musical.offset) == nil {
+            diagnostics.append(.init(severity: .error, path: "\(path).at.musical.offset", message: "offset must be an exact rational value"))
+        }
+        if let duration = event.duration {
+            let forms = (duration.quarterNotes == nil ? 0 : 1) + (duration.value == nil ? 0 : 1)
+            if forms != 1 {
+                diagnostics.append(.init(severity: .error, path: "\(path).duration", message: "duration must use exactly one time domain"))
+            }
+            if let value = rational(duration.quarterNotes), value <= 0 {
+                diagnostics.append(.init(severity: .error, path: "\(path).duration.quarterNotes", message: "duration must be positive"))
+            }
+            if duration.quarterNotes != nil && rational(duration.quarterNotes) == nil {
+                diagnostics.append(.init(severity: .error, path: "\(path).duration.quarterNotes", message: "duration must be an exact rational value"))
+            }
+            if let value = duration.value, value <= 0 {
+                diagnostics.append(.init(severity: .error, path: "\(path).duration.value", message: "duration must be positive"))
+            }
+            if duration.value != nil && (duration.unit?.isEmpty != false) {
+                diagnostics.append(.init(severity: .error, path: "\(path).duration.unit", message: "absolute duration requires a unit"))
             }
         }
     }
@@ -413,9 +502,37 @@ public struct UTabValidator: Sendable {
         return (trimmed.count - 1) * 4 + leadingBits
     }
 
+    private func meter(for measure: Int, in section: SectionDefinition) -> MeterChange {
+        let fallback = MeterChange(at: nil, numerator: 4, denominator: 4)
+        return (section.meterMap ?? []).filter {
+            guard case .number(let start)? = $0.at?["measure"] else { return false }
+            return Int(start) <= measure
+        }.last ?? fallback
+    }
+
+    private func rational(_ value: JSONValue?) -> Double? {
+        switch value {
+        case .number(let value)?: return value.rounded() == value ? value : nil
+        case .string(let text)?:
+            let parts = text.split(separator: "/")
+            if parts.count == 2,
+               let numerator = Double(parts[0]),
+               let denominator = Double(parts[1]), denominator > 0 {
+                return numerator / denominator
+            }
+            return Double(text)
+        default: return nil
+        }
+    }
+
+    private func integer(_ value: JSONValue?) -> Int? {
+        guard case .number(let value)? = value, value.rounded() == value else { return nil }
+        return Int(value)
+    }
+
     private func timeKey(_ time: EventTime) -> String {
         if let musical = time.musical {
-            return "m:\(musical.measure):\(valueKey(musical.beat))"
+            return "m:\(musical.measure):\(musical.beat ?? 1):\(valueKey(musical.offset))"
         }
         if let absolute = time.absolute { return "a:\(absolute.value):\(absolute.unit)" }
         return "invalid"

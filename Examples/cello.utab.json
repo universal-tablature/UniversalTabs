@@ -46,7 +46,7 @@
       "instrument": "cello-1",
       "events": [
         { "at": { "musical": { "measure": 1, "beat": 1 } }, "type": "state", "changes": [{ "target": "strings[3]", "parameter": "position", "value": { "ratioFromNut": 0.1091 } }] },
-        { "at": { "musical": { "measure": 1, "beat": 1 } }, "duration": { "musical": "2" }, "action": "bow", "target": "strings[3]", "techniques": ["vibrato"], "parameters": { "direction": "down", "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "duration": { "quarterNotes": "2" }, "action": "bow", "target": "strings[3]", "techniques": ["vibrato"], "parameters": { "direction": "down", "intensity": 0.62 } },
         { "at": { "musical": { "measure": 1, "beat": 3 } }, "type": "state", "changes": [{ "target": "strings[2]", "parameter": "position", "value": { "ratioFromNut": 0.0 } }] },
         { "at": { "musical": { "measure": 1, "beat": 3 } }, "action": "pluck", "target": "strings[2]", "techniques": ["pizzicato"], "parameters": { "intensity": 0.7 } }
       ]

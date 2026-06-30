@@ -124,6 +124,13 @@ architecture.
 * Events MUST be expressible in musical time and in absolute elapsed time.
 * Musical time MUST support meter, tempo, tempo changes, and positions within
   measures and beats.
+* Musical positions and durations MUST use exact integer or rational values;
+  serialization MUST NOT require floating-point musical time.
+* Events in reusable track parts MUST use section-local musical positions.
+* Meter MUST be resolvable from section structure, while tempo MUST be
+  resolvable on the expanded arrangement timeline.
+* State changes at a musical position MUST take effect before actions and
+  gestures at that same position, independent of serialization order.
 * Absolute time MUST use a defined unit and reference point.
 * A document using both time domains MUST define how they map to one another.
 * The time model MUST support performances without a regular meter.
