@@ -86,8 +86,8 @@
       "properties": {
         "id": { "$ref": "#/$defs/identifier" },
         "type": { "type": "string" },
-        "pitch": { "type": "string" },
-        "basePitch": { "type": "string" }
+        "pitch": { "$ref": "#/$defs/pitch" },
+        "basePitch": { "$ref": "#/$defs/pitch" }
       },
       "additionalProperties": true
     },
@@ -104,13 +104,21 @@
             "required": ["target"],
             "properties": {
               "target": { "type": "string", "minLength": 1 },
-              "pitch": { "type": "string" }
+              "pitch": { "$ref": "#/$defs/pitch" }
             },
             "additionalProperties": true
           }
         }
       },
       "additionalProperties": true
+    },
+    "pitch": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "required": ["frequencyHz"], "properties": { "frequencyHz": { "type": "number", "exclusiveMinimum": 0 } } },
+        { "type": "object", "required": ["tuning", "degree", "period"], "properties": { "tuning": { "type": "string" }, "degree": { "type": "integer" }, "period": { "type": "integer" } } },
+        { "type": "object", "required": ["tuning", "name", "period"], "properties": { "tuning": { "type": "string" }, "name": { "type": "string" }, "period": { "type": "integer" } } }
+      ]
     },
     "interaction": {
       "type": "object",

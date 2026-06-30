@@ -19,12 +19,29 @@
         "interactions": { "sing": { "targets": ["voice"] } }
       }
     ],
+    "tunings": [
+      {
+        "id": "12edo",
+        "type": "equalDivision",
+        "periodRatio": "2/1",
+        "divisions": 12,
+        "reference": { "pitch": { "degree": 9, "period": 4 }, "frequencyHz": 440 },
+        "names": { "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11 }
+      }
+    ],
     "instruments": [
       {
         "id": "guitar-1",
         "profile": "profile:guitar",
         "configuration": {
-          "tuning": ["E2", "A2", "D3", "G3", "B3", "E4"],
+          "tuning": [
+            { "tuning": "12edo", "name": "E", "period": 2 },
+            { "tuning": "12edo", "name": "A", "period": 2 },
+            { "tuning": "12edo", "name": "D", "period": 3 },
+            { "tuning": "12edo", "name": "G", "period": 3 },
+            { "tuning": "12edo", "name": "B", "period": 3 },
+            { "tuning": "12edo", "name": "E", "period": 4 }
+          ],
           "stringIndexOrder": "highest-to-lowest"
         }
       },
@@ -89,27 +106,27 @@
         {
           "section": "verse",
           "events": [
-            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": "G4" } }
+            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": { "tuning": "12edo", "name": "G", "period": 4 } } }
           ]
         },
         {
           "entry": "verse-1",
           "mode": "replace",
           "events": [
-            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": "A4" } }
+            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": { "tuning": "12edo", "name": "A", "period": 4 } } }
           ]
         },
         {
           "entry": "verse-2",
           "mode": "replace",
           "events": [
-            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": "B4" } }
+            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": { "tuning": "12edo", "name": "B", "period": 4 } } }
           ]
         },
         {
           "section": "chorus",
           "events": [
-            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": "C5" } }
+            { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "sing", "target": "voice", "parameters": { "pitch": { "tuning": "12edo", "name": "C", "period": 5 } } }
           ]
         }
       ]

@@ -51,6 +51,61 @@ public struct PerformanceSetup: Codable, Sendable {
     public let time: TimeSetup?
     public let sections: [SectionDefinition]?
     public let arrangement: [ArrangementEntry]?
+    public let tunings: [TuningDefinition]?
+}
+
+public struct TuningDefinition: Codable, Sendable {
+    public let id: String
+    public let type: String
+    public let periodRatio: String
+    public let divisions: Int?
+    public let degrees: [String]?
+    public let reference: TuningReference
+    public let names: [String: Int]?
+}
+
+public struct TuningReference: Codable, Sendable {
+    public let pitch: TuningCoordinate
+    public let frequencyHz: Double
+}
+
+public struct TuningCoordinate: Codable, Sendable {
+    public let degree: Int
+    public let period: Int
+}
+
+public struct PitchValue: Codable, Sendable {
+    public let frequencyHz: Double?
+    public let tuning: String?
+    public let degree: Int?
+    public let name: String?
+    public let period: Int?
+    public let legacyName: String?
+
+    public init(from decoder: Decoder) throws {
+        let single = try decoder.singleValueContainer()
+        if let value = try? single.decode(String.self) {
+            frequencyHz = nil; tuning = nil; degree = nil; name = nil; period = nil; legacyName = value
+            return
+        }
+        let value = try single.decode(CanonicalPitch.self)
+        frequencyHz = value.frequencyHz; tuning = value.tuning; degree = value.degree
+        name = value.name; period = value.period; legacyName = nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var single = encoder.singleValueContainer()
+        if let legacyName { try single.encode(legacyName) }
+        else { try single.encode(CanonicalPitch(frequencyHz: frequencyHz, tuning: tuning, degree: degree, name: name, period: period)) }
+    }
+
+    private struct CanonicalPitch: Codable {
+        let frequencyHz: Double?
+        let tuning: String?
+        let degree: Int?
+        let name: String?
+        let period: Int?
+    }
 }
 
 public struct SectionDefinition: Codable, Sendable {
@@ -102,8 +157,8 @@ public struct ActuatorDefinition: Codable, Sendable {
 public struct ActuatorMember: Codable, Sendable {
     public let id: String
     public let type: String?
-    public let pitch: String?
-    public let basePitch: String?
+    public let pitch: PitchValue?
+    public let basePitch: PitchValue?
 }
 
 public struct ActuatorBit: Codable, Sendable {
@@ -114,7 +169,7 @@ public struct ActuatorBit: Codable, Sendable {
 
 public struct ActuatorEffect: Codable, Sendable {
     public let target: String
-    public let pitch: String?
+    public let pitch: PitchValue?
 }
 
 public struct InstrumentInstance: Codable, Sendable {

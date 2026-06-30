@@ -66,7 +66,8 @@
         "arrangement": {
           "type": "array",
           "items": { "$ref": "#/$defs/arrangementEntry" }
-        }
+        },
+        "tunings": { "type": "array", "items": { "$ref": "#/$defs/tuning" } }
       },
       "additionalProperties": true
     },
@@ -98,6 +99,30 @@
         "name": { "type": "string" }
       },
       "additionalProperties": true
+    },
+    "tuning": {
+      "type": "object",
+      "required": ["id", "type", "periodRatio", "reference"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "type": { "enum": ["equalDivision", "ratioScale"] },
+        "periodRatio": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" },
+        "divisions": { "type": "integer", "minimum": 1 },
+        "degrees": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "names": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "reference": {
+          "type": "object",
+          "required": ["pitch", "frequencyHz"],
+          "properties": {
+            "pitch": { "type": "object", "required": ["degree", "period"], "properties": { "degree": { "type": "integer", "minimum": 0 }, "period": { "type": "integer" } } },
+            "frequencyHz": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "equalDivision" } } }, "then": { "required": ["divisions"] } },
+        { "if": { "properties": { "type": { "const": "ratioScale" } } }, "then": { "required": ["degrees"] } }
+      ]
     },
     "section": {
       "type": "object",

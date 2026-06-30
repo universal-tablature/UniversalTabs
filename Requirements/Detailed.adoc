@@ -608,6 +608,44 @@ Events in legacy linear tracks may use absolute positions.
 
 Serialization ticks are derived values and are not part of the core time model.
 
+== Pitch and tuning
+
+Pitch is independent of notation spelling and MIDI. Tunings are identified
+definitions in `setup`; canonical pitches use a tuning coordinate, a
+tuning-defined name, or an absolute frequency.
+
+[source,json]
+----
+{
+  "tunings": [
+    {
+      "id": "12edo",
+      "type": "equalDivision",
+      "periodRatio": "2/1",
+      "divisions": 12,
+      "reference": {
+        "pitch": { "degree": 9, "period": 4 },
+        "frequencyHz": 440
+      },
+      "names": { "C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11 }
+    }
+  ],
+  "pitch": { "tuning": "12edo", "name": "E", "period": 2 }
+}
+----
+
+Equal-division tunings declare a positive division count. Ratio scales instead
+declare an ordered array of exact positive ratios. `periodRatio` is not assumed
+to be an octave. Pitch names are aliases defined by a tuning and have no global
+meaning. An absolute pitch may use `{ "frequencyHz": 440 }`.
+
+A pitch uses exactly one of frequency, degree coordinate, or named coordinate.
+Actuator state and resulting pitch remain distinct: frets contribute steps,
+unfretted positions may derive frequency ratios, and bends, vibrato, and
+harmonics contribute intervals. MIDI notes are rendering results rather than
+canonical pitch values. Legacy strings such as `"E2"` remain readable during
+the draft transition but are not canonical.
+
 == Constraints
 
 Instrument constraints describe the instrument, independent of who or what

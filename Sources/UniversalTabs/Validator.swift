@@ -62,6 +62,7 @@ public struct UTabValidator: Sendable {
             id: \.id,
             diagnostics: &diagnostics
         )
+        let tunings = index(document.setup.tunings ?? [], path: "setup.tunings", id: \.id, diagnostics: &diagnostics)
 
         for (entryIndex, entry) in (document.setup.arrangement ?? []).enumerated() {
             if sections[entry.section] == nil {
@@ -111,7 +112,10 @@ public struct UTabValidator: Sendable {
         }
 
         for (profileIndex, profile) in document.setup.profiles.enumerated() {
-            validateProfile(profile, path: "setup.profiles[\(profileIndex)]", diagnostics: &diagnostics)
+            validateProfile(profile, tunings: tunings, path: "setup.profiles[\(profileIndex)]", diagnostics: &diagnostics)
+        }
+        for (tuningIndex, tuning) in (document.setup.tunings ?? []).enumerated() {
+            validateTuning(tuning, path: "setup.tunings[\(tuningIndex)]", diagnostics: &diagnostics)
         }
 
         for (instrumentIndex, instrument) in document.setup.instruments.enumerated() {
@@ -149,6 +153,7 @@ public struct UTabValidator: Sendable {
 
     private func validateProfile(
         _ profile: InstrumentProfile,
+        tunings: [String: TuningDefinition],
         path: String,
         diagnostics: inout [ValidationDiagnostic]
     ) {
@@ -177,6 +182,8 @@ public struct UTabValidator: Sendable {
                         message: "duplicate actuator member id '\(member.id)'"
                     ))
                 }
+                if let pitch = member.pitch { validatePitch(pitch, tunings: tunings, path: "\(actuatorPath).members[\(memberIndex)].pitch", diagnostics: &diagnostics) }
+                if let pitch = member.basePitch { validatePitch(pitch, tunings: tunings, path: "\(actuatorPath).members[\(memberIndex)].basePitch", diagnostics: &diagnostics) }
             }
             if actuator.representation == "bitset" {
                 guard let width = actuator.width, width > 0 else {
@@ -206,6 +213,51 @@ public struct UTabValidator: Sendable {
                 }
             }
         }
+    }
+
+    private func validateTuning(_ tuning: TuningDefinition, path: String, diagnostics: inout [ValidationDiagnostic]) {
+        guard let period = ratio(tuning.periodRatio), period > 0 else {
+            diagnostics.append(.init(severity: .error, path: "\(path).periodRatio", message: "period ratio must be a positive ratio")); return
+        }
+        let count: Int
+        if tuning.type == "equalDivision", let divisions = tuning.divisions, divisions > 0 { count = divisions }
+        else if tuning.type == "ratioScale", let degrees = tuning.degrees, !degrees.isEmpty {
+            count = degrees.count
+            for (index, degree) in degrees.enumerated() where ratio(degree) == nil {
+                diagnostics.append(.init(severity: .error, path: "\(path).degrees[\(index)]", message: "degree must be a positive ratio"))
+            }
+        } else {
+            diagnostics.append(.init(severity: .error, path: path, message: "tuning type requires divisions or degrees")); return
+        }
+        if !(0..<count).contains(tuning.reference.pitch.degree) || tuning.reference.frequencyHz <= 0 {
+            diagnostics.append(.init(severity: .error, path: "\(path).reference", message: "reference pitch or frequency is outside the tuning"))
+        }
+        for (name, degree) in tuning.names ?? [:] where !(0..<count).contains(degree) {
+            diagnostics.append(.init(severity: .error, path: "\(path).names.\(name)", message: "named degree is outside the tuning"))
+        }
+    }
+
+    private func validatePitch(_ pitch: PitchValue, tunings: [String: TuningDefinition], path: String, diagnostics: inout [ValidationDiagnostic]) {
+        if pitch.legacyName != nil { return }
+        if let frequency = pitch.frequencyHz {
+            if frequency <= 0 || pitch.tuning != nil { diagnostics.append(.init(severity: .error, path: path, message: "frequency pitch must be positive and exclusive")) }
+            return
+        }
+        guard let tuningID = pitch.tuning, let tuning = tunings[tuningID], pitch.period != nil else {
+            diagnostics.append(.init(severity: .error, path: path, message: "pitch has an unresolved tuning or incomplete coordinate")); return
+        }
+        if (pitch.degree == nil) == (pitch.name == nil) {
+            diagnostics.append(.init(severity: .error, path: path, message: "pitch must use exactly one of degree or name"))
+        }
+        if let name = pitch.name, tuning.names?[name] == nil {
+            diagnostics.append(.init(severity: .error, path: path, message: "pitch name '\(name)' is not defined by tuning '\(tuningID)'"))
+        }
+    }
+
+    private func ratio(_ text: String) -> Double? {
+        let parts = text.split(separator: "/")
+        guard parts.count == 2, let a = Double(parts[0]), let b = Double(parts[1]), a > 0, b > 0 else { return nil }
+        return a / b
     }
 
     private func validateTrack(

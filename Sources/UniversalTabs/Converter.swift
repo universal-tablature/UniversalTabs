@@ -28,6 +28,7 @@ public final class UTabMIDIConverter {
     private var bpm = 120.0
     private var numerator = 4
     private var denominator = 4
+    private var tunings: [String: TuningDefinition] = [:]
 
     public init() {}
 
@@ -44,6 +45,7 @@ public final class UTabMIDIConverter {
         numerator = 4
         denominator = 4
         readTime(document.setup.time)
+        tunings = Dictionary((document.setup.tunings ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         let profiles = Dictionary(
             document.setup.profiles.map { ($0.id, $0) },
@@ -103,8 +105,8 @@ public final class UTabMIDIConverter {
             ))
         }
 
-        let tuning = stringArray(instrument.configuration?["tuning"])
-            ?? stringArray(instrument.configuration?["melodyStringTuning"])
+        let tuning = pitchArray(instrument.configuration?["tuning"])
+            ?? pitchArray(instrument.configuration?["melodyStringTuning"])
             ?? []
         let indexOrder = string(instrument.configuration?["stringIndexOrder"])
             ?? "lowest-to-highest"
@@ -235,7 +237,7 @@ public final class UTabMIDIConverter {
                     }
                 }
             } else if action == "sing" {
-                if let pitch = string(parameters["pitch"]), let note = Pitch.midiNote(pitch) {
+                if let pitch = pitchValue(parameters["pitch"]), let note = midiNote(pitch) {
                     addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
                 } else {
                     diagnostics.append("\(name): singing event at tick \(tick) has no supported pitch")
@@ -431,14 +433,14 @@ public final class UTabMIDIConverter {
 
     private func stringNote(
         index: Int,
-        tuning: [String],
+        tuning: [PitchValue],
         order: String,
         fret: Int,
         ratio: Double?
     ) -> Int? {
         guard !tuning.isEmpty else { return nil }
         let tuningIndex = order == "highest-to-lowest" ? tuning.count - index : index - 1
-        guard tuning.indices.contains(tuningIndex), let base = Pitch.midiNote(tuning[tuningIndex]) else {
+        guard tuning.indices.contains(tuningIndex), let base = midiNote(tuning[tuningIndex]) else {
             return nil
         }
         if let ratio, ratio >= 0, ratio < 1 {
@@ -451,7 +453,7 @@ public final class UTabMIDIConverter {
         var result: [String: Int] = [:]
         for (group, actuator) in profile.actuators ?? [:] {
             for member in actuator.members ?? [] {
-                if let pitch = member.pitch, let note = Pitch.midiNote(pitch) {
+                if let pitch = member.pitch, let note = midiNote(pitch) {
                     let encoded = try? JSONEncoder().encode(member.id)
                     let quoted = encoded.flatMap { String(data: $0, encoding: .utf8) } ?? "\"\(member.id)\""
                     result["\(group)[\(quoted)]"] = note
@@ -479,7 +481,7 @@ public final class UTabMIDIConverter {
         for bit in bits where (0..<64).contains(bit.index)
             && mask & (UInt64(1) << UInt64(bit.index)) != 0 {
             for effect in bit.effects ?? [] {
-                if let pitch = effect.pitch, let note = Pitch.midiNote(pitch) {
+                if let pitch = effect.pitch, let note = midiNote(pitch) {
                     result[effect.target] = note
                 }
             }
@@ -561,6 +563,52 @@ public final class UTabMIDIConverter {
         guard case .array(let values) = value else { return nil }
         let strings = values.compactMap(string)
         return strings.count == values.count ? strings : nil
+    }
+
+    private func pitchArray(_ value: JSONValue?) -> [PitchValue]? {
+        guard case .array(let values) = value else { return nil }
+        let pitches = values.compactMap(pitchValue)
+        return pitches.count == values.count ? pitches : nil
+    }
+
+    private func pitchValue(_ value: JSONValue?) -> PitchValue? {
+        guard let value, let data = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(PitchValue.self, from: data)
+    }
+
+    private func midiNote(_ pitch: PitchValue) -> Int? {
+        if let legacy = pitch.legacyName { return Pitch.midiNote(legacy) }
+        if let frequency = pitch.frequencyHz, frequency > 0 {
+            return quantizeMIDI(69 + 12 * log2(frequency / 440))
+        }
+        guard let tuningID = pitch.tuning, let definition = tunings[tuningID], let period = pitch.period else { return nil }
+        let degree = pitch.degree ?? pitch.name.flatMap { definition.names?[$0] }
+        guard let degree, let periodRatio = ratio(definition.periodRatio) else { return nil }
+        let reference = definition.reference
+        let frequency: Double
+        if definition.type == "equalDivision", let divisions = definition.divisions, divisions > 0 {
+            let steps = (period - reference.pitch.period) * divisions + degree - reference.pitch.degree
+            frequency = reference.frequencyHz * pow(periodRatio, Double(steps) / Double(divisions))
+        } else if definition.type == "ratioScale", let degrees = definition.degrees,
+                  degrees.indices.contains(degree), degrees.indices.contains(reference.pitch.degree),
+                  let currentRatio = ratio(degrees[degree]), let referenceRatio = ratio(degrees[reference.pitch.degree]) {
+            frequency = reference.frequencyHz * currentRatio / referenceRatio * pow(periodRatio, Double(period - reference.pitch.period))
+        } else { return nil }
+        return quantizeMIDI(69 + 12 * log2(frequency / 440))
+    }
+
+    private func quantizeMIDI(_ value: Double) -> Int {
+        let rounded = value.rounded()
+        if abs(value - rounded) > 0.000_001 {
+            diagnostics.append("pitch \(value) requires MIDI 1 pitch quantization to note \(Int(rounded))")
+        }
+        return Int(rounded)
+    }
+
+    private func ratio(_ text: String) -> Double? {
+        let parts = text.split(separator: "/")
+        guard parts.count == 2, let numerator = Double(parts[0]), let denominator = Double(parts[1]), denominator > 0 else { return nil }
+        return numerator / denominator
     }
 
     private func rational(_ value: JSONValue?) -> Double? {
