@@ -316,14 +316,16 @@ public struct UTabValidator: Sendable {
                     message: "technique '\(technique)' is not defined by profile '\(profile.id)'"
                 ))
             }
-            if let target = string(event.target) {
-                validateTarget(target, profile: profile, path: "\(eventPath).target", diagnostics: &diagnostics)
-            } else if event.target != nil {
-                diagnostics.append(.init(
-                    severity: .warning,
-                    path: "\(eventPath).target",
-                    message: "structured targets are not yet semantically validated"
-                ))
+            if event.target != nil && event.targets != nil {
+                diagnostics.append(.init(severity: .error, path: eventPath, message: "event cannot contain both target and targets"))
+            }
+            let eventTargets = event.targets ?? event.target.map { [$0] } ?? []
+            if (event.action != nil || event.gesture != nil) && eventTargets.isEmpty {
+                diagnostics.append(.init(severity: .error, path: eventPath, message: "action or gesture requires target or targets"))
+            }
+            for (targetIndex, target) in eventTargets.enumerated() {
+                let targetPath = event.targets == nil ? "\(eventPath).target" : "\(eventPath).targets[\(targetIndex)]"
+                validateTarget(target, profile: profile, path: targetPath, diagnostics: &diagnostics)
             }
 
             var localChanges: [String: JSONValue] = [:]
@@ -414,31 +416,58 @@ public struct UTabValidator: Sendable {
         diagnostics: inout [ValidationDiagnostic]
     ) {
         guard let actuators = profile.actuators else { return }
-        if actuators[target] != nil { return }
-        if actuators.values.contains(where: { ($0.members ?? []).contains(where: { $0.id == target }) }) { return }
+        let parsed: ActuatorTarget
+        do { parsed = try ActuatorTarget(parsing: target) }
+        catch {
+            diagnostics.append(.init(
+                severity: .error,
+                path: path,
+                message: String(describing: error)
+            ))
+            return
+        }
+        guard let actuator = actuators[parsed.groupPath] else {
+            diagnostics.append(.init(
+                severity: .error,
+                path: path,
+                message: "actuator path '\(parsed.groupPath)' does not resolve in profile '\(profile.id)'"
+            ))
+            return
+        }
+        switch parsed.selector {
+        case nil:
+            return
+        case .member(let member):
+            let memberExists = (actuator.members ?? []).contains { $0.id == member }
+                || (actuator.bits ?? []).contains { $0.actuator == member }
+            if !memberExists {
+                diagnostics.append(.init(severity: .error, path: path, message: "named member '\(member)' does not resolve in actuator '\(parsed.groupPath)'"))
+            }
+        case .index(let index):
+            validateIndexRange(index...index, actuator: actuator, target: target, path: path, diagnostics: &diagnostics)
+        case .range(let range):
+            validateIndexRange(range, actuator: actuator, target: target, path: path, diagnostics: &diagnostics)
+        }
+    }
 
-        guard let address = parseAddress(target), let actuator = actuators[address.group] else {
+    private func validateIndexRange(
+        _ range: ClosedRange<Int>,
+        actuator: ActuatorDefinition,
+        target: String,
+        path: String,
+        diagnostics: inout [ValidationDiagnostic]
+    ) {
+        let count = actuator.count ?? actuator.members?.count
+        guard let count else {
             diagnostics.append(.init(
                 severity: .error,
                 path: path,
-                message: "target '\(target)' does not resolve in profile '\(profile.id)'"
+                message: "target '\(target)' indexes an actuator without a declared count or ordered members"
             ))
             return
         }
-        guard let count = actuator.count else {
-            diagnostics.append(.init(
-                severity: .error,
-                path: path,
-                message: "target '\(target)' indexes an actuator without a declared count"
-            ))
-            return
-        }
-        if address.first < 1 || address.last < address.first || address.last > count {
-            diagnostics.append(.init(
-                severity: .error,
-                path: path,
-                message: "target '\(target)' is outside actuator range 1...\(count)"
-            ))
+        if range.lowerBound < 1 || range.upperBound > count {
+            diagnostics.append(.init(severity: .error, path: path, message: "target '\(target)' is outside actuator range 1...\(count)"))
         }
     }
 
@@ -483,16 +512,6 @@ public struct UTabValidator: Sendable {
 
     private func supports(_ name: String, in definitions: [String: JSONValue]?) -> Bool {
         definitions?[name] != nil
-    }
-
-    private func parseAddress(_ target: String) -> (group: String, first: Int, last: Int)? {
-        guard let open = target.firstIndex(of: "["), target.last == "]" else { return nil }
-        let group = String(target[..<open])
-        let body = String(target[target.index(after: open)..<target.index(before: target.endIndex)])
-        let parts = body.components(separatedBy: "..")
-        if parts.count == 1, let value = Int(parts[0]) { return (group, value, value) }
-        if parts.count == 2, let first = Int(parts[0]), let last = Int(parts[1]) { return (group, first, last) }
-        return nil
     }
 
     private func bitLength(ofHex digits: String) -> Int {

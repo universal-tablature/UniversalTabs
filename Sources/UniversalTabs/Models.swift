@@ -182,7 +182,8 @@ public struct PerformanceEvent: Codable, Sendable {
     public let type: String?
     public let action: String?
     public let gesture: String?
-    public let target: JSONValue?
+    public let target: String?
+    public let targets: [String]?
     public let parameter: String?
     public let parameters: [String: JSONValue]?
     public let techniques: [String]?

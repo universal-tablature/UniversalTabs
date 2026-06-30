@@ -9,6 +9,17 @@ import Testing
     #expect(Pitch.midiNote("not-a-pitch") == nil)
 }
 
+@Test func parsesCanonicalActuatorTargets() throws {
+    #expect(try ActuatorTarget(parsing: "strings").selector == nil)
+    #expect(try ActuatorTarget(parsing: "strings[2]").selector == .index(2))
+    #expect(try ActuatorTarget(parsing: "strings[1..5]").selector == .range(1...5))
+    #expect(try ActuatorTarget(parsing: "toneFields[\"ding\"]").selector == .member("ding"))
+    #expect(try ActuatorTarget(parsing: "manuals.upper.keys[3]").groupPath == "manuals.upper.keys")
+    #expect(throws: ActuatorTargetError.self) { try ActuatorTarget(parsing: "strings[0]") }
+    #expect(throws: ActuatorTargetError.self) { try ActuatorTarget(parsing: "strings[5..1]") }
+    #expect(throws: ActuatorTargetError.self) { try ActuatorTarget(parsing: "ding field") }
+}
+
 @Test func writesStandardMIDIHeader() {
     let data = StandardMIDIFile.make(conductor: [], tracks: [[]])
     #expect(String(data: data.prefix(4), encoding: .ascii) == "MThd")
@@ -16,7 +27,7 @@ import Testing
 }
 
 @Test func convertsMinimalDocument() throws {
-    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"profiles":[{"id":"p","name":"Xylophone","actuators":{"bars":{"members":[{"id":"c","pitch":"C4"}]}},"interactions":{"strike":{}}}],"instruments":[{"id":"i","profile":"p"}]},"tracks":[{"id":"t","instrument":"i","events":[{"at":{"musical":{"measure":1,"beat":1}},"action":"strike","target":"c"}]}]}"#
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"profiles":[{"id":"p","name":"Xylophone","actuators":{"bars":{"members":[{"id":"c","pitch":"C4"}]}},"interactions":{"strike":{}}}],"instruments":[{"id":"i","profile":"p"}]},"tracks":[{"id":"t","instrument":"i","events":[{"at":{"musical":{"measure":1,"beat":1}},"action":"strike","target":"bars[\"c\"]"}]}]}"#
     let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
     #expect(result.midi.starts(with: Data("MThd".utf8)))
     #expect(result.diagnostics.isEmpty)

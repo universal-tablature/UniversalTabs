@@ -238,6 +238,53 @@ Open questions:
   actuator banks?
 * Should common named fingerings be aliases for bitset values?
 
+== Actuator target syntax
+
+Event and state-change targets use a canonical path-and-selector syntax:
+
+[source]
+----
+target     = path [ selector ]
+path       = identifier *( "." identifier )
+selector   = "[" index "]"
+           / "[" index ".." index "]"
+           / "[" json-string "]"
+identifier = ( ALPHA / "_" ) *( ALPHA / DIGIT / "_" / "-" )
+index      = non-zero-digit *DIGIT
+----
+
+Examples include:
+
+* `strings`, selecting an entire actuator group;
+* `strings[1]`, selecting one ordered actuator;
+* `strings[1..5]`, selecting an inclusive ascending range;
+* `toneFields["ding"]`, selecting a named member; and
+* `manuals.upper.keys[3]`, selecting within a composite profile path.
+
+Numeric actuator indices are one-based. Bit positions remain zero-based
+serialization details and are not target indices. Named selectors use JSON
+string escaping. Canonical targets contain no whitespace. Ranges are ascending
+and target selection does not imply action order.
+
+A bare named member does not resolve globally; its actuator group is required.
+An event targets either one expression through `target` or a non-empty array
+through `targets`, never both.
+
+[source,json]
+----
+{
+  "action": "strike",
+  "targets": [
+    "surfaces[\"snare-head\"]",
+    "surfaces[\"closed-hi-hat\"]"
+  ]
+}
+----
+
+Ordering belongs to action or gesture parameters rather than the target range.
+For example, a strum may target `strings[1..6]` and declare
+`"order": "descending-index"` separately.
+
 == Common event envelope
 
 Every event needs an identity, time, type, and payload. Its containing track
@@ -251,7 +298,7 @@ because some events are instantaneous or persist until explicitly changed.
   "at": { "musical": { "measure": 8, "beat": 1, "offset": "1/2" } },
   "type": "action",
   "action": "pluck",
-  "target": { "group": "strings", "index": 2 },
+  "target": "strings[2]",
   "parameters": { "intensity": 0.72 }
 }
 ----

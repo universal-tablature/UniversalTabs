@@ -42,10 +42,16 @@
       "id": "track:handpan",
       "instrument": "handpan-1",
       "events": [
-        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "ding", "parameters": { "intensity": 0.8 } },
-        { "at": { "musical": { "measure": 1, "beat": 1, "offset": "1/2" } }, "action": "strike", "target": "field-1", "parameters": { "intensity": 0.55 } },
-        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "field-2", "parameters": { "intensity": 0.62 } },
-        { "at": { "musical": { "measure": 1, "beat": 3 } }, "action": "strike", "target": "field-3", "parameters": { "intensity": 0.7 } }
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "toneFields[\"ding\"]", "parameters": { "intensity": 0.8 } },
+        { "at": { "musical": { "measure": 1, "beat": 1, "offset": "1/2" } }, "action": "strike", "target": "toneFields[\"field-1\"]", "parameters": { "intensity": 0.55 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "toneFields[\"field-2\"]", "parameters": { "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "action": "strike", "target": "toneFields[\"field-3\"]", "parameters": { "intensity": 0.7 } },
+        {
+          "at": { "musical": { "measure": 1, "beat": 4 } },
+          "action": "strike",
+          "targets": ["toneFields[\"ding\"]", "toneFields[\"field-2\"]"],
+          "parameters": { "intensity": 0.6 }
+        }
       ]
     }
   ]

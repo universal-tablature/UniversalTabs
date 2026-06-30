@@ -45,10 +45,10 @@
       "id": "track:xylophone",
       "instrument": "xylophone-1",
       "events": [
-        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "bar-c5", "parameters": { "mallet": 1, "intensity": 0.65 } },
-        { "at": { "musical": { "measure": 1, "beat": 1, "offset": "1/2" } }, "action": "strike", "target": "bar-d5", "parameters": { "mallet": 2, "intensity": 0.62 } },
-        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "bar-e5", "parameters": { "mallet": 1, "intensity": 0.68 } },
-        { "at": { "musical": { "measure": 1, "beat": 3 } }, "duration": { "quarterNotes": "1" }, "type": "gesture", "gesture": "roll", "target": "bar-g5", "parameters": { "rate": { "value": 12, "unit": "strikes/s" }, "intensity": 0.72 } }
+        { "at": { "musical": { "measure": 1, "beat": 1 } }, "action": "strike", "target": "bars[\"bar-c5\"]", "parameters": { "mallet": 1, "intensity": 0.65 } },
+        { "at": { "musical": { "measure": 1, "beat": 1, "offset": "1/2" } }, "action": "strike", "target": "bars[\"bar-d5\"]", "parameters": { "mallet": 2, "intensity": 0.62 } },
+        { "at": { "musical": { "measure": 1, "beat": 2 } }, "action": "strike", "target": "bars[\"bar-e5\"]", "parameters": { "mallet": 1, "intensity": 0.68 } },
+        { "at": { "musical": { "measure": 1, "beat": 3 } }, "duration": { "quarterNotes": "1" }, "type": "gesture", "gesture": "roll", "target": "bars[\"bar-g5\"]", "parameters": { "rate": { "value": 12, "unit": "strikes/s" }, "intensity": 0.72 } }
       ]
     }
   ]

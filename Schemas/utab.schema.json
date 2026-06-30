@@ -219,7 +219,13 @@
         "type": { "enum": ["action", "state", "control", "gesture"] },
         "action": { "type": "string", "minLength": 1 },
         "gesture": { "type": "string", "minLength": 1 },
-        "target": { "type": ["string", "object"] },
+        "target": { "type": "string", "minLength": 1 },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
         "parameter": { "type": "string" },
         "parameters": { "type": "object" },
         "techniques": { "type": "array", "items": { "type": "string" } },
@@ -237,10 +243,13 @@
       "additionalProperties": true,
       "anyOf": [
         { "required": ["action", "target"] },
+        { "required": ["action", "targets"] },
         { "required": ["gesture", "target"] },
+        { "required": ["gesture", "targets"] },
         { "required": ["changes"] },
         { "required": ["target", "parameter", "curve"] }
-      ]
+      ],
+      "not": { "required": ["target", "targets"] }
     },
     "stateChange": {
       "type": "object",

@@ -154,7 +154,8 @@ public final class UTabMIDIConverter {
 
             let action = event.action
             let gesture = event.gesture
-            let target = string(event.target)
+            let eventTargets = event.targets ?? event.target.map { [$0] } ?? []
+            let target = eventTargets.first
             let parameters = event.parameters ?? [:]
 
             if action == "setPosition", let target,
@@ -209,52 +210,29 @@ public final class UTabMIDIConverter {
                 continue
             }
 
-            guard let action, let target else { continue }
+            guard let action, !eventTargets.isEmpty else { continue }
             if action == "pluck" || action == "bow" {
-                let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
-                let stringIndex = targetIndex(target, group: group)
-                let note = pitchesFromBitsets[target] ?? stringIndex.flatMap {
-                    stringNote(
-                        index: $0,
-                        tuning: tuning,
-                        order: indexOrder,
-                        fret: frets[$0] ?? 0,
-                        ratio: ratios[$0]
-                    )
-                }
-                if let index = stringIndex, !muted.contains(index), let note {
-                    addNote(
-                        &output,
-                        tick: tick,
-                        duration: durationTicks(event),
-                        channel: midiChannel,
-                        note: note,
-                        velocity: velocity(parameters)
-                    )
-                } else {
-                    diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                for target in eventTargets {
+                    let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
+                    let stringIndex = targetIndex(target, group: group)
+                    let note = pitchesFromBitsets[target] ?? stringIndex.flatMap {
+                        stringNote(index: $0, tuning: tuning, order: indexOrder, fret: frets[$0] ?? 0, ratio: ratios[$0])
+                    }
+                    if let index = stringIndex, !muted.contains(index), let note {
+                        addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                    } else {
+                        diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                    }
                 }
             } else if action == "strike" {
-                if isDrums, let note = drumNote(target) {
-                    addNote(
-                        &output,
-                        tick: tick,
-                        duration: defaultDuration() / 2,
-                        channel: 9,
-                        note: note,
-                        velocity: velocity(parameters)
-                    )
-                } else if let note = directPitches[target] {
-                    addNote(
-                        &output,
-                        tick: tick,
-                        duration: durationTicks(event),
-                        channel: midiChannel,
-                        note: note,
-                        velocity: velocity(parameters)
-                    )
-                } else {
-                    diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                for target in eventTargets {
+                    if isDrums, let note = drumNote(target) {
+                        addNote(&output, tick: tick, duration: defaultDuration() / 2, channel: 9, note: note, velocity: velocity(parameters))
+                    } else if let note = directPitches[target] {
+                        addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                    } else {
+                        diagnostics.append("\(name): could not resolve pitch for \(target) at tick \(tick)")
+                    }
                 }
             } else if action == "sing" {
                 if let pitch = string(parameters["pitch"]), let note = Pitch.midiNote(pitch) {
@@ -471,10 +449,12 @@ public final class UTabMIDIConverter {
 
     private func collectMemberPitches(_ profile: InstrumentProfile) -> [String: Int] {
         var result: [String: Int] = [:]
-        for actuator in profile.actuators?.values ?? Dictionary<String, ActuatorDefinition>().values {
+        for (group, actuator) in profile.actuators ?? [:] {
             for member in actuator.members ?? [] {
                 if let pitch = member.pitch, let note = Pitch.midiNote(pitch) {
-                    result[member.id] = note
+                    let encoded = try? JSONEncoder().encode(member.id)
+                    let quoted = encoded.flatMap { String(data: $0, encoding: .utf8) } ?? "\"\(member.id)\""
+                    result["\(group)[\(quoted)]"] = note
                 }
             }
         }
@@ -528,7 +508,10 @@ public final class UTabMIDIConverter {
     }
 
     private func drumNote(_ target: String) -> Int? {
-        ["kick": 36, "snare-head": 38, "closed-hi-hat": 42, "crash": 49][target]
+        guard let parsed = try? ActuatorTarget(parsing: target),
+              case .member(let member) = parsed.selector,
+              parsed.groupPath == "surfaces" else { return nil }
+        return ["kick": 36, "snare-head": 38, "closed-hi-hat": 42, "crash": 49][member]
     }
 
     private func program(for profileName: String) -> Int {

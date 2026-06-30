@@ -77,6 +77,10 @@ assign stable identifiers to normative requirements.
 * An event MUST identify its time and belong to exactly one track.
 * An actuator event MUST identify an action and its target actuator or actuator
   group.
+* Actuator targets MUST use a canonical, unambiguous syntax supporting group
+  paths, one-based indices, inclusive ranges, and named members.
+* Events MUST support either one target or an explicit list of targets, but
+  MUST NOT contain both forms.
 * Events MUST support instantaneous actions, durations, and continuous values.
 * Events MUST be able to change persistent state independently of sound
   excitation. For example, guitar fingering and strumming are separate
