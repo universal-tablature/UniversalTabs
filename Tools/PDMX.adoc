@@ -1,0 +1,36 @@
+= PDMX Tablature Indexer
+
+`utab-pdmx-index` scans PDMX compressed MusicXML files and writes one JSON
+object per detected tablature score. JSON Lines keeps memory usage bounded and
+allows the output to be processed incrementally.
+
+Build and run a small sample:
+
+[source,shell]
+----
+xcrun swift build
+.build/debug/utab-pdmx-index --subset all_valid --limit 1000 PDMX pdmx-tabs.jsonl
+----
+
+Run the complete valid corpus:
+
+[source,shell]
+----
+.build/release/utab-pdmx-index PDMX pdmx-tabs.jsonl
+----
+
+For a faster initial corpus, use `--subset rated_deduplicated`. Available
+subset names correspond to files under `PDMX/subset_paths/`.
+
+The index records the source metadata path, MXL path, internal XML entry,
+compressed and uncompressed sizes, and detection evidence. Current evidence is:
+
+* `staff-type` for a tablature staff type;
+* `tab-clef` for a TAB clef; and
+* `technical-string-fret` when technical notation contains both string and
+  fret elements.
+
+Detection intentionally does not require all three markers because real-world
+MusicXML producers vary. Later conformance selection should prefer entries
+with multiple evidence types and combine the index with PDMX licensing and
+public-domain metadata.
