@@ -76,6 +76,46 @@ The `tracks` section contains the actual performance events.
 }
 ----
 
+=== Descriptive metadata
+
+The descriptive metadata model deliberately follows MusicXML's score-level
+metadata closely enough to support loss-minimizing interchange. A generic
+`title` remains available for simple consumers, while work and movement titles
+retain their distinct meanings. Contributors and rights entries are arrays
+because MusicXML permits repeated values and attaches a role or type to each.
+
+[source,json]
+----
+{
+  "utab": {
+    "version": "0.1-draft",
+    "title": "Prelude",
+    "work": { "number": "Op. 1", "title": "Tab Studies" },
+    "movement": { "number": "1", "title": "Prelude" },
+    "contributors": [
+      { "name": "Example Composer", "role": "composer" },
+      { "name": "Example Arranger", "role": "arranger" }
+    ],
+    "rights": [{ "text": "Public domain", "type": "music" }],
+    "source": "Example source",
+    "relations": ["urn:example:related-score"],
+    "encoding": {
+      "date": "2026-07-02",
+      "software": ["Example Editor"],
+      "encoders": ["Example Encoder"],
+      "description": "Manually checked tablature"
+    },
+    "miscellaneous": { "difficulty": "1" }
+  }
+}
+----
+
+`contributors[].role`, `rights[].type`, and miscellaneous keys are open
+vocabularies. Importers shall preserve values they do not recognize. The
+legacy `authors` array is retained for compatibility, but new documents should
+use `contributors` so that composer, lyricist, arranger, editor, and other
+roles are not flattened.
+
 `setup` is not merely descriptive metadata. Profile selection, instrument
 configuration, and the time map directly affect the interpretation of track
 events. Profiles may be referenced or embedded, subject to rules still to be

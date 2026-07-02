@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">
+  <work><work-number>Op. 1</work-number><work-title>Tab Studies</work-title></work>
+  <movement-number>1</movement-number>
+  <movement-title>Prelude</movement-title>
+  <identification>
+    <creator type="composer">Example Composer</creator>
+    <creator type="arranger">Example Arranger</creator>
+    <rights type="music">Public domain</rights>
+    <encoding><encoder>Test Encoder</encoder><encoding-date>2026-07-02</encoding-date><software>TestApp</software><encoding-description>Test fixture</encoding-description></encoding>
+    <source>Example source</source>
+    <relation>urn:example:related-score</relation>
+    <miscellaneous><miscellaneous-field name="difficulty">1</miscellaneous-field></miscellaneous>
+  </identification>
   <part-list><score-part id="P1"><part-name>Guitar</part-name></score-part></part-list>
   <part id="P1">
     <measure number="1">

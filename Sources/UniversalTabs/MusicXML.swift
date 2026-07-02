@@ -29,7 +29,9 @@ public enum MusicXMLInterchange {
     public static func exportDocument(_ data: Data) throws -> MusicXMLResult {
         let document = try JSONDecoder().decode(UTabDocument.self, from: data)
         var diagnostics: [String] = []
-        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 4.0 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n<score-partwise version=\"4.0\"><part-list>"
+        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 4.0 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n<score-partwise version=\"4.0\">"
+        xml += metadataXML(document.utab)
+        xml += "<part-list>"
         for (index, track) in document.tracks.enumerated() {
             xml += "<score-part id=\"P\(index + 1)\"><part-name>\(escape(track.name ?? track.id))</part-name></score-part>"
         }
@@ -67,15 +69,61 @@ public enum MusicXMLInterchange {
     private static func targetIndex(_ target: String) -> Int? {
         guard let parsed = try? ActuatorTarget(parsing: target), case .index(let value) = parsed.selector, parsed.groupPath == "strings" else { return nil }; return value
     }
+    private static func metadataXML(_ metadata: UTabMetadata) -> String {
+        var xml = ""
+        if let work = metadata.work {
+            var body = ""
+            if let value = work.number { body += "<work-number>\(escape(value))</work-number>" }
+            if let value = work.title { body += "<work-title>\(escape(value))</work-title>" }
+            if let value = work.opus { body += "<opus xlink:href=\"\(escape(value))\"/>" }
+            if !body.isEmpty { xml += "<work>\(body)</work>" }
+        }
+        if let value = metadata.movement?.number { xml += "<movement-number>\(escape(value))</movement-number>" }
+        if let value = metadata.movement?.title ?? (metadata.work?.title == nil ? metadata.title : nil) { xml += "<movement-title>\(escape(value))</movement-title>" }
+        let contributors = metadata.contributors ?? metadata.authors?.map { UTabContributor(name: $0, role: nil) }
+        let hasIdentification = contributors != nil || metadata.rights != nil || metadata.source != nil || metadata.relations != nil || metadata.encoding != nil || metadata.miscellaneous != nil
+        if hasIdentification {
+            xml += "<identification>"
+            for contributor in contributors ?? [] {
+                let type = contributor.role.map { " type=\"\(escape($0))\"" } ?? ""
+                xml += "<creator\(type)>\(escape(contributor.name))</creator>"
+            }
+            for rights in metadata.rights ?? [] {
+                let type = rights.type.map { " type=\"\(escape($0))\"" } ?? ""
+                xml += "<rights\(type)>\(escape(rights.text))</rights>"
+            }
+            if let encoding = metadata.encoding {
+                xml += "<encoding>"
+                for encoder in encoding.encoders ?? [] { xml += "<encoder>\(escape(encoder))</encoder>" }
+                if let value = encoding.date { xml += "<encoding-date>\(escape(value))</encoding-date>" }
+                for software in encoding.software ?? [] { xml += "<software>\(escape(software))</software>" }
+                if let value = encoding.description { xml += "<encoding-description>\(escape(value))</encoding-description>" }
+                xml += "</encoding>"
+            }
+            if let value = metadata.source { xml += "<source>\(escape(value))</source>" }
+            for relation in metadata.relations ?? [] { xml += "<relation>\(escape(relation))</relation>" }
+            if let miscellaneous = metadata.miscellaneous, !miscellaneous.isEmpty {
+                xml += "<miscellaneous>"
+                for item in miscellaneous.sorted(by: { $0.key < $1.key }) { xml += "<miscellaneous-field name=\"\(escape(item.key))\">\(escape(item.value))</miscellaneous-field>" }
+                xml += "</miscellaneous>"
+            }
+            xml += "</identification>"
+        }
+        return xml
+    }
     private static func escape(_ value: String) -> String { value.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;") }
 }
 
 private final class Reader: NSObject, XMLParserDelegate {
     struct Note { var measure = 1; var tick = 0; var duration = 0; var voice = 1; var staff = 1; var string: Int?; var fret: Int?; var chord = false; var rest = false; var grace = false }
     var root = ""; var diagnostics: [String] = []; var divisions = 1; var part = ""; var measure = 1; var measureOrdinal = 0; var cursor = 0; var lastStart = 0
-    var notes: [String: [Note]] = [:]; var current: Note?; var text = ""; var stack: [String] = []
+    var notes: [String: [Note]] = [:]; var current: Note?; var text = ""; var stack: [String] = []; var attributeStack: [[String:String]] = []
+    var workNumber: String?; var workTitle: String?; var opus: String?; var movementNumber: String?; var movementTitle: String?
+    var contributors: [[String:String]] = []; var rights: [[String:String]] = []; var source: String?; var relations: [String] = []
+    var encoders: [String] = []; var encodingDate: String?; var software: [String] = []; var encodingDescription: String?; var miscellaneous: [String:String] = [:]
     func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes attributeDict: [String:String] = [:]) {
-        if root.isEmpty { root = name }; stack.append(name); text = ""
+        if root.isEmpty { root = name }; stack.append(name); attributeStack.append(attributeDict); text = ""
+        if name == "opus" { opus = attributeDict["xlink:href"] ?? attributeDict["href"] }
         if name == "part" { part = attributeDict["id"] ?? "part"; notes[part, default: []] = []; measureOrdinal = 0 }
         if name == "measure" { measureOrdinal += 1; measure = measureOrdinal; cursor = 0 }
         if name == "note" { current = Note(measure: measure, tick: cursor) }
@@ -86,6 +134,21 @@ private final class Reader: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, foundCharacters string: String) { text += string }
     func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attributes = attributeStack.last ?? [:]
+        let scoreLevel = !stack.contains("score-part")
+        if scoreLevel && name == "work-number" && !value.isEmpty { workNumber = value }
+        if scoreLevel && name == "work-title" && !value.isEmpty { workTitle = value }
+        if scoreLevel && name == "movement-number" && !value.isEmpty { movementNumber = value }
+        if scoreLevel && name == "movement-title" && !value.isEmpty { movementTitle = value }
+        if scoreLevel && name == "creator" && !value.isEmpty { var item = ["name":value]; if let role = attributes["type"] { item["role"] = role }; contributors.append(item) }
+        if scoreLevel && name == "rights" && !value.isEmpty { var item = ["text":value]; if let type = attributes["type"] { item["type"] = type }; rights.append(item) }
+        if scoreLevel && name == "source" && !value.isEmpty { source = value }
+        if scoreLevel && name == "relation" && !value.isEmpty { relations.append(value) }
+        if scoreLevel && name == "encoder" && !value.isEmpty { encoders.append(value) }
+        if scoreLevel && name == "encoding-date" && !value.isEmpty { encodingDate = value }
+        if scoreLevel && name == "software" && !value.isEmpty { software.append(value) }
+        if scoreLevel && name == "encoding-description" && !value.isEmpty { encodingDescription = value }
+        if scoreLevel && name == "miscellaneous-field", let key = attributes["name"], !value.isEmpty { miscellaneous[key] = value }
         if name == "divisions", let number = Int(value) { divisions = number }
         if name == "duration", let number = Int(value) {
             if current != nil { current?.duration = number }
@@ -97,7 +160,7 @@ private final class Reader: NSObject, XMLParserDelegate {
         if name == "voice", let number = Int(value) { current?.voice = number }
         if name == "staff", let number = Int(value) { current?.staff = number }
         if name == "note", let note = current { notes[part, default: []].append(note); lastStart = note.tick; if !note.chord { cursor += note.duration }; current = nil }
-        _ = stack.popLast(); text = ""
+        _ = stack.popLast(); _ = attributeStack.popLast(); text = ""
     }
     func makeUTab() throws -> Data {
         var tracks: [[String:Any]] = []
@@ -127,7 +190,20 @@ private final class Reader: NSObject, XMLParserDelegate {
             }
         }
         guard !tracks.isEmpty else { throw MusicXMLError.unsupported("MusicXML contains no importable string/fret tablature events") }
-        let root: [String:Any] = ["utab":["version":"0.1-draft","title":"MusicXML import"],"setup":["profiles":[["id":"profile:fretted-string","name":"Fretted String","actuators":["strings":["count":stringCount]],"interactions":["pluck":[:]]]],"instruments":instruments],"tracks":tracks]
+        var metadata: [String:Any] = ["version":"0.1-draft", "title":movementTitle ?? workTitle ?? "MusicXML import"]
+        if workNumber != nil || workTitle != nil || opus != nil { metadata["work"] = compact(["number":workNumber,"title":workTitle,"opus":opus]) }
+        if movementNumber != nil || movementTitle != nil { metadata["movement"] = compact(["number":movementNumber,"title":movementTitle]) }
+        if !contributors.isEmpty { metadata["contributors"] = contributors }
+        if !rights.isEmpty { metadata["rights"] = rights }
+        if let source { metadata["source"] = source }
+        if !relations.isEmpty { metadata["relations"] = relations }
+        let encoding = compact(["date":encodingDate,"software":software.isEmpty ? nil : software,"encoders":encoders.isEmpty ? nil : encoders,"description":encodingDescription])
+        if !encoding.isEmpty { metadata["encoding"] = encoding }
+        if !miscellaneous.isEmpty { metadata["miscellaneous"] = miscellaneous }
+        let root: [String:Any] = ["utab":metadata,"setup":["profiles":[["id":"profile:fretted-string","name":"Fretted String","actuators":["strings":["count":stringCount]],"interactions":["pluck":[:]]]],"instruments":instruments],"tracks":tracks]
         return try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted,.sortedKeys])
+    }
+    private func compact(_ values: [String: Any?]) -> [String: Any] {
+        values.reduce(into: [:]) { result, item in if let value = item.value { result[item.key] = value } }
     }
 }

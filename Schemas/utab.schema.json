@@ -33,7 +33,48 @@
         "version": { "type": "string", "minLength": 1 },
         "documentId": { "$ref": "#/$defs/identifier" },
         "title": { "type": "string" },
-        "authors": { "type": "array", "items": { "type": "string" } }
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "work": {
+          "type": "object",
+          "properties": {
+            "number": { "type": "string" }, "title": { "type": "string" }, "opus": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "movement": {
+          "type": "object",
+          "properties": { "number": { "type": "string" }, "title": { "type": "string" } },
+          "additionalProperties": true
+        },
+        "contributors": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["name"],
+            "properties": { "name": { "type": "string" }, "role": { "type": "string" } },
+            "additionalProperties": true
+          }
+        },
+        "rights": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["text"],
+            "properties": { "text": { "type": "string" }, "type": { "type": "string" } },
+            "additionalProperties": true
+          }
+        },
+        "source": { "type": "string" },
+        "relations": { "type": "array", "items": { "type": "string" } },
+        "encoding": {
+          "type": "object",
+          "properties": {
+            "date": { "type": "string" },
+            "software": { "type": "array", "items": { "type": "string" } },
+            "encoders": { "type": "array", "items": { "type": "string" } },
+            "description": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "miscellaneous": { "type": "object", "additionalProperties": { "type": "string" } }
       },
       "additionalProperties": true
     },

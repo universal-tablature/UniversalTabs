@@ -42,6 +42,42 @@ public struct UTabMetadata: Codable, Sendable {
     public let documentId: String?
     public let title: String?
     public let authors: [String]?
+    public let work: UTabWorkMetadata?
+    public let movement: UTabMovementMetadata?
+    public let contributors: [UTabContributor]?
+    public let rights: [UTabRights]?
+    public let source: String?
+    public let relations: [String]?
+    public let encoding: UTabEncodingMetadata?
+    public let miscellaneous: [String: String]?
+}
+
+public struct UTabWorkMetadata: Codable, Sendable {
+    public let number: String?
+    public let title: String?
+    public let opus: String?
+}
+
+public struct UTabMovementMetadata: Codable, Sendable {
+    public let number: String?
+    public let title: String?
+}
+
+public struct UTabContributor: Codable, Sendable {
+    public let name: String
+    public let role: String?
+}
+
+public struct UTabRights: Codable, Sendable {
+    public let text: String
+    public let type: String?
+}
+
+public struct UTabEncodingMetadata: Codable, Sendable {
+    public let date: String?
+    public let software: [String]?
+    public let encoders: [String]?
+    public let description: String?
 }
 
 public struct PerformanceSetup: Codable, Sendable {
