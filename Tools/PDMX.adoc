@@ -34,3 +34,17 @@ Detection intentionally does not require all three markers because real-world
 MusicXML producers vary. Later conformance selection should prefer entries
 with multiple evidence types and combine the index with PDMX licensing and
 public-domain metadata.
+
+== Batch import
+
+Convert every indexed archive into a separate Universal Tabs document:
+
+[source,shell]
+----
+.build/debug/utab-pdmx-import pdmx-tabs.jsonl PDMX pdmx-utab
+----
+
+The output directory contains files named by their PDMX content hash and a
+`manifest.jsonl`. Each manifest record preserves the source paths and evidence,
+and records conversion diagnostics or the conversion error. A nonzero exit
+status indicates that at least one indexed file failed conversion.
