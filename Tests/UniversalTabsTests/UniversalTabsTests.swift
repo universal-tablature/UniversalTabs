@@ -74,3 +74,14 @@ import Testing
     #expect(result.midi.filter { $0 == 0x90 }.count == 4)
     #expect(result.midi.filter { $0 == 0x91 }.count == 4)
 }
+
+@Test func importsAndExportsSimpleMusicXMLTab() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let fixture = root.appendingPathComponent("Tests/Fixtures/simple-tab.musicxml")
+    let imported = try MusicXMLInterchange.importDocument(Data(contentsOf: fixture))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    #expect(document.tracks.count == 1)
+    #expect(document.tracks[0].events?.count == 2)
+    let exported = try MusicXMLInterchange.exportDocument(imported.data)
+    #expect(String(data: exported.data, encoding: .utf8)?.contains("<string>3</string><fret>5</fret>") == true)
+}
