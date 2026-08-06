@@ -46,10 +46,10 @@ sample mappings, velocity layers, round robins, envelopes, keyswitches, and
 related sampler behavior. It does not describe UTAB performance mechanics and
 should not replace instrument profiles.
 
-The preferred reusable codebase to evaluate first is the sfztools project,
-particularly `sfztools/sfizz`. `sfizz` provides an SFZ parser and C++ synth
-library, with plug-in/UI code split into `sfztools/sfizz-ui`. The library is a
-better fit for deterministic offline rendering and direct engine integration;
+The preferred reusable codebase to evaluate first is the sfztools project. The
+repository vendors `sfztools/sfizz-ui` at `Vendor/sfizz-ui`; that project uses
+the `sfizz` library and provides AU, LV2, Pure Data, and VST3 plug-ins. Direct
+library integration is a better fit for deterministic offline rendering, while
 the plug-in path is useful for host-based preview.
 
 Practical integration requirements:
@@ -90,7 +90,8 @@ mechanics. A later rendering-profile model can describe these choices without
 making them required for playability analysis.
 
 The initial concrete integration candidate is
-`sdatkinson/NeuralAmpModelerPlugin`, an open-source Neural Amp Modeler plug-in
+`sdatkinson/NeuralAmpModelerPlugin`, vendored at
+`Vendor/NeuralAmpModelerPlugin`. It is an open-source Neural Amp Modeler plug-in
 built with iPlug2. Its relevant formats for this project are VST3 and
 AudioUnit. The renderer should treat this as a hosted plug-in or signal-chain
 component, not as a UTAB instrument profile.

@@ -31,6 +31,7 @@ performance unless promoted into the format specification.
 * xref:ProfileWorkbench.adoc[Profile workbench]
 * xref:Corpus.adoc[Corpus and conformance tools]
 * xref:Developer.adoc[Developer tooling]
+* xref:VendorDependencies.adoc[Vendor renderer dependencies]
 * xref:PDMX.adoc[PDMX tablature indexer and importer]
 
 == General requirements

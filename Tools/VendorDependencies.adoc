@@ -1,0 +1,80 @@
+= Vendor Renderer Dependencies
+
+Status: exploratory, non-normative.
+
+The repository vendors renderer-related third-party code as git submodules
+under `Vendor/`. These dependencies are tooling dependencies, not part of the
+UTAB core format.
+
+== Submodules
+
+`Vendor/sfizz-ui`::
+  SFZ plug-ins using the `sfizz` library. The local license file identifies the
+  project as BSD 2-Clause. The README describes AU, LV2, Pure Data, and VST3
+  plug-ins and points to C and C++ API bindings for direct library integration.
+
+`Vendor/NeuralAmpModelerPlugin`::
+  Neural Amp Modeler VST3/AudioUnit plug-in built with iPlug2. The local
+  license file identifies the project as MIT licensed. The README states support
+  for Windows 10 or later and macOS 10.15 or later.
+
+== Requirements
+
+* Renderer integration code SHOULD keep third-party dependency boundaries
+  explicit.
+* The portable Swift UTAB model, schemas, validators, MIDI exporter, and
+  MusicXML tools SHOULD NOT depend directly on platform-specific plug-in code.
+* SwiftPM SHOULD NOT directly build AudioUnit, VST3, or app plug-in bundles.
+  Vendor plug-ins should be built through their native build systems and, if
+  needed, orchestrated by repository-level wrapper scripts.
+* Build scripts SHOULD initialize nested submodules where required by the
+  vendored projects.
+* License files from vendored projects MUST remain present when source or
+  binaries are redistributed.
+* Renderer code SHOULD support disabling optional vendor-backed features at
+  build time.
+* The project SHOULD distinguish direct library integration from plug-in
+  hosting. These have different build, runtime, licensing, and portability
+  tradeoffs.
+
+== Integration direction
+
+Use `sfizz`/SFZ first for sampled-instrument playback. It gives the project a
+sample renderer without requiring a custom sampler implementation.
+
+Use Neural Amp Modeler for electric guitar and bass tone shaping after the dry
+instrument performance has been lowered to audio. NAM should be treated as a
+signal-chain component, not as the source of UTAB performance semantics.
+
+== Build orchestration
+
+The Swift package should remain responsible for Swift library and CLI targets:
+parsing, validation, MIDI export, MusicXML import/export, and corpus utilities.
+
+Vendor renderer builds should remain separate:
+
+`Vendor/sfizz-ui`::
+  Build with CMake. The CMake project controls AU, VST3, LV2, Pure Data, and
+  library/plugin options. Wrapper scripts may select the subset needed by this
+  project, such as AU plus VST3 on macOS or direct library builds for offline
+  rendering.
+
+`Vendor/NeuralAmpModelerPlugin`::
+  Build with the vendor Xcode/iPlug2 project and scripts. The macOS project
+  builds AudioUnit, VST3, app, and related targets. Wrapper scripts should avoid
+  installing into user or system plug-in folders unless explicitly requested.
+
+Repository-level scripts may orchestrate these native builds, but they should
+produce artifacts under `.build/vendor/` or another explicit output directory
+by default. Installing plug-ins into `~/Library/Audio/Plug-Ins` or
+`/Library/Audio/Plug-Ins` should be a separate, explicit step.
+
+Initial wrapper scripts:
+
+* `scripts/build-vendor-sfizz.sh`
+* `scripts/build-vendor-nam.sh`
+* `scripts/build-vendor-renderers.sh`
+
+These scripts keep build products local by default. They are intentionally
+outside `Package.swift`; SwiftPM should not become responsible for plug-in
+bundle packaging.
