@@ -18,5 +18,15 @@ The use cases are:
 
 * Robotic performance of instruments, e.g. for museums.
 
-* Improved AI music generation, i.e. no music requiring 11 fingers to play, or 3 hands, or 2 mouths, or 4 arms.
+* AI-assisted composition and arrangement tools that preserve editable musical
+  structure instead of only producing audio samples.
 
+* Playability-aware generation and repair, i.e. no music requiring 11 fingers
+  to play, 3 hands, 2 mouths, or impossible actuator transitions.
+
+* Musical IDE workflows where sections, chord annotations, instrument
+  realizations, tablature, MIDI, and MusicXML exports can be edited and
+  regenerated independently.
+
+See xref:Tools/Overview.adoc[tooling requirements] for non-format software
+requirements.

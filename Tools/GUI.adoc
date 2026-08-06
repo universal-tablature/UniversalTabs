@@ -1,0 +1,27 @@
+= Graphical Application Overview
+
+Status: exploratory, non-normative.
+
+The project has three major GUI products: an editor, a learning app, and a
+musical IDE. They share the same UTAB core but have different priorities.
+
+== Shared requirements
+
+* GUI applications SHOULD use the same parser, validator, arrangement expander,
+  and renderer backends as command-line tools where practical.
+* GUI applications SHOULD preserve manual edits and stable identifiers.
+* GUI applications SHOULD provide localized preview for sections, arrangement
+  entries, tracks, and selected event ranges.
+* GUI applications SHOULD show diagnostics at the musical object they refer to.
+* GUI applications SHOULD distinguish source UTAB data from generated previews,
+  cached renderings, and export artifacts.
+
+== Product documents
+
+* xref:Editor.adoc[UTAB editor]
+* xref:LearningApp.adoc[Learning app]
+* xref:IDE.adoc[Musical IDE]
+* xref:ProfileWorkbench.adoc[Profile workbench]
+
+The profile workbench may ship as part of the editor or IDE, but it has a
+distinct responsibility and therefore gets a separate requirements document.

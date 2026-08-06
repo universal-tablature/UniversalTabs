@@ -1,0 +1,58 @@
+= Validation and Analysis Tool Requirements
+
+Status: exploratory, non-normative.
+
+Validation tools determine whether a UTAB document is structurally valid,
+semantically coherent, physically realizable for an instrument, and optionally
+playable for a given performer profile.
+
+== Validation layers
+
+Validation should be layered:
+
+. JSON/schema validation.
+. Identifier and reference validation.
+. Profile/action/actuator target validation.
+. Time, section, repeat, and arrangement validation.
+. Pitch, tuning, and derived-result validation.
+. Instrument physical constraint validation.
+. Optional performer-capability validation.
+. Renderer/export compatibility validation.
+
+Each layer should be independently reportable where practical. A document may
+be valid UTAB but still unsuitable for a particular renderer or performer.
+
+== Requirements
+
+* Validators MUST distinguish errors from warnings.
+* Validators SHOULD provide stable diagnostic codes.
+* Validators SHOULD provide document paths for affected data.
+* Validators SHOULD distinguish core-format failures from profile-specific
+  failures.
+* Validators SHOULD distinguish instrument constraints from performer
+  constraints.
+* Validators SHOULD support validating either a whole document or a localized
+  region such as one section, arrangement entry, track, or event range.
+* Validators SHOULD be deterministic and suitable for automated tests.
+* Validators SHOULD be able to expand sections and repeats for diagnostic
+  purposes without rewriting the source document.
+
+== Analysis tools
+
+Analysis tools derive useful views from UTAB without necessarily changing it:
+
+* arrangement expansion views;
+* active actuator state at a given musical position;
+* pitch-result derivation;
+* playable range and position maps;
+* chord/voicing analysis;
+* technique density and difficulty estimates;
+* unsupported-feature reports for a selected renderer; and
+* source-to-rendered-output trace maps.
+
+== Output model
+
+Diagnostic and analysis output should be serializable separately from the UTAB
+document. A tool may embed diagnostics in a working document for IDE workflows,
+but playback-only consumers should be able to ignore them.
+

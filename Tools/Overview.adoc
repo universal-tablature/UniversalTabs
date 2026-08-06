@@ -1,0 +1,64 @@
+= Universal Tabs Tooling Requirements
+
+Status: exploratory, non-normative.
+
+This directory describes tools around the UTAB format. These documents are not
+the format specification. They describe expected applications, command-line
+tools, services, and workflows that read, validate, transform, render, or author
+UTAB documents.
+
+The main boundary is:
+
+* `Requirements/` defines what a UTAB document means.
+* `Tools/` defines software that operates on UTAB documents.
+
+Tooling should preserve the format's core design principle: musical intent,
+instrument performance mechanics, and renderer-specific output details remain
+separable. A tool may add metadata, diagnostics, cached renderings, or export
+hints, but those additions should not become required for interpreting the core
+performance unless promoted into the format specification.
+
+== Tool families
+
+* xref:CLI.adoc[Command-line and interchange tools]
+* xref:Validation.adoc[Validation and analysis tools]
+* xref:Transformations.adoc[Transformation and refinement tools]
+* xref:Synthesis.adoc[Rendering and synthesis tools]
+* xref:GUI.adoc[Graphical application overview]
+* xref:Editor.adoc[UTAB editor]
+* xref:LearningApp.adoc[Learning app]
+* xref:IDE.adoc[Musical IDE]
+* xref:ProfileWorkbench.adoc[Profile workbench]
+* xref:Corpus.adoc[Corpus and conformance tools]
+* xref:Developer.adoc[Developer tooling]
+* xref:PDMX.adoc[PDMX tablature indexer and importer]
+
+== General requirements
+
+* Tools SHOULD read and write versioned UTAB documents without silently
+  discarding recognized core data.
+* Tools SHOULD report unsupported features as diagnostics rather than failing
+  without context.
+* Tools SHOULD preserve unknown extension data unless the user explicitly
+  requests normalization or loss-minimizing export to another format.
+* Tools SHOULD support non-destructive workflows: diagnose, preview, suggest,
+  apply, and save should be separable operations where practical.
+* Tools that transform UTAB SHOULD record enough provenance for a human or
+  another tool to understand what changed.
+* Tools that lower UTAB to another representation SHOULD distinguish exported
+  output from authoritative source data.
+* Batch tools SHOULD be deterministic so they can be used in regression tests
+  and corpus processing.
+
+== Initial implementation priorities
+
+The practical order is:
+
+. Maintain the existing MIDI and MusicXML interchange tools.
+. Strengthen validation and arrangement expansion diagnostics.
+. Build corpus tooling around MusicXML/PDMX imports.
+. Add transformation tools for string tablature generation and playability
+  repair.
+. Add realtime and offline preview rendering.
+. Build GUI surfaces once the core edit/validate/render loop is stable enough
+  to exercise interactively.

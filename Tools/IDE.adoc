@@ -1,0 +1,33 @@
+= Musical IDE Requirements
+
+Status: exploratory, non-normative.
+
+The musical IDE is the logical extension of the editor. It combines source
+editing, validation, transformation, rendering, and AI-assisted workflows around
+UTAB as a musical/performance intermediate representation.
+
+== Requirements
+
+* The IDE SHOULD inspect multiple layers: musical organization, performance
+  realization, constraints, diagnostics, transformations, and render outputs.
+* The IDE SHOULD regenerate or transform a selected chorus, phrase, track part,
+  voicing, or event range without overwriting unrelated material.
+* The IDE SHOULD compare alternatives and keep rejected alternatives separate
+  from the accepted source document.
+* The IDE SHOULD support accepting, rejecting, or modifying tool suggestions.
+* The IDE SHOULD display provenance and source-to-render traceability where
+  available.
+* The IDE SHOULD debug arrangement expansion, actuator state, pitch derivation,
+  and renderer lowering.
+* The IDE SHOULD run corpus or conformance checks on selected files.
+* The IDE SHOULD integrate deterministic and AI-assisted transformations
+  through the same review workflow.
+* The IDE SHOULD support localized preview so generated edits can be evaluated
+  quickly.
+
+== AI workflow boundary
+
+AI assistance should act as a transformation provider, not as an opaque audio
+generator. The IDE should preserve the user's editable UTAB structure and make
+the proposed changes reviewable.
+

@@ -15,6 +15,46 @@ requirements will be made normative and assigned stable identifiers.
 * Permit explicit low-level events as well as profile-defined gestures.
 * Keep the common event envelope small; put instrument semantics in referenced
   profiles.
+* Treat rendered notation, MIDI, and audio as lowerings from a more structured
+  musical/performance representation, not as the authoritative source model.
+* Preserve section, track, actuator, and intent boundaries so editors and AI
+  tools can make localized changes without regenerating unrelated material.
+
+== UTAB as a musical/performance IR
+
+UTAB should be viewed less like a final notation file and more like a structured
+intermediate representation. The document keeps multiple layers available at
+the same time:
+
+* musical organization: sections, arrangement entries, meter, tempo, harmony,
+  motifs, and repeated material;
+* performance mechanics: actuators, persistent state, excitation, gestures,
+  techniques, and constraints;
+* optional performer assumptions: reach, available effectors, endurance,
+  breath, or style-specific preferences; and
+* render/export metadata: MIDI programs, MusicXML notation choices, tablature
+  layout, or future audio/signal-chain hints.
+
+These layers should be connected by references rather than flattened into one
+event stream. A chord symbol, a guitar voicing, a strumming gesture, and the
+resulting MIDI notes are related, but they are not the same fact. Keeping them
+separate allows tools to answer practical questions:
+
+* Does this chorus still express the requested harmonic progression?
+* Is the selected voicing playable on the configured guitar?
+* Can this passage be rewritten to avoid a large position jump?
+* Which exported MIDI events came from a specific UTAB gesture?
+* Can only `chorus-2` be regenerated while preserving the verse, drum track,
+  and manually edited cello line?
+
+This is similar in spirit to a compiler IR stack such as MLIR: UTAB may contain
+high-level intent and lower-level realized performance in the same document,
+with tools progressively lowering, validating, optimizing, or rendering it.
+Unlike a compiler IR, the transformations are often editorial rather than
+strictly semantics-preserving. A playability repair may intentionally change a
+voicing or octave while preserving the musical role of the passage. The exact
+shape of intent, diagnostic, and transformation metadata is intentionally left
+undefined in this format sketch until the tool workflows are better understood.
 
 == Document structure
 
@@ -717,7 +757,7 @@ events.
 
 * stable identifier and reference syntax;
 * profile composition and extension namespaces;
-* pitch, tuning, temperament, and pitch-result derivation;
+* intent metadata for harmony, motifs, phrases, and track roles;
 * articulation and technique vocabularies;
 * continuous-curve interpolation;
 * event precedence and conflicting state changes;

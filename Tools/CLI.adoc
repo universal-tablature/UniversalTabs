@@ -1,0 +1,58 @@
+= Command-Line and Interchange Tool Requirements
+
+Status: exploratory, non-normative.
+
+Command-line tools provide the first practical interface for iterating on the
+format. They should remain portable, scriptable, deterministic, and suitable for
+corpus-scale batch processing.
+
+== Scope
+
+This family includes:
+
+* `utab-midi`, converting UTAB to Standard MIDI Files;
+* `utab-musicxml`, importing and exporting MusicXML;
+* future importers and exporters for notation, tablature, and DAW-oriented
+  formats; and
+* small inspection tools used by tests and corpus pipelines.
+
+== Requirements
+
+* CLI tools MUST return nonzero exit status for command-line errors and failed
+  strict conversions.
+* CLI tools SHOULD provide a strict mode that rejects lossy or semantically
+  incomplete conversions.
+* CLI tools SHOULD provide a permissive mode that emits the supported subset
+  and reports diagnostics.
+* Diagnostics SHOULD identify the source path or document object path affected.
+* Batch-capable tools SHOULD support stable machine-readable output such as
+  JSON Lines manifests.
+* Importers SHOULD preserve source metadata where a reasonable UTAB equivalent
+  exists.
+* Exporters SHOULD identify renderer-specific approximations, such as General
+  MIDI program choices.
+* Tools SHOULD avoid Apple-only APIs unless the tool is intentionally
+  platform-specific.
+
+== Interchange targets
+
+Current targets:
+
+* MIDI 1 Standard MIDI File export for broad preview compatibility.
+* MusicXML import/export for notation and tablature interchange.
+
+Likely future targets:
+
+* MIDI 2 export once pitch expression and controller semantics are stable.
+* Guitar Pro or TuxGuitar interchange if the reverse-engineering and licensing
+  cost is justified.
+* ABC or LilyPond import/export for public-domain corpus workflows.
+* DAW-oriented export packages containing MIDI, tempo maps, metadata, and
+  optional rendered stems.
+
+== Non-goals
+
+CLI interchange tools are not expected to provide an interactive editing
+experience. They may expose transformations, but complex review workflows
+belong in editor or IDE tools.
+

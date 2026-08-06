@@ -1,0 +1,54 @@
+= Corpus and Conformance Tool Requirements
+
+Status: exploratory, non-normative.
+
+Corpus tools use large collections such as PDMX to stress importers, validators,
+renderers, and format decisions. Conformance tools define smaller curated suites
+with stable expectations.
+
+== Corpus tooling
+
+Corpus tools should support:
+
+* indexing source datasets;
+* filtering by licensing, metadata, instrument, notation features, and
+  tablature evidence;
+* batch import to UTAB;
+* batch validation;
+* batch export and round-trip checks;
+* failure clustering;
+* unsupported-feature classification;
+* regression manifests; and
+* reproducible subsets for CI and local development.
+
+Large datasets should not be treated as conformance suites directly. They are
+stress-test inputs and sources for discovering missing cases.
+
+== Conformance suite
+
+The conformance suite should be curated, small enough to run often, and explicit
+about expected behavior.
+
+It should include:
+
+* valid and invalid UTAB documents;
+* profile-specific examples;
+* section and repeat examples;
+* pitch and tuning examples;
+* MusicXML import/export fixtures;
+* MIDI rendering fixtures;
+* transformation fixtures;
+* diagnostics fixtures; and
+* representative examples for standard and unusual instruments.
+
+== Requirements
+
+* Corpus tools SHOULD write machine-readable manifests.
+* Corpus tools SHOULD avoid rewriting source datasets.
+* Conformance fixtures SHOULD be stable and versioned with the repository.
+* Expected failures SHOULD be documented rather than silently ignored.
+* Round-trip tests SHOULD define what information must be preserved and what
+  loss is acceptable for each target format.
+* Public-domain and licensing metadata SHOULD be retained when importing corpus
+  material.
+

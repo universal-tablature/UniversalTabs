@@ -1,0 +1,68 @@
+= Transformation and Refinement Tool Requirements
+
+Status: exploratory, non-normative.
+
+Transformation tools read UTAB and produce refined UTAB. They are the main
+mechanism for making UTAB useful as an editable representation for AI-assisted
+composition and arrangement.
+
+== Scope
+
+This family includes:
+
+* quantization and timing cleanup;
+* section and repeat extraction;
+* fingering generation;
+* voicing generation;
+* tablature generation from pitch-oriented material;
+* strum, arpeggio, roll, tremolo, and trill expansion;
+* simplification for learning levels;
+* transposition and retuning;
+* playability repair; and
+* future AI-assisted localized regeneration.
+
+== Requirements
+
+* Transformations SHOULD support dry-run mode that reports proposed changes
+  without rewriting the source document.
+* Transformations SHOULD support localized operation on a section, arrangement
+  entry, track, event range, or selected objects.
+* Transformations SHOULD preserve unrelated tracks and sections exactly where
+  practical.
+* Transformations SHOULD preserve stable identifiers unless replacing an object
+  with a materially different object.
+* Transformations SHOULD report which musical intent or constraints they
+  attempted to preserve.
+* Transformations SHOULD record provenance when writing modified documents.
+* Transformations SHOULD allow policy inputs, such as target difficulty,
+  preferred position, tuning, performer profile, or style.
+* Transformations MUST NOT treat renderer output, such as MIDI notes, as the
+  only authoritative source when richer UTAB performance data is available.
+
+== Examples
+
+Useful early transformations:
+
+* Convert pitch-oriented guitar notes to string/fret choices.
+* Replace a guitar voicing that requires a large fret jump.
+* Expand a profile-defined strumming gesture into timed string excitations for
+  preview rendering.
+* Simplify a cello line by reducing position shifts while retaining phrase
+  contour.
+* Extract repeated measures into a named section and arrangement entries.
+
+== AI-assisted workflows
+
+AI tools should operate through the same transformation model as deterministic
+tools:
+
+. inspect source structure;
+. validate constraints;
+. propose localized changes;
+. render or preview changed regions;
+. preserve manual edits outside the requested scope; and
+. record enough rationale for review.
+
+This avoids treating the generated audio sample or MIDI stream as the source of
+truth.
+

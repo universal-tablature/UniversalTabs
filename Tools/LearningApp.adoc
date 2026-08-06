@@ -1,0 +1,32 @@
+= Learning App Requirements
+
+Status: exploratory, non-normative.
+
+The learning app is a guided-performance product in the style of Rocksmith,
+Yousician, and related tools. It consumes UTAB as structured source material
+for practice, feedback, and progressive difficulty.
+
+== Requirements
+
+* The learning app SHOULD present playable arrangements at selected difficulty
+  levels.
+* The learning app SHOULD scroll tablature or actuator-oriented views in time.
+* The learning app SHOULD compare performed input against expected UTAB events
+  when instrument input data is available.
+* The learning app SHOULD support tempo changes, looping, countdowns, and
+  practice sections.
+* The learning app SHOULD use simplification transforms to derive easier
+  versions where suitable.
+* The learning app SHOULD track user progress separately from the UTAB source
+  document.
+* The learning app SHOULD support instrument-specific feedback where the input
+  technology permits it.
+* The learning app SHOULD handle repeated sections and arrangement entries in a
+  way that is visible to learners.
+
+== Non-goals
+
+The learning app is not required to expose the full UTAB authoring model. It may
+hide profile details, raw event streams, transformation provenance, and advanced
+IDE diagnostics.
+

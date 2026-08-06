@@ -1,0 +1,25 @@
+= Profile Workbench Requirements
+
+Status: exploratory, non-normative.
+
+The profile workbench is a focused tool for inspecting, authoring, testing, and
+debugging instrument performance profiles. It may be delivered as part of the
+editor or IDE, but its responsibility is distinct.
+
+== Requirements
+
+* The profile workbench SHOULD display actuator maps, including nested groups,
+  ordered members, ranges, and bitset definitions.
+* The profile workbench SHOULD display geometry, tunings, interaction methods,
+  techniques, gestures, and constraints.
+* The profile workbench SHOULD validate example events against the profile.
+* The profile workbench SHOULD generate small sample UTAB snippets for profile
+  features.
+* The profile workbench SHOULD test pitch derivation from actuator state.
+* The profile workbench SHOULD test gesture expansion where the profile defines
+  gestures.
+* The profile workbench SHOULD distinguish instrument constraints from optional
+  performer defaults.
+* The profile workbench SHOULD help identify profile features that cannot yet
+  be rendered or exported by available tools.
+

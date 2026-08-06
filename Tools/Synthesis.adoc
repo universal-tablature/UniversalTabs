@@ -1,0 +1,108 @@
+= Rendering and Synthesis Tool Requirements
+
+Status: exploratory, non-normative.
+
+Rendering and synthesis tools turn UTAB into audible or inspectable output.
+They are preview and export mechanisms, not the canonical representation of the
+composition or performance mechanics.
+
+== Rendering targets
+
+Current target:
+
+* MIDI 1 Standard MIDI File export.
+
+Expected targets:
+
+* SFZ sample-library playback through a reusable sampler engine;
+* realtime Core Audio preview on Apple platforms;
+* offline audio rendering;
+* AudioUnit or other virtual instrument hosting;
+* virtual pedal and signal-chain hosting;
+* Neural Amp Modeler plug-in integration for amp/cabinet modeling;
+* per-track and per-section stem rendering; and
+* diagnostic renderings that expose actuator timing and derived pitches.
+
+== Requirements
+
+* Renderers SHOULD identify which UTAB features they support.
+* Renderers SHOULD report unsupported or approximated features as diagnostics.
+* Renderers SHOULD support rendering a localized region, such as one section or
+  arrangement entry.
+* Renderers SHOULD preserve traceability from rendered events back to UTAB
+  source events where practical.
+* Realtime renderers SHOULD prioritize low-latency preview over archival audio
+  quality.
+* Offline renderers SHOULD prioritize deterministic output and reproducibility.
+* Renderer configuration SHOULD remain separate from core instrument
+  performance semantics.
+* Signal chains SHOULD be treated as rendering configuration unless the signal
+  chain itself is being modeled as an instrument with actuators.
+
+== SFZ sampler engine
+
+SFZ is a practical sample-library format for preview instruments. It describes
+sample mappings, velocity layers, round robins, envelopes, keyswitches, and
+related sampler behavior. It does not describe UTAB performance mechanics and
+should not replace instrument profiles.
+
+The preferred reusable codebase to evaluate first is the sfztools project,
+particularly `sfztools/sfizz`. `sfizz` provides an SFZ parser and C++ synth
+library, with plug-in/UI code split into `sfztools/sfizz-ui`. The library is a
+better fit for deterministic offline rendering and direct engine integration;
+the plug-in path is useful for host-based preview.
+
+Practical integration requirements:
+
+* The renderer SHOULD be able to map UTAB tracks to SFZ instruments.
+* The renderer SHOULD lower UTAB events to note, velocity, controller, and
+  articulation events understood by the sampler engine.
+* The renderer SHOULD support offline rendering through a direct sampler engine
+  API where practical.
+* The renderer MAY support hosted sfizz plug-ins for realtime preview.
+* The renderer SHOULD keep SFZ file paths, sample-library selection, and
+  sampler settings in renderer configuration.
+* The renderer SHOULD report when a UTAB technique cannot be represented by the
+  selected SFZ instrument.
+* The renderer SHOULD support conservative SFZ features first, then expand only
+  when real preview instruments require it.
+
+The implementation boundary should be explicit:
+
+* UTAB profile: what can physically be performed.
+* UTAB events: what is performed.
+* Rendering map: how performance events are lowered to sampler events.
+* SFZ instrument: which samples are played for those sampler events.
+
+== Core Audio and virtual instruments
+
+Apple-platform preview can use Core Audio and AudioUnit hosting. These tools may
+be platform-specific, unlike the portable Swift command-line converters.
+Platform-specific rendering code should remain isolated so the core UTAB model,
+schema validation, and non-Apple CLI tools remain portable.
+
+== Neural Amp Modeler and virtual pedals
+
+Neural amp models, virtual pedals, cabinet simulation, and similar signal-chain
+components are important for convincing preview. They should not be folded into
+the core UTAB performance model for ordinary acoustic or electric instrument
+mechanics. A later rendering-profile model can describe these choices without
+making them required for playability analysis.
+
+The initial concrete integration candidate is
+`sdatkinson/NeuralAmpModelerPlugin`, an open-source Neural Amp Modeler plug-in
+built with iPlug2. Its relevant formats for this project are VST3 and
+AudioUnit. The renderer should treat this as a hosted plug-in or signal-chain
+component, not as a UTAB instrument profile.
+
+Practical integration requirements:
+
+* The renderer SHOULD be able to host AudioUnit on Apple platforms.
+* The renderer MAY support VST3 hosting if the host architecture and licensing
+  constraints are acceptable.
+* The renderer SHOULD keep NAM model selection, input gain, output gain, pedal
+  order, and cabinet/speaker choices in renderer configuration.
+* The renderer SHOULD allow dry guitar or bass performance mechanics to remain
+  stable while changing only the rendered tone.
+* Offline rendering SHOULD be able to render the same UTAB region with
+  different signal-chain presets for comparison.

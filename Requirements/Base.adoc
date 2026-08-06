@@ -154,6 +154,19 @@ architecture.
 * Instrument constraints and performer constraints MUST remain separately
   identifiable when both are present.
 
+=== Editable intermediate representation
+
+* The format SHOULD be usable as an editable intermediate representation for
+  composition, arrangement, analysis, and rendering tools.
+* Musical intent, instrument performance mechanics, and renderer-specific
+  output details MUST remain separately identifiable.
+* The format MUST preserve enough structure for localized edits. For example,
+  changing a chorus, replacing a fingering choice, or simplifying a passage
+  MUST NOT require regenerating unrelated sections or tracks.
+* Renderer-specific identifiers, including MIDI program numbers, MusicXML
+  engraving choices, audio plug-in choices, and signal-chain details, SHOULD
+  be treated as lowering metadata rather than core performance semantics.
+
 === Metadata and provenance
 
 * Documents and profiles MUST support stable identifiers and format versions.
@@ -198,6 +211,7 @@ The format is intended to support:
 * music teaching and guided-performance software;
 * tablature rendering;
 * interchange with notation and composition software;
+* structured AI-assisted composition, arrangement, and repair workflows;
 * live, electronic, and robotic performance systems;
 * preservation and study of historical performance practices; and
 * generation and validation of physically realizable performances.

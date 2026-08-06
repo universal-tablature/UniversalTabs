@@ -1,0 +1,31 @@
+= UTAB Editor Requirements
+
+Status: exploratory, non-normative.
+
+The editor is the direct authoring tool for UTAB documents. It should remain
+useful without AI-assisted workflows and should expose the document structure
+clearly enough for early format development.
+
+== Requirements
+
+* The editor SHOULD inspect and edit metadata, setup, profiles, instruments,
+  performers, sections, arrangement entries, tracks, parts, and events.
+* The editor SHOULD render conventional tablature for supported instruments.
+* The editor SHOULD support direct actuator-event editing.
+* The editor SHOULD import and export through the same interchange backends as
+  command-line tools.
+* The editor SHOULD preview selected material through available renderers.
+* The editor SHOULD validate on edit and display diagnostics at the affected
+  object.
+* The editor SHOULD expose a raw JSON view or structured object inspector while
+  the format is still evolving.
+* The editor SHOULD preserve unknown fields and extensions when saving.
+* The editor SHOULD make section-local editing explicit so manual edits to a
+  chorus, verse, or arrangement entry do not unexpectedly alter unrelated
+  material.
+
+== Non-goals
+
+The editor is not required to provide guided-performance feedback or AI
+regeneration. Those belong to the learning app and IDE respectively.
+

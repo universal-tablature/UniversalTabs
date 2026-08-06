@@ -1,0 +1,49 @@
+= Developer Tooling Requirements
+
+Status: exploratory, non-normative.
+
+Developer tooling makes UTAB practical to edit, validate, debug, and integrate
+in other applications.
+
+== Scope
+
+This family includes:
+
+* schema tooling;
+* semantic validators;
+* profile authoring helpers;
+* test fixtures and golden output generation;
+* documentation generators;
+* language-server-style editing support;
+* diff and merge tools; and
+* debug visualizers for time, arrangement expansion, actuator state, and pitch
+  derivation.
+
+== Requirements
+
+* Developer tools SHOULD expose the same validation diagnostics as end-user
+  tools.
+* Developer tools SHOULD support stable formatting or canonicalization for
+  generated JSON where useful.
+* Diff tools SHOULD understand UTAB object identity rather than only comparing
+  line-oriented JSON.
+* Merge tools SHOULD preserve unrelated track and section edits where possible.
+* Profile authoring tools SHOULD validate actuator targets, bitsets,
+  constraints, and example events.
+* Documentation generators SHOULD derive reference material from schemas and
+  profile definitions where practical.
+* Editing support SHOULD provide completion for identifiers, actuator targets,
+  actions, techniques, pitch names, and section references.
+
+== Language-server-style support
+
+An eventual editor service could provide:
+
+* validation diagnostics;
+* hover information for profile-defined actuators and actions;
+* go-to-definition for identifiers and profile references;
+* completion for actuator target syntax;
+* arrangement expansion previews;
+* pitch-result previews; and
+* quick fixes for common validation errors.
+
