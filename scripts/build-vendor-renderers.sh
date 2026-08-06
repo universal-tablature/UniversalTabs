@@ -53,9 +53,17 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$BUILD_SFIZZ" -eq 1 ]]; then
-  "$ROOT_DIR/scripts/build-vendor-sfizz.sh" "${SFIZZ_ARGS[@]}"
+  if [[ "${#SFIZZ_ARGS[@]}" -gt 0 ]]; then
+    "$ROOT_DIR/scripts/build-vendor-sfizz.sh" "${SFIZZ_ARGS[@]}"
+  else
+    "$ROOT_DIR/scripts/build-vendor-sfizz.sh"
+  fi
 fi
 
 if [[ "$BUILD_NAM" -eq 1 ]]; then
-  "$ROOT_DIR/scripts/build-vendor-nam.sh" "${NAM_ARGS[@]}"
+  if [[ "${#NAM_ARGS[@]}" -gt 0 ]]; then
+    "$ROOT_DIR/scripts/build-vendor-nam.sh" "${NAM_ARGS[@]}"
+  else
+    "$ROOT_DIR/scripts/build-vendor-nam.sh"
+  fi
 fi
