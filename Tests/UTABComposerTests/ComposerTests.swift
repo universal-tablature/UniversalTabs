@@ -1,6 +1,8 @@
 import Testing
 import UTABComposerCore
 import UTABComposerDSL
+import UTABInstrumentLibrary
+import UTABInstruments
 
 @Test func sequentialAndParallelDurationsFollowCompositionAlgebra() {
     let sequence = MusicalExpression.sequence([
@@ -81,4 +83,59 @@ import UTABComposerDSL
 
     #expect(twinkle.phrases.first?.duration == MusicalDuration(2))
     #expect(CompositionValidator().validate(twinkle).isEmpty)
+}
+
+@Test func buildsAndValidatesAHighLevelInstrumentLibrary() {
+    let frettedStrings = Profile("profile:test-fretted") {
+        Actuators("strings", count: 4)
+        Can("pluck", target: "strings", effectors: ["finger"])
+        Technique("vibrato", target: "strings")
+    }
+    let ukulele = InstrumentModel(
+        "instrument:ukulele:soprano",
+        name: "Soprano Ukulele",
+        profile: frettedStrings.id
+    ) {
+        Geometry("frets", ["count": .integer(15), "movable": .boolean(false)])
+        Default("tuning", .pitches([
+            .init(.g, octave: 4), .init(.c, octave: 4),
+            .init(.e, octave: 4), .init(.a, octave: 4),
+        ]))
+    }
+    let catalog = InstrumentLibrary {
+        frettedStrings
+        ukulele
+    }
+    let instance = ConfiguredInstrument(
+        "my-ukulele",
+        model: ukulele.id,
+        configuration: ["leftHanded": .boolean(true)]
+    )
+
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+    #expect(InstrumentCatalogValidator().validate(instance, in: catalog).isEmpty)
+    #expect(ukulele.geometry.first?.properties["count"] == .integer(15))
+}
+
+@Test func standardInstrumentLibraryIsInternallyValid() {
+    let catalog = StandardInstruments.catalog
+    #expect(catalog.profiles.count == 3)
+    #expect(catalog.models.count == 3)
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func instrumentValidationReportsInvalidTargetsAndModels() {
+    let profile = InstrumentProfileDefinition(
+        id: "profile:broken",
+        version: "0.1",
+        actuators: [.init("keys", count: 0)],
+        interactions: [.init("press", targets: ["buttons"])]
+    )
+    let catalog = InstrumentCatalog(
+        profiles: [profile],
+        models: [.init(id: "model:broken", name: "Broken", profile: "profile:missing")]
+    )
+
+    let diagnostics = InstrumentCatalogValidator().validate(catalog)
+    #expect(diagnostics.count == 3)
 }

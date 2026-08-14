@@ -7,7 +7,9 @@ let package = Package(
     products: [
         .library(name: "UniversalTabs", targets: ["UniversalTabs"]),
         .library(name: "UTABComposerCore", targets: ["UTABComposerCore"]),
+        .library(name: "UTABInstruments", targets: ["UTABInstruments"]),
         .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
+        .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
         .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
@@ -19,7 +21,9 @@ let package = Package(
     targets: [
         .target(name: "UniversalTabs"),
         .target(name: "UTABComposerCore"),
-        .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore"]),
+        .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
+        .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
+        .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabPDMXIndex", dependencies: [
@@ -33,7 +37,7 @@ let package = Package(
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",
-            dependencies: ["UTABComposerCore", "UTABComposerDSL"]
+            dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABInstrumentLibrary"]
         )
     ]
 )

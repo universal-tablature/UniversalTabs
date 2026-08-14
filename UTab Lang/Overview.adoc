@@ -243,6 +243,14 @@ scale concepts, performance constraints, validation diagnostics, and the
 the core model but is not itself the semantic IR or a specification for the
 future standalone language.
 
+`UTABInstruments`:: High-level definitions for capability profiles, concrete
+instrument models, configured project instances, actuators, interactions,
+techniques, geometry, defaults, and catalog validation.
+
+`UTABInstrumentLibrary`:: A gradually growing standard catalog authored with
+the same Swift frontend. It currently seeds fretted-string, keyboard, and
+singing-voice profiles plus guitar, piano, and generic voice models.
+
 The existing `UniversalTabs` library remains the actuator-oriented UTAB JSON
 model. A concrete core-to-UTAB lowerer should be added only once realization
 rules and the required source-map/debug-symbol representation are clearer.
