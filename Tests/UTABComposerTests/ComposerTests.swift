@@ -119,9 +119,31 @@ import UTABInstruments
 
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
-    #expect(catalog.profiles.count == 3)
-    #expect(catalog.models.count == 3)
+    #expect(catalog.tunings.count == 9)
+    #expect(catalog.profiles.count == 5)
+    #expect(catalog.models.count == 9)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func standardTuningsRepresentAlternateReentrantAndDoubledCourses() {
+    let dropD = StandardInstruments.guitarDropD
+    let dadgad = StandardInstruments.guitarDADGAD
+    let banjo = StandardInstruments.banjoOpenG
+    let lute = StandardInstruments.renaissanceLuteG
+
+    #expect(dropD.courses.first?.pitches == [AbsolutePitch(.d, octave: 2)])
+    #expect(dadgad.courses.map { $0.pitches[0].pitchClass } == [.d, .a, .d, .g, .a, .d])
+    #expect(banjo.courses.first?.pitches[0].octave == 4)
+    #expect(banjo.courses[1].pitches[0].octave == 3)
+    #expect(lute.courses.first?.pitches.count == 2)
+    #expect(lute.courses.first?.pitches[0].octave != lute.courses.first?.pitches[1].octave)
+}
+
+@Test func guitarAdvertisesStandardDropDAndDADGAD() {
+    let guitar = StandardInstruments.guitar
+    #expect(guitar.defaultTuning == StandardInstruments.guitarStandard.id)
+    #expect(guitar.tunings.contains(StandardInstruments.guitarDropD.id))
+    #expect(guitar.tunings.contains(StandardInstruments.guitarDADGAD.id))
 }
 
 @Test func instrumentValidationReportsInvalidTargetsAndModels() {

@@ -245,11 +245,15 @@ future standalone language.
 
 `UTABInstruments`:: High-level definitions for capability profiles, concrete
 instrument models, configured project instances, actuators, interactions,
-techniques, geometry, defaults, and catalog validation.
+techniques, geometry, tunings, defaults, and catalog validation. Tunings are
+ordered collections of courses; each course may contain one or more pitches,
+which preserves re-entrant layouts, doubled unisons, and octave pairs.
 
 `UTABInstrumentLibrary`:: A gradually growing standard catalog authored with
 the same Swift frontend. It currently seeds fretted-string, keyboard, and
 singing-voice profiles plus guitar, piano, and generic voice models.
+The growing catalog also includes alternate guitar tunings, guitarlele,
+five-string banjo, violin, cello, Renaissance lute, and Arabic oud.
 
 The existing `UniversalTabs` library remains the actuator-oriented UTAB JSON
 model. A concrete core-to-UTAB lowerer should be added only once realization

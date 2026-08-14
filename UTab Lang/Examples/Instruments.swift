@@ -39,3 +39,14 @@ let myUkulele = ConfiguredInstrument(
 )
 
 let diagnostics = InstrumentCatalogValidator().validate(library)
+
+// Tunings preserve course order. A course can hold more than one string,
+// including octave pairs used by instruments such as lutes.
+let dadgad = Tuning("tuning:guitar:dadgad", name: "DADGAD") {
+    Course(.init(.d, octave: 2))
+    Course(.init(.a, octave: 2))
+    Course(.init(.d, octave: 3))
+    Course(.init(.g, octave: 3))
+    Course(.init(.a, octave: 3))
+    Course(.init(.d, octave: 4))
+}

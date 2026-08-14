@@ -25,14 +25,50 @@ public enum ActuatorControl: Sendable, Hashable {
     case orderedBitset(width: Int)
 }
 
+public enum ActuatorCardinality: Sendable, Hashable {
+    case unconstrained
+    case exact(Int)
+    case range(ClosedRange<Int>)
+
+    public func contains(_ count: Int) -> Bool {
+        switch self {
+        case .unconstrained: true
+        case .exact(let expected): count == expected
+        case .range(let range): range.contains(count)
+        }
+    }
+}
+
 public struct ActuatorGroup: Sendable, Hashable {
     public let id: String
-    public let count: Int
+    public let cardinality: ActuatorCardinality
     public let control: ActuatorControl
     public let members: [ActuatorMember]
 
+    public init(_ id: String, cardinality: ActuatorCardinality = .unconstrained, control: ActuatorControl = .discrete, members: [ActuatorMember] = []) {
+        self.id = id; self.cardinality = cardinality; self.control = control; self.members = members
+    }
+
     public init(_ id: String, count: Int, control: ActuatorControl = .discrete, members: [ActuatorMember] = []) {
-        self.id = id; self.count = count; self.control = control; self.members = members
+        self.init(id, cardinality: .exact(count), control: control, members: members)
+    }
+}
+
+/// One playable course. A course may contain one string, doubled unison strings,
+/// or strings tuned in octaves. Course order is preserved and instrument-defined.
+public struct TuningCourse: Sendable, Hashable {
+    public let pitches: [AbsolutePitch]
+    public init(_ pitches: [AbsolutePitch]) { self.pitches = pitches }
+}
+
+public struct InstrumentTuningDefinition: Sendable, Hashable {
+    public let id: InstrumentID
+    public let name: String
+    public let courses: [TuningCourse]
+    public let tags: Set<String>
+
+    public init(id: InstrumentID, name: String, courses: [TuningCourse], tags: Set<String> = []) {
+        self.id = id; self.name = name; self.courses = courses; self.tags = tags
     }
 }
 
@@ -87,11 +123,13 @@ public struct InstrumentModelDefinition: Sendable, Hashable {
     public let name: String
     public let profile: InstrumentID
     public let geometry: [InstrumentGeometry]
+    public let tunings: [InstrumentID]
+    public let defaultTuning: InstrumentID?
     public let defaults: [String: InstrumentValue]
 
-    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], defaults: [String: InstrumentValue] = [:]) {
+    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], tunings: [InstrumentID] = [], defaultTuning: InstrumentID? = nil, defaults: [String: InstrumentValue] = [:]) {
         self.id = id; self.name = name; self.profile = profile
-        self.geometry = geometry; self.defaults = defaults
+        self.geometry = geometry; self.tunings = tunings; self.defaultTuning = defaultTuning; self.defaults = defaults
     }
 }
 
@@ -108,9 +146,10 @@ public struct InstrumentInstanceDefinition: Sendable, Hashable {
 }
 
 public struct InstrumentCatalog: Sendable, Hashable {
+    public let tunings: [InstrumentTuningDefinition]
     public let profiles: [InstrumentProfileDefinition]
     public let models: [InstrumentModelDefinition]
-    public init(profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
-        self.profiles = profiles; self.models = models
+    public init(tunings: [InstrumentTuningDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
+        self.tunings = tunings; self.profiles = profiles; self.models = models
     }
 }
