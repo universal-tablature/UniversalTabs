@@ -1,0 +1,4 @@
+profile Valved {
+    property valveCount: Int
+    actuator valves[valveCount]: Binary
+}

@@ -1,0 +1,11 @@
+= UTab Language
+
+The UTab language is a domain-specific language (DSL) for describing musical instruments, their capabilities, and how they can be used in a project.
+As well as describing instruments,
+it supports the definition of musical structures
+and how to play them on a given instrument.
+
+Profile:: Interface/capability contract
+Instrument model:: Concrete type with defaults and geometry
+Instrument:: Configured instance used in a project
+Player profile:: Human or robot capability constraints

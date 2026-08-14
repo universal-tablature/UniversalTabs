@@ -1,0 +1,4 @@
+instrumentModel Trumpet : Valved + BreathDriven + LipReed {
+    valveCount 3
+    nominalPitch Bb
+}

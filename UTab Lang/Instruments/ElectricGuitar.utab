@@ -1,0 +1,6 @@
+instrumentModel ElectricGuitar : FrettedString, PluckedString, BendablePitch
+{
+    strings 6
+    frets fixed count 24
+    tuning [E2 A2 D3 G3 B3 E4]
+}

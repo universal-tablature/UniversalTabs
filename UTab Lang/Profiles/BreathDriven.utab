@@ -1,0 +1,4 @@
+profile BreathDriven {
+    actuator airflow: Continuous
+    actuator pressure: Continuous
+}

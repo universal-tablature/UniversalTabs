@@ -6,6 +6,8 @@ let package = Package(
     name: "UniversalTabs",
     products: [
         .library(name: "UniversalTabs", targets: ["UniversalTabs"]),
+        .library(name: "UTABComposerCore", targets: ["UTABComposerCore"]),
+        .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
         .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
@@ -16,6 +18,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "UniversalTabs"),
+        .target(name: "UTABComposerCore"),
+        .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabPDMXIndex", dependencies: [
@@ -26,6 +30,10 @@ let package = Package(
             "UniversalTabs",
             .product(name: "ZIPFoundation", package: "ZIPFoundation")
         ]),
-        .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"])
+        .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
+        .testTarget(
+            name: "UTABComposerTests",
+            dependencies: ["UTABComposerCore", "UTABComposerDSL"]
+        )
     ]
 )

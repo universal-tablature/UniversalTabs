@@ -1,0 +1,70 @@
+import piano
+import guitar
+
+scale C major
+time 4/4
+tempo 100
+
+phrase melodyA {
+    bar { @1 q, @1 q, @5 q, @5 q }
+    bar { @6 q, @6 q, @5 h }
+}
+
+phrase melodyB {
+    bar { @4 q, @4 q, @3 q, @3 q }
+    bar { @2 q, @2 q, @1 h }
+}
+
+phrase melodyC {
+    bar { @5 q, @5 q, @4 q, @4 q }
+    bar { @3 q, @3 q, @2 h }
+}
+
+section verse {
+    melody {
+        melodyA
+        melodyB
+        repeat 2 { melodyC }
+        melodyA
+        melodyB
+    }
+
+    accompaniment {
+        bar { C major w }
+        bar { C major w }
+        bar { F major w }
+        bar { C major w }
+
+        repeat 2 {
+            bar { G major w }
+            bar { G major w }
+        }
+
+        bar { C major w }
+        bar { C major w }
+        bar { F major w }
+        bar { C major w }
+    }
+
+    piano plays melody
+
+    vocals sing melody {
+
+        lyrics { 
+            "Twin-kle twin-kle lit-tle star"
+            "How I won-der what you are"
+
+            "Up a-bove the world so high"
+            "Like a dia-mond in the sky"
+            
+            "Up a-bove the world so high"
+            "Like a dia-mond in the sky"
+            
+            "Twin-kle twin-kle lit-tle star"
+            "How I won-der what you are"
+         }
+
+    }
+
+    guitar plays accompaniment
+}

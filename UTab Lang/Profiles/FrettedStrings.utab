@@ -1,0 +1,21 @@
+profile FrettedString {
+
+    requires actuator strings
+
+    requires actuator fretPositions
+
+    supports technique pluck
+
+    supports technique bend
+
+    supports technique slide
+
+    operation soundingPitch(
+
+        string: StringID,
+
+        fret: FretPosition
+
+    ) -> Pitch
+
+}

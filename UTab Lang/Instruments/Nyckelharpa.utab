@@ -1,0 +1,1 @@
+instrumentModel Nyckelharpa : BowedString, TangentKeyedString, SympatheticResonance

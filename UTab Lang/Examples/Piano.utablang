@@ -1,0 +1,32 @@
+// This illustrates the use of commas and multiple hands
+// commas define parallel operations.
+// semicolons define sequences, implicit semicolons are inserted at linefeeds,
+// where the preceeding character / token is not a comma or semicolon
+piano {
+    rightHand {
+        bar {
+            C4 q
+            C4 q
+            G4 q
+            G4 q
+        }
+
+        bar {
+            A4 q
+            A4 q
+            G4 q
+        }
+    }
+
+    leftHand {
+        bar {
+            C3 h, G3 h
+            C3 h, G3 h
+        }
+
+        bar {
+            F3 h, C4 h
+            C3 h, G3 h
+        }
+    }
+}

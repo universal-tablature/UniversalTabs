@@ -1,0 +1,261 @@
+= Composer Language
+
+== Goal
+
+Prototype a strongly typed musical composition model and embedded DSL in Swift.
+This will eventually become the semantic IR shared by a standalone composition
+language frontend and other authoring tools.
+
+Do NOT implement the standalone language parser yet.
+Do NOT make the Swift DSL's syntax dictate the eventual standalone syntax.
+
+== Core temporal semantics
+
+Every musical expression has a duration.
+
+Sequential composition:
+    A ; B
+means B begins when A completes.
+
+Parallel composition:
+    A , B
+means A and B begin simultaneously.
+
+duration(sequence) = sum(child durations)
+duration(parallel) = max(child durations)
+
+The eventual standalone language will use:
+    semicolon = sequential
+    newline = implicit semicolon
+    comma = parallel
+
+The Swift DSL may represent these explicitly as Sequence and Parallel.
+
+
+== Initial semantic model
+
+Implement concepts for:
+
+- Duration
+- Pitch / absolute note
+- Scale
+- Scale-relative pitch
+- Note event
+- Rest
+- Chord
+- Sequential expression
+- Parallel expression
+- Bar
+- Phrase
+- Section
+- Instrument / performer
+- Voice
+- Song / composition
+- Arrangement / main entry point
+
+
+== Bars and sections
+
+A Bar is a duration-constrained musical expression.
+
+Given 4/4:
+    Bar {
+        quarter
+        quarter
+        quarter
+        quarter
+    }
+
+is valid.
+
+A bar whose expression does not resolve to the meter duration should
+produce a useful validation error.
+
+A Section owns a shared local timeline.
+
+Multiple performers/voices within a section execute in parallel against
+that timeline. Their timelines should be independently validated against
+the section duration.
+
+
+== Pitch abstraction
+
+Support at least:
+
+1. Absolute pitch:
+       C4
+       F#3
+       Bb5
+
+2. Scale-relative pitch:
+       degree 1
+       degree 5
+       etc.
+
+Scale-relative pitches resolve through the current musical context.
+
+Scales should be first-class semantic objects rather than merely metadata.
+
+
+== Chords
+
+A chord is a named/semantic parallel collection of pitches.
+
+Examples:
+    C major
+    A minor
+    B diminished
+    G sus4
+
+Chord quality should be explicit.
+
+A chord does not imply one fixed voicing.
+
+Lowering should conceptually be:
+
+    chord
+      -> pitch set
+      -> instrument-specific voicing
+      -> parallel notes
+      -> actuator realization
+
+
+== Instrument-specific realization
+
+The semantic model must permit increasingly specific musical intent:
+
+    scale-relative pitch
+    absolute pitch
+    pitch + performance constraint
+    explicit actuator position
+
+Example for guitar:
+
+    E4
+    E4 constrained to string 2
+    string 2 fret 5
+
+The exact actuator position must survive lowering rather than being
+discarded after resolving its pitch.
+
+Instrument definitions should eventually describe capabilities and
+actuator geometry. Keep the initial architecture extensible enough for
+this without implementing a complete instrument catalog.
+
+
+== Piano
+
+Do not model piano as one sequential stream.
+
+Support independent voices/performance groups such as:
+
+    right hand
+    left hand
+
+Hand assignment should be a performance constraint, not fundamental
+musical structure, because multiple voices may be assigned to one hand.
+
+Leave room for fingering constraints later.
+
+
+Reference test composition
+
+Use "Twinkle Twinkle Little Star" as the initial integration test.
+
+Model:
+
+- C major
+- 4/4
+- simple melody
+- piano playing melody
+- piano left-hand accompaniment
+- guitar playing chords
+- vocals sharing the melody
+- lyrics
+
+Factor repeated musical material into phrases.
+
+The purpose is NOT to create a sophisticated Twinkle arrangement.
+The purpose is to exercise the semantic model.
+
+
+Compilation architecture
+
+Keep these layers conceptually separate:
+
+    standalone language ─┐
+                         ├─> semantic musical IR
+    Swift embedded DSL ──┘
+                                  |
+                           semantic resolution
+                                  |
+                         instrument realization
+                                  |
+                               UTAB
+                                  |
+                         playback / actuation
+
+The Swift DSL is one frontend for the semantic model, not the definition
+of the future language.
+
+
+== UTAB boundary
+
+UTAB is NOT the high-level composition language.
+
+Treat UTAB as something analogous to executable machine code / bytecode
+for musical instrument actuation.
+
+Its essential information is:
+
+- resolved timing
+- instrument identities
+- actuator states/actions
+- synchronization
+
+Musical structure such as:
+
+- song section
+- bar
+- beat
+- source phrase
+- source location
+
+should conceptually be treated like debug symbols/source maps.
+
+UTAB playback should not fundamentally depend on this information, but
+training, navigation, diagnostics and authoring tools can use it.
+
+Do not spend significant effort designing UTAB JSON in this milestone.
+Define only enough of a lowering boundary/protocol to keep the semantic
+architecture honest.
+
+== Prototype package layout
+
+The Swift prototype currently consists of two independently consumable
+library products in the repository's Swift package:
+
+`UTABComposerCore`:: Value-semantic musical IR, temporal algebra, pitch and
+scale concepts, performance constraints, validation diagnostics, and the
+`CompositionLowerer` boundary.
+
+`UTABComposerDSL`:: The experimental result-builder frontend. It re-exports
+the core model but is not itself the semantic IR or a specification for the
+future standalone language.
+
+The existing `UniversalTabs` library remains the actuator-oriented UTAB JSON
+model. A concrete core-to-UTAB lowerer should be added only once realization
+rules and the required source-map/debug-symbol representation are clearer.
+
+
+== Engineering priorities
+
+1. Semantic correctness over DSL cleverness.
+2. Immutable/value-semantic structures where appropriate.
+3. Useful validation diagnostics.
+4. Unit tests for duration and parallel/sequential composition.
+5. Unit tests for bar/section validation.
+6. Integration test representing Twinkle.
+7. Avoid premature syntax decisions.
+8. Avoid premature MIDI assumptions: UTAB ultimately targets physical
+   instrument actuation as well as virtual instruments.

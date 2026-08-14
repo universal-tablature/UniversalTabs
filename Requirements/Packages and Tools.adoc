@@ -1,0 +1,81 @@
+|===
+| Package / Tool | Type | Description
+
+| UTABCore | Package
+| Core UTAB data model: notes, events, timing, parts, instruments, articulations, sections, metadata, source/debug info.
+
+| UTABLanguage | Package
+| Parser, AST, semantic analysis, formatter, and compiler from human-readable UTAB source into UTAB JSON / core IR.
+
+| UTABJSON | Package
+| Serialization/deserialization for the actuator-oriented UTAB JSON representation.
+
+| UTABDiagnostics | Package
+| Validation, linting, source locations, compiler diagnostics, impossible ranges/chords, instrument capability checks.
+
+| UTABInstruments | Package
+| Instrument catalog, tunings, ranges, transposition, playable notes, strings/frets/keys, articulations, chord mappings, actuator capabilities.
+
+| UTABMusicXML | Package
+| MusicXML import into UTAB core/source structures. Potentially export later.
+
+| UTABMEI | Package
+| MEI import into UTAB. Potentially export later.
+
+| UTABMIDI | Package
+| MIDI import/export mapping: UTAB events ↔ MIDI events, channels, tempo, controllers, program mapping, etc.
+
+| UTABPlayback | Package
+| Real-time scheduling, transport, tempo, looping, synchronization, muting/soloing parts. Common engine for Composer, Training and Perform.
+
+| UTABSampleRenderer | Package
+| Renders UTAB through sampled instruments. Should support both real-time and offline audio rendering.
+
+| UTABAudio | Package
+| Shared Core Audio/audio-device infrastructure: input/output streams, buffers, clocks and audio-session handling.
+
+| UTABPitchDetection | Package
+| Fundamental-frequency/pitch detection and confidence estimation. Shared by tuner and training.
+
+| UTABPerformanceAnalysis | Package
+|   Converts detected audio/MIDI input into performed notes/chords/events and compares them against expected UTAB events.
+
+| UTABTraining | Package
+| Training-domain logic: exercise progression, expected events, scoring, timing tolerance, mistakes, repetitions, tempo progression. UI-independent.
+
+| UTABNotation | Package
+| Reusable visual representation of music: staff, tablature, piano/strings/fingering, playhead and highlighting. Primarily for Composer and Training.
+
+| UTABLSP | Package / service
+| Language Server implementation: diagnostics, completion, navigation, formatting, instrument lookup, etc.
+
+| utab | CLI tool
+| General compiler/inspection CLI: compile, validate, format, inspect and convert UTAB source/JSON.
+
+| musicxml2utab | CLI tool
+| MusicXML → UTAB. Thin wrapper around UTABMusicXML. Could eventually just be utab import.
+
+| mei2utab | CLI tool
+| MEI → UTAB. Thin wrapper around UTABMEI.
+
+| midi2utab | CLI tool
+| MIDI → UTAB.
+
+| utab2midi | CLI tool
+| UTAB → MIDI file. Thin wrapper around UTABMIDI.
+
+| utab-render | CLI tool
+| UTAB → rendered audio using UTABSampleRenderer. Useful for testing as well as production export.
+
+| UTAB Composer | App
+| Full composition/arrangement IDE using UTABLanguage, UTABNotation, UTABPlayback, renderers and import/export packages. Replaces the need for an interim bespoke text editor.
+
+| UTAB Training | App
+| Interactive practice app using UTABTraining, UTABPerformanceAnalysis, UTABNotation and UTABPlayback. Eventually supports band/multiplayer practice.
+
+| UTAB Perform | App
+| Live performance/player: select parts, mute performers, render missing parts, MIDI/audio output, synchronization and possibly external hardware control.
+
+| Universal Tuner | App
+| Standalone iOS tuner built on UTABAudio, UTABPitchDetection and UTABInstruments; supports arbitrary tunings, peg guidance and eventually movable-fret setup.
+|===
