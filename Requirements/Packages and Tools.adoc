@@ -33,9 +33,13 @@
 
 | UTABAudio | Package
 | Shared Core Audio/audio-device infrastructure: input/output streams, buffers, clocks and audio-session handling.
+The initial implementation is conditionally compiled for macOS and provides
+timestamped PCM buffers plus default-device input capture through AVAudioEngine.
 
 | UTABPitchDetection | Package
 | Fundamental-frequency/pitch detection and confidence estimation. Shared by tuner and training.
+The initial implementation is conditionally compiled for macOS and provides a
+device-independent normalized-autocorrelation detector for live or offline buffers.
 
 | UTABPerformanceAnalysis | Package
 |   Converts detected audio/MIDI input into performed notes/chords/events and compares them against expected UTAB events.

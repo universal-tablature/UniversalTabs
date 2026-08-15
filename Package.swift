@@ -10,6 +10,8 @@ let package = Package(
         .library(name: "UTABInstruments", targets: ["UTABInstruments"]),
         .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
         .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
+        .library(name: "UTABAudio", targets: ["UTABAudio"]),
+        .library(name: "UTABPitchDetection", targets: ["UTABPitchDetection"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
         .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
@@ -24,6 +26,11 @@ let package = Package(
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
         .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
+        .target(
+            name: "UTABAudio",
+            linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.macOS]))]
+        ),
+        .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabPDMXIndex", dependencies: [
@@ -38,6 +45,7 @@ let package = Package(
         .testTarget(
             name: "UTABComposerTests",
             dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABInstrumentLibrary"]
-        )
+        ),
+        .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]
 )
