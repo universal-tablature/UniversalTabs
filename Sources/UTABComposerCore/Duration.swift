@@ -20,6 +20,11 @@ public struct MusicalDuration: Sendable, Hashable, Comparable, CustomStringConve
         )
     }
 
+    public static func * (lhs: Self, rhs: Int) -> Self {
+        precondition(rhs >= 0, "A duration multiplier cannot be negative")
+        return Self(lhs.wholeNotes.numerator * rhs, lhs.wholeNotes.denominator)
+    }
+
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.wholeNotes < rhs.wholeNotes
     }

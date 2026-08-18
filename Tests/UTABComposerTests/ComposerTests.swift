@@ -18,11 +18,278 @@ import UTABInstruments
     #expect(parallel.duration == .whole)
 }
 
+@Test func semanticExpressionsHaveStableExplicitAndStructuralIdentities() {
+    let first = MusicalExpression.rest(.quarter, id: "expression:first")
+    let second = MusicalExpression.rest(.half, id: "expression:second")
+    let sequenceA = MusicalExpression.sequence([first, second])
+    let sequenceB = MusicalExpression.sequence([first, second])
+
+    #expect(first.id == "expression:first")
+    #expect(sequenceA.id == sequenceB.id)
+    #expect(sequenceA.id != MusicalExpression.sequence([second, first]).id)
+
+    let phraseA = Phrase("opening", bars: [.init(first)])
+    let phraseB = Phrase("opening", bars: [.init(first)])
+    #expect(phraseA.id == phraseB.id)
+}
+
+@Test func unresolvedReferencesAndRepetitionPreserveSemanticIntent() {
+    let note = MusicalExpression.note(
+        .absolute(.init(.c, octave: 4)),
+        duration: .quarter,
+        id: "expression:note"
+    )
+    let repeated = MusicalExpression.repeated(count: 4, note)
+    let reference = MusicalExpression.reference("phrase:opening")
+
+    #expect(repeated.duration == .whole)
+    #expect(reference.duration == nil)
+
+    guard case .repeated(let count, let operand) = repeated.kind else {
+        Issue.record("Expected a repeated semantic expression")
+        return
+    }
+    #expect(count == 4)
+    #expect(operand.id == note.id)
+}
+
+@Test func actuatorAndTechniqueExpressionsRemainTypedBeforeLowering() {
+    let source = MusicalExpression.actuator(
+        .init(
+            action: "pluck",
+            target: .init(group: "strings", member: "2", position: 5),
+            duration: .eighth,
+            soundingPitch: .absolute(.init(.e, octave: 4))
+        ),
+        id: "expression:pluck"
+    )
+    let destination = MusicalExpression.actuator(
+        .init(
+            action: "pluck",
+            target: .init(group: "strings", member: "2", position: 7),
+            duration: .eighth
+        ),
+        id: "expression:destination"
+    )
+    let hammerOn = MusicalExpression.technique(
+        .init("hammerOn", form: .transition, operands: [source, destination])
+    )
+
+    #expect(source.duration == .eighth)
+    #expect(hammerOn.duration == .quarter)
+
+    guard case .technique(let application) = hammerOn.kind else {
+        Issue.record("Expected a technique application")
+        return
+    }
+    #expect(application.form == .transition)
+    #expect(application.operands.map(\.id) == [source.id, destination.id])
+}
+
+@Test func nameResolutionProducesTypedReferencesWithoutMutatingSemanticInput() {
+    let phrase = Phrase("opening", bars: [
+        .init(MusicalExpression.rest(.whole, id: "expression:opening")),
+    ])
+    let section = Section("verse", duration: .whole, parts: [
+        .init(instrument: "piano", voices: [
+            .init("melody", content: [.phrase("opening")]),
+        ]),
+    ])
+    let composition = Composition(
+        title: "Resolved",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [phrase],
+        sections: [section]
+    )
+
+    let result = NameResolutionStage().run(composition)
+
+    #expect(result.succeeded)
+    #expect(result.output?.source == composition)
+    #expect(result.output?.declarations[phrase.id]?.kind == .phrase)
+
+    guard case .reference(let reference) = result.output?.sections.first?.parts.first?.voices.first?.content.first else {
+        Issue.record("Expected the legacy phrase name to become a typed reference")
+        return
+    }
+    #expect(reference.declaration.id == phrase.id)
+    #expect(reference.declaration.kind == .phrase)
+}
+
+@Test func nameResolutionBindsExpressionReferencesAndRejectsInvalidKinds() {
+    let phrase = Phrase("opening", expression: .rest(.whole, id: "expression:opening"))
+    let section = Section("verse", duration: .whole, parts: [
+        .init(instrument: "piano", voices: [
+            .init("melody", content: [
+                .expression(.reference("section:verse", id: "expression:bad-reference")),
+            ]),
+        ]),
+    ])
+    let composition = Composition(
+        title: "Invalid reference",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [phrase],
+        sections: [section]
+    )
+
+    let result = NameResolutionStage().run(composition)
+
+    #expect(!result.succeeded)
+    #expect(result.output == nil)
+    #expect(result.diagnostics.contains { $0.message.contains("is not valid here") })
+}
+
+@Test func nameResolutionDiagnosesRecursivePhraseReferences() {
+    let first = Phrase(
+        "first",
+        expression: .reference("phrase:second", id: "expression:first-to-second")
+    )
+    let second = Phrase(
+        "second",
+        expression: .reference("phrase:first", id: "expression:second-to-first")
+    )
+    let composition = Composition(
+        title: "Recursive",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [first, second],
+        sections: []
+    )
+
+    let result = NameResolutionStage().run(composition)
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("Recursive phrase reference") })
+}
+
+@Test func expansionEliminatesPhraseReferencesAndRepetitionWithStableOccurrences() {
+    let note = MusicalExpression.note(
+        .absolute(.init(.c, octave: 4)),
+        duration: .quarter,
+        id: "expression:repeated-note"
+    )
+    let phrase = Phrase(
+        "opening",
+        expression: .repeated(count: 2, note, id: "expression:repeat-opening")
+    )
+    let section = Section("verse", duration: .half, parts: [
+        .init(instrument: "piano", voices: [
+            .init("melody", content: [.reference(phrase.id)]),
+        ]),
+    ])
+    let composition = Composition(
+        title: "Expansion",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [phrase],
+        sections: [section]
+    )
+
+    guard let resolved = NameResolutionStage().run(composition).output else {
+        Issue.record("Expected name resolution to succeed")
+        return
+    }
+    let firstResult = ReferenceExpansionStage().run(resolved)
+    let secondResult = ReferenceExpansionStage().run(resolved)
+    guard let firstVoice = firstResult.output?.sections.first?.parts.first?.voices.first,
+          let secondVoice = secondResult.output?.sections.first?.parts.first?.voices.first else {
+        Issue.record("Expected expansion to produce a voice")
+        return
+    }
+
+    let firstLeaves = leafProvenances(in: firstVoice.expression)
+    let secondLeaves = leafProvenances(in: secondVoice.expression)
+
+    #expect(firstResult.succeeded)
+    #expect(firstVoice.expression.duration == .half)
+    #expect(firstLeaves.count == 2)
+    #expect(firstLeaves[0].originID == note.id)
+    #expect(firstLeaves[0].ancestry.contains(phrase.id))
+    #expect(firstLeaves[0].ancestry.contains("expression:repeat-opening"))
+    #expect(firstLeaves[0].occurrenceID != firstLeaves[1].occurrenceID)
+    #expect(firstLeaves.map(\.occurrenceID) == secondLeaves.map(\.occurrenceID))
+}
+
+@Test func expansionCreatesDistinctStableSectionOccurrencesInMain() {
+    let section = Section("verse", parts: [])
+    let sectionReference = MusicalExpression.reference(section.id, id: "expression:verse-reference")
+    let main = MusicalExpression.repeated(count: 2, sectionReference, id: "expression:repeat-verse")
+    let composition = Composition(
+        title: "Arrangement",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [section],
+        main: main
+    )
+
+    guard let resolved = NameResolutionStage().run(composition).output,
+          let expanded = ReferenceExpansionStage().run(resolved).output?.main,
+          case .sequence(let occurrences) = expanded.kind else {
+        Issue.record("Expected a repeated section arrangement")
+        return
+    }
+
+    let sectionOccurrences = occurrences.compactMap { arrangement -> SectionOccurrence? in
+        guard case .section(let occurrence) = arrangement.kind else { return nil }
+        return occurrence
+    }
+    #expect(sectionOccurrences.count == 2)
+    #expect(sectionOccurrences[0].sectionID == section.id)
+    #expect(sectionOccurrences[0].occurrenceID != sectionOccurrences[1].occurrenceID)
+}
+
+@Test func expansionRejectsNegativeRepetitionCounts() {
+    let phrase = Phrase(
+        "invalid",
+        expression: .repeated(count: -1, .rest(.quarter), id: "expression:negative-repeat")
+    )
+    let composition = Composition(
+        title: "Invalid repetition",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [phrase],
+        sections: []
+    )
+
+    guard let resolved = NameResolutionStage().run(composition).output else {
+        Issue.record("Expected name resolution to succeed before expansion validation")
+        return
+    }
+    let result = ReferenceExpansionStage().run(resolved)
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("must not be negative") })
+}
+
+private func leafProvenances(in expression: ExpandedExpression) -> [ExpressionProvenance] {
+    switch expression.kind {
+    case .sequence(let children), .parallel(let children):
+        return children.flatMap { leafProvenances(in: $0) }
+    case .technique(let application):
+        return application.operands.flatMap { leafProvenances(in: $0) }
+    case .note, .rest, .chord, .actuator:
+        return [expression.provenance]
+    }
+}
+
 @Test func resolvesScaleRelativePitch() {
     let cMajor = Scale(.c, .major)
     #expect(cMajor.resolve(degree: 1, octave: 4) == AbsolutePitch(.c, octave: 4))
     #expect(cMajor.resolve(degree: 5, octave: 4) == AbsolutePitch(.g, octave: 4))
     #expect(cMajor.resolve(degree: 8, octave: 4) == AbsolutePitch(.c, octave: 5))
+}
+
+@Test func preservesEnharmonicSpellingWithoutForcingAcousticDistinction() {
+    let fSharp = AbsolutePitch(.init(.f, accidental: 1), octave: 4)
+    let gFlat = AbsolutePitch(.init(.g, accidental: -1), octave: 4)
+
+    #expect(fSharp.spelling != gFlat.spelling)
+    #expect(fSharp.isAcousticallyEquivalent(to: gFlat))
+
+    let relativeChord = ChordSymbol(scaleDegree: 1, .major)
+    #expect(relativeChord.root == .scaleDegree(1))
 }
 
 @Test func validatorReportsWrongBarAndIndependentVoiceDurations() {

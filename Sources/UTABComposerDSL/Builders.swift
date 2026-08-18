@@ -9,53 +9,132 @@ public enum ExpressionBuilder {
     public static func buildEither(second component: MusicalExpression) -> MusicalExpression { component }
 }
 
-public func Rest(_ duration: MusicalDuration) -> MusicalExpression { .rest(duration) }
+public func Rest(
+    _ duration: MusicalDuration,
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
+) -> MusicalExpression {
+    .rest(duration, fileID: fileID, line: line, column: column)
+}
 
 public func Note(
     _ pitch: MusicalPitch,
     _ duration: MusicalDuration,
-    constraints: [PerformanceConstraint] = []
+    constraints: [PerformanceConstraint] = [],
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
 ) -> MusicalExpression {
-    .note(pitch, duration: duration, constraints: constraints)
+    .note(pitch, duration: duration, constraints: constraints, fileID: fileID, line: line, column: column)
 }
 
-public func Degree(_ degree: Int, octave: Int, _ duration: MusicalDuration) -> MusicalExpression {
-    Note(.scaleDegree(degree, octave: octave), duration)
+public func Degree(
+    _ degree: Int,
+    octave: Int,
+    _ duration: MusicalDuration,
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
+) -> MusicalExpression {
+    Note(.scaleDegree(degree, octave: octave), duration, fileID: fileID, line: line, column: column)
 }
 
 public func Chord(
     _ root: PitchClass,
     _ quality: ChordQuality,
     _ duration: MusicalDuration,
-    constraints: [PerformanceConstraint] = []
+    constraints: [PerformanceConstraint] = [],
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
 ) -> MusicalExpression {
-    .chord(.init(root, quality), duration: duration, constraints: constraints)
+    .chord(.init(root, quality), duration: duration, constraints: constraints, fileID: fileID, line: line, column: column)
+}
+
+public func DegreeChord(
+    _ degree: Int,
+    _ quality: ChordQuality,
+    _ duration: MusicalDuration,
+    constraints: [PerformanceConstraint] = [],
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
+) -> MusicalExpression {
+    .chord(
+        .init(scaleDegree: degree, quality),
+        duration: duration,
+        constraints: constraints,
+        fileID: fileID,
+        line: line,
+        column: column
+    )
 }
 
 public func Parallel(@ExpressionBuilder _ content: () -> MusicalExpression) -> MusicalExpression {
-    switch content() {
-    case .sequence(let children): .parallel(children)
-    case let expression: .parallel([expression])
+    let expression = content()
+    switch expression.kind {
+    case .sequence(let children): return MusicalExpression.parallel(children)
+    default: return MusicalExpression.parallel([expression])
     }
 }
 
-public func C4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.c, octave: 4)), duration, constraints: constraints)
+public func Repeat(_ count: Int, _ expression: MusicalExpression) -> MusicalExpression {
+    .repeated(count: count, expression)
 }
-public func D4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.d, octave: 4)), duration, constraints: constraints)
+
+public func Actuate(
+    _ action: String,
+    group: String,
+    member: String? = nil,
+    position: Int? = nil,
+    duration: MusicalDuration,
+    soundingPitch: MusicalPitch? = nil,
+    parameters: [String: MetadataValue] = [:],
+    fileID: String = #fileID,
+    line: UInt = #line,
+    column: UInt = #column
+) -> MusicalExpression {
+    .actuator(
+        .init(
+            action: action,
+            target: .init(group: group, member: member, position: position),
+            duration: duration,
+            soundingPitch: soundingPitch,
+            parameters: parameters
+        ),
+        fileID: fileID,
+        line: line,
+        column: column
+    )
 }
-public func E4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.e, octave: 4)), duration, constraints: constraints)
+
+public func Apply(
+    _ technique: String,
+    form: TechniqueForm = .unary,
+    parameters: [String: MetadataValue] = [:],
+    to operands: [MusicalExpression]
+) -> MusicalExpression {
+    .technique(.init(technique, form: form, operands: operands, parameters: parameters))
 }
-public func F4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.f, octave: 4)), duration, constraints: constraints)
+
+public func C4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.c, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
 }
-public func G4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.g, octave: 4)), duration, constraints: constraints)
+public func D4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.d, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
 }
-public func A4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = []) -> MusicalExpression {
-    Note(.absolute(.init(.a, octave: 4)), duration, constraints: constraints)
+public func E4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.e, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
+}
+public func F4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.f, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
+}
+public func G4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.g, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
+}
+public func A4(_ duration: MusicalDuration, constraints: [PerformanceConstraint] = [], fileID: String = #fileID, line: UInt = #line, column: UInt = #column) -> MusicalExpression {
+    Note(.absolute(.init(.a, octave: 4)), duration, constraints: constraints, fileID: fileID, line: line, column: column)
 }
 
 public extension MusicalDuration {
@@ -85,6 +164,7 @@ public enum VoiceContentBuilder {
 }
 
 public func Play(_ phrase: String) -> VoiceContent { .phrase(phrase) }
+public func Play(_ declaration: SemanticID) -> VoiceContent { .reference(declaration) }
 
 public func Voice(
     _ name: String,
@@ -110,10 +190,11 @@ public enum PartBuilder {
 
 public func Section(
     _ name: String,
-    duration: MusicalDuration,
+    duration: MusicalDuration? = nil,
+    meter: TimeSignature? = nil,
     @PartBuilder _ content: () -> [Part]
 ) -> UTABComposerCore.Section {
-    .init(name, duration: duration, parts: content())
+    .init(name, duration: duration, meter: meter, parts: content())
 }
 
 public enum SongComponent: Sendable {
