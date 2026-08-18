@@ -222,6 +222,25 @@ public struct ReferenceExpansionStage: CompilerStage {
                 diagnostics.append(.init(.error, path: path.joined(separator: "."), message: "Resolved phrase '\(phraseID)' is unavailable during expansion"))
                 return nil
             }
+            if !phrase.bars.isEmpty {
+                let phrasePath = path + ["phrase:\(phraseID.rawValue)"]
+                let children = phrase.bars.enumerated().compactMap { index, bar in
+                    expandExpression(
+                        bar.expression,
+                        path: phrasePath + ["bar:\(index):\(bar.id.rawValue)"],
+                        ancestry: ancestry + [phraseID, bar.id]
+                    )
+                }
+                return ExpandedExpression(
+                    provenance: .init(
+                        originID: phrase.expression.id,
+                        ancestry: ancestry + [phraseID],
+                        expansionPath: phrasePath
+                    ),
+                    kind: .sequence(children),
+                    annotations: phrase.annotations
+                )
+            }
             return expandExpression(
                 phrase.expression,
                 path: path + ["phrase:\(phraseID.rawValue)"],

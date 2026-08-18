@@ -274,6 +274,107 @@ private func leafProvenances(in expression: ExpandedExpression) -> [ExpressionPr
     }
 }
 
+@Test func temporalResolutionSchedulesSequenceAndParallelWithRationalOffsets() {
+    let expression = MusicalExpression.sequence([
+        .rest(.quarter, id: "expression:first"),
+        .parallel([
+            .rest(.eighth, id: "expression:parallel-short"),
+            .rest(.half, id: "expression:parallel-long"),
+        ], id: "expression:parallel"),
+    ], id: "expression:root")
+    let section = Section("timing", duration: MusicalDuration(3, 4), parts: [
+        .init(instrument: "test", voices: [.init("voice", content: [.expression(expression)])]),
+    ])
+    let composition = Composition(
+        title: "Timing",
+        meter: .init(3, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [section]
+    )
+
+    guard let resolved = NameResolutionStage().run(composition).output,
+          let expanded = ReferenceExpansionStage().run(resolved).output,
+          let timed = TemporalResolutionStage().run(expanded).output,
+          let voice = timed.sections.first?.parts.first?.voices.first,
+          case .sequence(let voiceChildren) = voice.expression.kind,
+          case .sequence(let rootChildren) = voiceChildren.first?.kind,
+          case .parallel(let parallelChildren) = rootChildren.last?.kind else {
+        Issue.record("Expected a scheduled sequence containing a parallel expression")
+        return
+    }
+
+    #expect(rootChildren[0].offset == .zero)
+    #expect(rootChildren[1].offset == .quarter)
+    #expect(parallelChildren.allSatisfy { $0.offset == .quarter })
+    #expect(rootChildren[1].duration == .half)
+    #expect(voice.expression.duration == MusicalDuration(3, 4))
+}
+
+@Test func producesResolvedTwinkleDebugTimelineWithBarProvenance() {
+    let melody = Phrase("melodyA") {
+        Bar {
+            Degree(1, octave: 4, .quarter)
+            Degree(1, octave: 4, .quarter)
+            Degree(5, octave: 4, .quarter)
+            Degree(5, octave: 4, .quarter)
+        }
+    }
+    let tonic = Chord(.c, .major, .whole)
+    let twinkle = Song(
+        "Twinkle Timeline",
+        meter: .init(4, 4),
+        tempo: 100,
+        scale: .init(.c, .major)
+    ) {
+        melody
+        Section("verse", duration: .whole) {
+            Instrument("piano") {
+                Voice("right hand") { Play("melodyA") }
+                Voice("left hand") { tonic }
+            }
+            Instrument("guitar") {
+                Voice("chords") { tonic }
+            }
+            Instrument("voice") {
+                Voice("melody") { Play("melodyA") }
+            }
+        }
+    }
+
+    guard let named = NameResolutionStage().run(twinkle).output,
+          let expanded = ReferenceExpansionStage().run(named).output,
+          let timed = TemporalResolutionStage().run(expanded).output,
+          let pitched = PitchResolutionStage().run(timed).output else {
+        Issue.record("Expected the Twinkle compiler stages to succeed")
+        return
+    }
+
+    let debug = TimelineDebugRenderer().render(pitched)
+    let rightHand = pitched.sections[0].parts[0].voices[0]
+    let provenance = pitchResolvedLeafProvenances(in: rightHand.expression)
+
+    #expect(debug.contains("composition Twinkle Timeline"))
+    #expect(debug.contains("section verse duration=1/1"))
+    #expect(debug.contains("voice right hand duration=1/1"))
+    #expect(debug.contains("note @1[4] -> C4 at=0/1 duration=1/4"))
+    #expect(debug.contains("chord root=0 quality=major"))
+    #expect(provenance.count == 4)
+    #expect(provenance.allSatisfy { $0.ancestry.contains(melody.id) })
+    #expect(provenance.allSatisfy { item in melody.bars.contains { item.ancestry.contains($0.id) } })
+}
+
+private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression) -> [ExpressionProvenance] {
+    switch expression.kind {
+    case .sequence(let children), .parallel(let children):
+        return children.flatMap { pitchResolvedLeafProvenances(in: $0) }
+    case .technique(let application):
+        return application.operands.flatMap { pitchResolvedLeafProvenances(in: $0) }
+    case .note, .rest, .chord, .actuator:
+        return [expression.provenance]
+    }
+}
+
 @Test func resolvesScaleRelativePitch() {
     let cMajor = Scale(.c, .major)
     #expect(cMajor.resolve(degree: 1, octave: 4) == AbsolutePitch(.c, octave: 4))
