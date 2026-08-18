@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "UTABInstruments", targets: ["UTABInstruments"]),
         .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
         .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
+        .library(name: "UTABLowering", targets: ["UTABLowering"]),
         .library(name: "UTABAudio", targets: ["UTABAudio"]),
         .library(name: "UTABPitchDetection", targets: ["UTABPitchDetection"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
@@ -26,6 +27,7 @@ let package = Package(
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
         .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
+        .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore"]),
         .target(
             name: "UTABAudio",
             linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.macOS]))]
@@ -44,7 +46,7 @@ let package = Package(
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",
-            dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABInstrumentLibrary"]
+            dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
         ),
         .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]

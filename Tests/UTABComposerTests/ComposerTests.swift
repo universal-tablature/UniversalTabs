@@ -1,8 +1,11 @@
+import Foundation
 import Testing
 import UTABComposerCore
 import UTABComposerDSL
 import UTABInstrumentLibrary
 import UTABInstruments
+import UTABLowering
+import UniversalTabs
 
 @Test func sequentialAndParallelDurationsFollowCompositionAlgebra() {
     let sequence = MusicalExpression.sequence([
@@ -373,6 +376,122 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     case .note, .rest, .chord, .actuator:
         return [expression.provenance]
     }
+}
+
+@Test func minimalLowererProducesValidDeterministicUTabDocument() throws {
+    let melody = Phrase("melody") {
+        Bar {
+            Degree(1, octave: 4, .quarter)
+            Degree(2, octave: 4, .quarter)
+            Degree(3, octave: 4, .quarter)
+            Degree(5, octave: 4, .quarter)
+        }
+    }
+    let composition = Song(
+        "Lowered melody",
+        meter: .init(4, 4),
+        tempo: 96,
+        scale: .init(.c, .major)
+    ) {
+        melody
+        Section("verse", duration: .whole) {
+            Instrument("piano") {
+                Voice("melody") { Play("melody") }
+            }
+        }
+    }
+
+    guard let pitched = compileToPitchResolved(composition) else {
+        Issue.record("Expected the semantic pipeline to succeed")
+        return
+    }
+    let first = MinimalUTabLoweringStage().run(pitched)
+    let second = MinimalUTabLoweringStage().run(pitched)
+    guard let document = first.output, let secondDocument = second.output else {
+        Issue.record("Expected minimal UTAB lowering to succeed: \(first.diagnostics)")
+        return
+    }
+
+    #expect(first.succeeded)
+    #expect(UTabValidator().validate(document).isEmpty)
+    #expect(document.setup.sections?.first?.id == "section:verse")
+    #expect(document.setup.arrangement?.count == 1)
+    #expect(document.tracks.count == 1)
+    #expect(document.tracks.first?.parts?.first?.events.count == 4)
+    #expect(document.tracks.first?.parts?.first?.events[0].at.musical?.beat == 1)
+    #expect(document.tracks.first?.parts?.first?.events[1].at.musical?.beat == 2)
+    #expect(document.tracks.first?.parts?.first?.events[0].parameters?["_source"] != nil)
+
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    #expect(try encoder.encode(document) == encoder.encode(secondDocument))
+}
+
+@Test func minimalLowererPreservesExactActuatorTargets() {
+    let exact = Actuate(
+        "pluck",
+        group: "strings",
+        member: "2",
+        position: 5,
+        duration: .quarter,
+        soundingPitch: .absolute(.init(.e, octave: 4))
+    )
+    let composition = Composition(
+        title: "Exact actuator",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [
+            .init("verse", duration: .quarter, parts: [
+                .init(instrument: "guitar", voices: [.init("part", content: [.expression(exact)])]),
+            ]),
+        ]
+    )
+
+    guard let pitched = compileToPitchResolved(composition),
+          let document = MinimalUTabLoweringStage().run(pitched).output,
+          let event = document.tracks.first?.parts?.first?.events.first else {
+        Issue.record("Expected exact actuator lowering to succeed")
+        return
+    }
+
+    #expect(event.action == "pluck")
+    #expect(event.target == "strings[2]")
+    #expect(event.parameters?["position"] == .number(5))
+    #expect(UTabValidator().validate(document).isEmpty)
+}
+
+@Test func minimalLowererRejectsAbstractChordsUntilRealizationExists() {
+    let composition = Composition(
+        title: "Needs voicing",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [
+            .init("verse", duration: .whole, parts: [
+                .init(instrument: "guitar", voices: [
+                    .init("chords", content: [.expression(Chord(.c, .major, .whole))]),
+                ]),
+            ]),
+        ]
+    )
+
+    guard let pitched = compileToPitchResolved(composition) else {
+        Issue.record("Expected compilation before realization to succeed")
+        return
+    }
+    let result = MinimalUTabLoweringStage().run(pitched)
+
+    #expect(!result.succeeded)
+    #expect(result.output == nil)
+    #expect(result.diagnostics.contains { $0.message.contains("requires a voicing/realization pass") })
+}
+
+private func compileToPitchResolved(_ composition: Composition) -> PitchResolvedComposition? {
+    guard let named = NameResolutionStage().run(composition).output,
+          let expanded = ReferenceExpansionStage().run(named).output,
+          let timed = TemporalResolutionStage().run(expanded).output else { return nil }
+    return PitchResolutionStage().run(timed).output
 }
 
 @Test func resolvesScaleRelativePitch() {
