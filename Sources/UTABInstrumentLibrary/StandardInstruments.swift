@@ -20,6 +20,19 @@ public enum StandardInstruments {
         Course(.init(.g, octave: 3)); Course(.init(.a, octave: 3)); Course(.init(.d, octave: 4))
     }
 
+    public static let twelveStringGuitarStandard = Tuning(
+        "tuning:guitar-12:standard",
+        name: "12-string Guitar Standard",
+        tags: ["guitar", "12-string", "standard", "courses"]
+    ) {
+        Course(.init(.e, octave: 2), .init(.e, octave: 3))
+        Course(.init(.a, octave: 2), .init(.a, octave: 3))
+        Course(.init(.d, octave: 3), .init(.d, octave: 4))
+        Course(.init(.g, octave: 3), .init(.g, octave: 4))
+        Course(.init(.b, octave: 3), .init(.b, octave: 3))
+        Course(.init(.e, octave: 4), .init(.e, octave: 4))
+    }
+
     public static let guitarleleStandard = Tuning("tuning:guitarlele:standard", name: "Guitarlele Standard (A–A)", tags: ["guitarlele", "standard"]) {
         Course(.init(.a, octave: 2)); Course(.init(.d, octave: 3)); Course(.init(.g, octave: 3))
         Course(.init(.c, octave: 4)); Course(.init(.e, octave: 4)); Course(.init(.a, octave: 4))
@@ -104,6 +117,17 @@ public enum StandardInstruments {
         Supports(guitarStandard, default: true); Supports(guitarDropD); Supports(guitarDADGAD)
     }
 
+    public static let twelveStringGuitar = InstrumentModel(
+        "instrument:guitar:twelve-string",
+        name: "12-string Guitar",
+        profile: pluckedCourses.id
+    ) {
+        Geometry("courses", ["count": .integer(6), "doubled": .boolean(true)])
+        Geometry("strings", ["count": .integer(12)])
+        Geometry("frets", ["count": .integer(20), "movable": .boolean(false)])
+        Supports(twelveStringGuitarStandard, default: true)
+    }
+
     public static let guitarlele = InstrumentModel("instrument:guitarlele:standard", name: "Six-string Guitarlele", profile: frettedStrings.id) {
         Geometry("strings", ["count": .integer(6)]); Geometry("frets", ["count": .integer(18), "movable": .boolean(false)])
         Supports(guitarleleStandard, default: true)
@@ -139,9 +163,9 @@ public enum StandardInstruments {
     public static let voice = InstrumentModel("instrument:voice:generic", name: "Singing Voice", profile: singingVoice.id)
 
     public static let catalog = InstrumentLibrary {
-        guitarStandard; guitarDropD; guitarDADGAD; guitarleleStandard; banjoOpenG
+        guitarStandard; guitarDropD; guitarDADGAD; twelveStringGuitarStandard; guitarleleStandard; banjoOpenG
         violinStandard; celloStandard; renaissanceLuteG; arabicOud
         frettedStrings; pluckedCourses; fretlessBowedStrings; keyboard; singingVoice
-        guitar; guitarlele; fiveStringBanjo; violin; cello; renaissanceLute; oud; piano; voice
+        guitar; twelveStringGuitar; guitarlele; fiveStringBanjo; violin; cello; renaissanceLute; oud; piano; voice
     }
 }

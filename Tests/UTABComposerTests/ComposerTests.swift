@@ -119,10 +119,27 @@ import UTABInstruments
 
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
-    #expect(catalog.tunings.count == 9)
+    #expect(catalog.tunings.count == 10)
     #expect(catalog.profiles.count == 5)
-    #expect(catalog.models.count == 9)
+    #expect(catalog.models.count == 10)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func twelveStringGuitarHasSixDoubledCoursesWithStandardOctaves() {
+    let tuning = StandardInstruments.twelveStringGuitarStandard
+    let guitar = StandardInstruments.twelveStringGuitar
+
+    #expect(tuning.courses.count == 6)
+    #expect(tuning.courses.allSatisfy { $0.pitches.count == 2 })
+    #expect(tuning.courses[0].pitches == [AbsolutePitch(.e, octave: 2), AbsolutePitch(.e, octave: 3)])
+    #expect(tuning.courses[1].pitches == [AbsolutePitch(.a, octave: 2), AbsolutePitch(.a, octave: 3)])
+    #expect(tuning.courses[2].pitches == [AbsolutePitch(.d, octave: 3), AbsolutePitch(.d, octave: 4)])
+    #expect(tuning.courses[3].pitches == [AbsolutePitch(.g, octave: 3), AbsolutePitch(.g, octave: 4)])
+    #expect(tuning.courses[4].pitches == [AbsolutePitch(.b, octave: 3), AbsolutePitch(.b, octave: 3)])
+    #expect(tuning.courses[5].pitches == [AbsolutePitch(.e, octave: 4), AbsolutePitch(.e, octave: 4)])
+    #expect(guitar.defaultTuning == tuning.id)
+    #expect(guitar.geometry.first { $0.id == "courses" }?.properties["count"] == .integer(6))
+    #expect(guitar.geometry.first { $0.id == "strings" }?.properties["count"] == .integer(12))
 }
 
 @Test func standardTuningsRepresentAlternateReentrantAndDoubledCourses() {
