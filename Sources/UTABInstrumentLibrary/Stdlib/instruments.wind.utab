@@ -33,7 +33,7 @@ model ConcertFlute : KeyedAirColumnWind {
     id "instrument:flute:concert-c"
     name "Concert Flute"
     geometry bore { shape cylindrical; material metal; edgeBlown true }
-    geometry toneHoles { keyed true; typicalRange "C4-D7" }
+    geometry toneHoles { keyed true; system Boehm; closedHoleAvailable true; openHoleKeys 5; plugsSupported true; typicalRange "C4-D7" }
 }
 
 model BbTrumpet : ValvedBrass {
@@ -216,14 +216,37 @@ extension ConcertFlute {
         actuators keys
         bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
 
-        C5 111111000111000000 preferred
-        D5 111111000100000000 preferred
-        E5 111110000100000000 preferred
-        F5 111100000100000000 preferred
-        G5 111000000100000000 preferred
-        A5 110000000100000000 preferred
-        B5 100000000100000000 preferred
-        C6 000000000100000000 preferred
+        C4 111111000111000000 register 1 preferred
+        C#4 111111000110000000 register 1 preferred
+        D4 111111000100000000 register 1 preferred
+        E4 111110000100000000 register 1 preferred
+        F4 111100000100000000 register 1 preferred
+        F#4 111010000100000000 register 1 preferred
+        F#4 111001000100000000 register 1 alternate "right-ring"
+        G4 111000000100000000 register 1 preferred
+        A4 110000000100000000 register 1 preferred
+        Bb4 100000100100000000 register 1 preferred
+        Bb4 100000000100001000 register 1 alternate "side-B-flat"
+        B4 100000000100000000 register 1 preferred
+        C5 000000000100000000 register 1 preferred
+
+        // The second octave primarily reuses the first-octave keywork and is
+        // disambiguated by the air-column register selected by the player.
+        D5 111111000100000000 register 2 preferred
+        E5 111110000100000000 register 2 preferred
+        F5 111100000100000000 register 2 preferred
+        F#5 111010000100000000 register 2 preferred
+        F#5 111001000100000000 register 2 alternate "right-ring"
+        G5 111000000100000000 register 2 preferred
+        A5 110000000100000000 register 2 preferred
+        Bb5 100000100100000000 register 2 preferred
+        Bb5 100000000100001000 register 2 alternate "side-B-flat"
+        B5 100000000100000000 register 2 preferred
+        C6 000000000100000000 register 2 preferred
+
+        // High D vents the left-index key; higher third-octave fingerings are
+        // intentionally left unknown until their dedicated alternate map lands.
+        D6 011111000100000000 register 3 preferred
     }
 
     fingering boehmOpenHole {
@@ -232,6 +255,15 @@ extension ConcertFlute {
         actuators keys
         extends "fingering:flute:concert-c:boehm-closed-hole"
         bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+
+        // French-model open holes can be progressively shaded. These states
+        // describe the physical partial closure without pretending it is a
+        // fixed equal-tempered pitch.
+        effect pitchShade "xhxxxxxxxxxxxxxxxx" alternate "partial-lh2"
+        effect pitchShade "xxhxxxxxxxxxxxxxxx" alternate "partial-lh3"
+        effect pitchShade "xxxhxxxxxxxxxxxxxx" alternate "partial-rh1"
+        effect pitchShade "xxxxhxxxxxxxxxxxxx" alternate "partial-rh2"
+        effect pitchShade "xxxxxhxxxxxxxxxxxx" alternate "partial-rh3"
     }
 }
 

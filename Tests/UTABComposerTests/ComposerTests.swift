@@ -1096,6 +1096,27 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
+@Test func standardFluteMapsCoverRegistersAlternatesAndPartialOpenHoles() throws {
+    let catalog = StandardInstruments.catalog
+    let flute = try #require(catalog.models.first { $0.id.rawValue == "instrument:flute:concert-c" })
+    let closed = InstrumentID(rawValue: "fingering:flute:concert-c:boehm-closed-hole")
+    let open = InstrumentID(rawValue: "fingering:flute:concert-c:boehm-open-hole")
+    let holes = try #require(flute.geometry.first { $0.id == "toneHoles" })
+
+    #expect(flute.defaultFingering == closed)
+    #expect(Set(flute.fingerings) == [closed, open])
+    #expect(holes.properties["openHoleKeys"] == .integer(5))
+    #expect(catalog.fingeringResult(for: "111111000100000000", register: 1, in: closed) == .pitch(.init(.d, octave: 4)))
+    #expect(catalog.fingeringResult(for: "111111000100000000", register: 2, in: closed) == .pitch(.init(.d, octave: 5)))
+    #expect(catalog.fingeringResult(for: "111111000100000000", in: closed) == nil)
+
+    let fSharpAlternatives = catalog.fingerings(for: .init(.fSharp, octave: 4), in: closed)
+    #expect(fSharpAlternatives.map(\.preference) == [.preferred, .alternate])
+    #expect(catalog.fingeringResult(for: "xh0000000000000000", in: open) == .effect("pitchShade"))
+    #expect(catalog.fingeringResult(for: "xh0000000000000000", in: closed) == nil)
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
     let catalog = StandardInstruments.catalog
     let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })
