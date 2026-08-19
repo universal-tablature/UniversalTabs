@@ -1,0 +1,4 @@
+module tests.mismatched-error
+
+// expected-error@+1 {{This message will not be produced}}
+meter 4/nope

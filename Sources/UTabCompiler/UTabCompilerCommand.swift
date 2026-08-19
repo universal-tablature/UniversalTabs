@@ -13,12 +13,14 @@ import Darwin
 
 @main
 struct UTabCompilerCommand {
+    struct CompilationFailure: Error {}
     struct Options {
         var input: String?
         var output: String?
         var includePaths: [String] = []
         var formats: Set<UTabTextOutputFormat> = []
         var prettyPrintedJSON = true
+        var verifyDiagnostics = false
         var showHelp = false
     }
 
@@ -31,7 +33,18 @@ struct UTabCompilerCommand {
 
     static func main() {
         do {
-            var options = try parse(Array(CommandLine.arguments.dropFirst()))
+            try execute(Array(CommandLine.arguments.dropFirst()))
+        } catch let error as ArgumentError {
+            writeError("error: \(error)\n\n\(usage)")
+            exit(EXIT_FAILURE)
+        } catch {
+            if !(error is CompilationFailure) { writeError("error: \(error)") }
+            exit(EXIT_FAILURE)
+        }
+    }
+
+    static func execute(_ arguments: [String]) throws {
+            var options = try parse(arguments)
             if options.showHelp { print(usage); return }
             guard let inputPath = options.input else { throw ArgumentError.message("missing input .utab file") }
             if options.formats.isEmpty { options.formats = [.uTabJSON] }
@@ -57,7 +70,18 @@ struct UTabCompilerCommand {
                 options: .init(outputs: options.formats, prettyPrintedJSON: options.prettyPrintedJSON)
             )
             for diagnostic in result.diagnostics { writeError(diagnostic.description) }
-            guard result.succeeded else { exit(EXIT_FAILURE) }
+            if options.verifyDiagnostics {
+                let diagnostics = result.diagnostics.compactMap { diagnostic -> TextDiagnostic? in
+                    guard let range = diagnostic.range else { return nil }
+                    let severity: TextDiagnostic.Severity = diagnostic.severity == .error ? .error : .warning
+                    return .init(severity, message: diagnostic.message, range: range)
+                }
+                let verification = TextDiagnosticVerifier().verify(source, diagnostics: diagnostics)
+                for issue in verification.issues { writeError(issue.description) }
+                guard verification.succeeded else { throw CompilationFailure() }
+                return
+            }
+            guard result.succeeded else { throw CompilationFailure() }
 
             for artifact in result.artifacts {
                 let outputURL: URL
@@ -70,13 +94,6 @@ struct UTabCompilerCommand {
                 }
                 try artifact.data.write(to: outputURL, options: .atomic)
             }
-        } catch let error as ArgumentError {
-            writeError("error: \(error)\n\n\(usage)")
-            exit(EXIT_FAILURE)
-        } catch {
-            writeError("error: \(error)")
-            exit(EXIT_FAILURE)
-        }
     }
 
     static func parse(_ arguments: [String]) throws -> Options {
@@ -87,6 +104,7 @@ struct UTabCompilerCommand {
             switch argument {
             case "--help", "-h": options.showHelp = true
             case "--compact": options.prettyPrintedJSON = false
+            case "--verify": options.verifyDiagnostics = true
             case "--emit", "-I", "-o":
                 index += 1
                 guard index < arguments.count else { throw ArgumentError.message("missing value after \(argument)") }
@@ -139,6 +157,7 @@ struct UTabCompilerCommand {
       -o <path>                Output path when exactly one format is emitted
       -I <directory>           Add a module search directory; may be repeated
       --compact                Emit compact rather than pretty-printed JSON
+      --verify                 Verify expected diagnostics embedded in source comments
       -h, --help               Show this help
 
     Without -o, outputs are written beside the input as <name>.utab.json and <name>.mid.

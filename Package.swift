@@ -60,6 +60,7 @@ let package = Package(
             name: "UTABComposerTests",
             dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
         ),
+        .testTarget(name: "UTabCompilerIntegrationTests", dependencies: ["UTabCompiler"]),
         .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]
 )

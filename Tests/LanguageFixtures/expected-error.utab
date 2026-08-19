@@ -1,0 +1,5 @@
+module tests.expected-error
+
+// expected-error@+2 {{Expected meter denominator}}
+// expected-error@+1 {{Expected module, import, profile}}
+meter 4/nope
