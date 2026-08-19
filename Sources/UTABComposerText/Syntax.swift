@@ -135,8 +135,10 @@ public struct TextGeometrySyntax: Sendable, Hashable {
 
 public struct TextPropertySyntax: Sendable, Hashable {
     public let name: TextToken
-    public let value: TextToken
+    public let values: [TextToken]
     public let range: SourceRange
+
+    public var value: TextToken { values[0] }
 }
 
 public struct TextTuningSyntax: Sendable, Hashable {

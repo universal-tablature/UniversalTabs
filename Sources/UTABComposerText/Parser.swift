@@ -244,8 +244,15 @@ public struct TextParser: Sendable {
                 advance()
                 return nil
             }
-            let value = advance()
-            return .init(name: name, value: value, range: spanning(name, value))
+            var values = [advance()]
+            while take(.comma) {
+                guard current.kind == .identifier || current.kind == .stringLiteral || current.kind == .integerLiteral || current.kind == .decimalLiteral else {
+                    diagnose("Expected property value after ','")
+                    break
+                }
+                values.append(advance())
+            }
+            return .init(name: name, values: values, range: spanning(name, values.last ?? name))
         }
 
         mutating func parseInstrumentExtension() -> TextInstrumentExtensionSyntax? {

@@ -197,6 +197,11 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     if let id = resolveScale(propertySyntax.value, from: module) {
                         properties[name] = .scale(id)
                     }
+                } else if name == "scales" {
+                    let ids = propertySyntax.values.compactMap { resolveScale($0, from: module) }
+                    if ids.count == propertySyntax.values.count {
+                        properties[name] = .list(ids.map(InstrumentValue.scale))
+                    }
                 } else {
                     properties[name] = instrumentValue(propertySyntax.value)
                 }

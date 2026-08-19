@@ -1,22 +1,165 @@
 module instruments.lute.renaissance
 import profiles.core
 
-// A G-based quarter-comma meantone reference for movable fret placement.
-// Straight tied frets remain a physical compromise across differently tuned courses.
-scale LuteGQuarterCommaFretReference {
+// Reference chromatic fret layouts. A tied straight fret remains a compromise
+// across courses; split frets and tastini provide additional enharmonic positions.
+scale LuteEqualTemperament {
+    cents 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100
+}
+scale LutePythagorean {
+    cents 0, 90, 204, 294, 408, 498, 588, 702, 792, 906, 996, 1110
+}
+scale LuteQuarterCommaMeantone {
     cents 0, 76, 193, 310, 386, 503, 579, 697, 814, 890, 1007, 1083
+}
+scale LuteSixthCommaMeantone {
+    cents 0, 84, 196, 294, 392, 498, 588, 696, 792, 890, 996, 1086
 }
 
 model RenaissanceLute : PluckedCourses {
     id "instrument:lute:renaissance-six-course"
     name "Six-course Renaissance Lute"
-    geometry courses { count 6; doubled true }
+    geometry courses { count 6; doubled true; singleTopCourses 1 }
     geometry frets {
         count 8
+        neckFrets 8
+        soundboardFrets 0
         movable true
-        scale LuteGQuarterCommaFretReference
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LutePythagorean, LuteEqualTemperament
         referencePitchClass G
         splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
+    }
+}
+
+model RenaissanceLuteEightCourse : PluckedCourses {
+    id "instrument:lute:renaissance-eight-course"
+    name "Eight-course Renaissance Lute"
+    geometry courses { count 8; doubled true; singleTopCourses 1; openBassCourses 2 }
+    geometry frets {
+        count 9
+        neckFrets 8
+        soundboardFrets 1
+        movable true
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LutePythagorean, LuteEqualTemperament
+        referencePitchClass G
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
+    }
+}
+
+model RenaissanceLuteTenCourse : PluckedCourses {
+    id "instrument:lute:renaissance-ten-course"
+    name "Ten-course Renaissance Lute"
+    geometry courses { count 10; doubled true; singleTopCourses 1; openBassCourses 4 }
+    geometry frets {
+        count 9
+        neckFrets 8
+        soundboardFrets 1
+        movable true
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LutePythagorean, LuteEqualTemperament
+        referencePitchClass G
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
+    }
+}
+
+model BaroqueLuteElevenCourse : PluckedCourses {
+    id "instrument:lute:baroque-eleven-course"
+    name "Eleven-course Baroque Lute"
+    geometry courses { count 11; doubled true; singleTopCourses 2; openBassCourses 5 }
+    geometry frets {
+        count 11
+        neckFrets 9
+        soundboardFrets 2
+        movable true
+        scale LuteSixthCommaMeantone
+        scales LuteSixthCommaMeantone, LuteQuarterCommaMeantone, LuteEqualTemperament
+        referencePitchClass D
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6,8"
+    }
+}
+
+model BaroqueLuteThirteenCourse : PluckedCourses {
+    id "instrument:lute:baroque-thirteen-course"
+    name "Thirteen-course Baroque Lute"
+    geometry courses { count 13; doubled true; singleTopCourses 2; openBassCourses 7 }
+    geometry frets {
+        count 11
+        neckFrets 9
+        soundboardFrets 2
+        movable true
+        scale LuteSixthCommaMeantone
+        scales LuteSixthCommaMeantone, LuteQuarterCommaMeantone, LuteEqualTemperament
+        referencePitchClass D
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6,8"
+    }
+}
+
+model ArchluteFourteenCourse : PluckedCourses {
+    id "instrument:archlute:fourteen-course"
+    name "Fourteen-course Archlute"
+    geometry courses { count 14; doubled true; singleTopCourses 1; frettedCourses 6; diapasons 8 }
+    geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
+    geometry frets {
+        count 10
+        neckFrets 9
+        soundboardFrets 1
+        movable true
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LuteEqualTemperament
+        referencePitchClass G
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
+    }
+}
+
+model TheorboFourteenCourse : PluckedCourses {
+    id "instrument:theorbo:fourteen-course-a"
+    name "Fourteen-course Theorbo in A"
+    geometry courses { count 14; doubled false; frettedCourses 6; diapasons 8; reentrantTopCourses 2 }
+    geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
+    geometry frets {
+        count 8
+        neckFrets 8
+        soundboardFrets 0
+        movable true
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LuteEqualTemperament
+        referencePitchClass A
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
+    }
+}
+
+model RenaissanceVihuela : PluckedCourses {
+    id "instrument:vihuela:renaissance-six-course"
+    name "Six-course Renaissance Vihuela"
+    geometry courses { count 6; doubled true; singleTopCourses 1 }
+    geometry body { construction flatBack }
+    geometry frets {
+        count 10
+        neckFrets 9
+        soundboardFrets 1
+        movable true
+        scale LuteQuarterCommaMeantone
+        scales LuteQuarterCommaMeantone, LuteSixthCommaMeantone, LutePythagorean, LuteEqualTemperament
+        referencePitchClass G
+        splitFretsSupported true
+        tastiniSupported true
+        typicalSplitFrets "1,3,4,6"
     }
 }
 
@@ -24,12 +167,144 @@ extension RenaissanceLute {
     tuning renaissanceG default {
         id "tuning:lute:renaissance-g"
         name "Six-course Renaissance Lute in G"
-        tags lute, courses
+        tags lute, renaissance, courses
         course G2, G3
         course C3, C4
         course F3, F4
         course A3, A3
         course D4, D4
         course G4, G4
+    }
+}
+
+extension RenaissanceLuteEightCourse {
+    tuning renaissanceEightCourseG default {
+        id "tuning:lute:renaissance-eight-course-g"
+        name "Eight-course Renaissance Lute in G"
+        tags lute, renaissance, extended-bass
+        course D2, D3
+        course F2, F3
+        course G2, G3
+        course C3, C4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course G4, G4
+    }
+}
+
+extension RenaissanceLuteTenCourse {
+    tuning renaissanceTenCourseG default {
+        id "tuning:lute:renaissance-ten-course-g"
+        name "Ten-course Renaissance Lute in G"
+        tags lute, renaissance, extended-bass
+        course C2, C3
+        course D2, D3
+        course E2, E3
+        course F2, F3
+        course G2, G3
+        course C3, C4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course G4, G4
+    }
+}
+
+extension BaroqueLuteElevenCourse {
+    tuning baroqueDMinorElevenCourse default {
+        id "tuning:lute:baroque-d-minor-eleven-course"
+        name "Eleven-course Baroque Lute in D minor"
+        tags lute, baroque, d-minor
+        course C2, C3
+        course D2, D3
+        course E2, E3
+        course F2, F3
+        course G2, G3
+        course A2, A3
+        course D3, D4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course F4, F4
+    }
+}
+
+extension BaroqueLuteThirteenCourse {
+    tuning baroqueDMinorThirteenCourse default {
+        id "tuning:lute:baroque-d-minor-thirteen-course"
+        name "Thirteen-course Baroque Lute in D minor"
+        tags lute, baroque, d-minor
+        course A1, A2
+        course B1, B2
+        course C2, C3
+        course D2, D3
+        course E2, E3
+        course F2, F3
+        course G2, G3
+        course A2, A3
+        course D3, D4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course F4, F4
+    }
+}
+
+extension ArchluteFourteenCourse {
+    tuning archluteGFourteenCourse default {
+        id "tuning:archlute:fourteen-course-g"
+        name "Fourteen-course Archlute in G"
+        tags archlute, extended-neck, renaissance
+        course G1
+        course A1
+        course B1
+        course C2
+        course D2
+        course E2
+        course F2
+        course G2
+        course G2, G3
+        course C3, C4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course G4
+    }
+}
+
+extension TheorboFourteenCourse {
+    tuning theorboAReentrant default {
+        id "tuning:theorbo:fourteen-course-a-reentrant"
+        name "Fourteen-course Theorbo in A, re-entrant"
+        tags theorbo, extended-neck, reentrant, single-strung
+        course G1
+        course A1
+        course B1
+        course C2
+        course D2
+        course E2
+        course F2
+        course G2
+        course A2
+        course D3
+        course G3
+        course B3
+        course E3
+        course A3
+    }
+}
+
+extension RenaissanceVihuela {
+    tuning vihuelaG default {
+        id "tuning:vihuela:renaissance-g"
+        name "Six-course Renaissance Vihuela in G"
+        tags vihuela, renaissance, courses
+        course G2, G3
+        course C3, C4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course G4
     }
 }

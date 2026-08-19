@@ -729,7 +729,7 @@ private func stableFingerprint(_ data: Data) -> String {
         title "Lute fret setup"
         meter 4/4
         tempo 60
-        scale G LuteGQuarterCommaFretReference
+        scale G LuteQuarterCommaMeantone
         """,
         fileID: "lute-frets.utab"
     )
@@ -753,9 +753,15 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(compiled.succeeded)
     #expect(scale.kind.centIntervals == [0, 76, 193, 310, 386, 503, 579, 697, 814, 890, 1_007, 1_083])
     #expect(scale.kind.centIntervals != ScaleKind.major.centIntervals)
-    #expect(catalogScale.name == "LuteGQuarterCommaFretReference")
+    #expect(catalogScale.name == "LuteQuarterCommaMeantone")
     #expect(catalogScale.centIntervals == scale.kind.centIntervals)
-    #expect(compiled.scaleBindings["LuteGQuarterCommaFretReference"] == scaleID)
+    #expect(compiled.scaleBindings["LuteQuarterCommaMeantone"] == scaleID)
+    guard case .list(let options) = frets.properties["scales"] else {
+        Issue.record("Lute fret geometry should publish selectable scale references")
+        return
+    }
+    #expect(options.count == 4)
+    #expect(options.allSatisfy { if case .scale = $0 { true } else { false } })
     #expect(InstrumentCatalogValidator().validate(compiled.catalog).isEmpty)
 }
 
@@ -923,10 +929,38 @@ private func stableFingerprint(_ data: Data) -> String {
 
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
-    #expect(catalog.tunings.count == 12)
+    #expect(catalog.scales.count == 11)
+    #expect(catalog.tunings.count == 19)
     #expect(catalog.profiles.count == 17)
-    #expect(catalog.models.count == 42)
+    #expect(catalog.models.count == 49)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func luteFamilyPublishesHistoricalConstructionsAndTunings() throws {
+    let catalog = StandardInstruments.catalog
+    let expected: [(String, Int, Int)] = [
+        ("instrument:lute:renaissance-six-course", 6, 8),
+        ("instrument:lute:renaissance-eight-course", 8, 9),
+        ("instrument:lute:renaissance-ten-course", 10, 9),
+        ("instrument:lute:baroque-eleven-course", 11, 11),
+        ("instrument:lute:baroque-thirteen-course", 13, 11),
+        ("instrument:archlute:fourteen-course", 14, 10),
+        ("instrument:theorbo:fourteen-course-a", 14, 8),
+        ("instrument:vihuela:renaissance-six-course", 6, 10),
+    ]
+
+    for (id, courses, frets) in expected {
+        let model = try #require(catalog.models.first { $0.id.rawValue == id })
+        #expect(model.geometry.first { $0.id == "courses" }?.properties["count"] == .integer(courses))
+        #expect(model.geometry.first { $0.id == "frets" }?.properties["count"] == .integer(frets))
+        #expect(model.geometry.first { $0.id == "frets" }?.properties["tastiniSupported"] == .boolean(true))
+        let tuning = try #require(model.defaultTuning.flatMap { tuningID in catalog.tunings.first { $0.id == tuningID } })
+        #expect(tuning.courses.count == courses)
+    }
+
+    let theorbo = try #require(catalog.models.first { $0.id == "instrument:theorbo:fourteen-course-a" })
+    #expect(theorbo.geometry.first { $0.id == "courses" }?.properties["reentrantTopCourses"] == .integer(2))
+    #expect(theorbo.geometry.first { $0.id == "courses" }?.properties["diapasons"] == .integer(8))
 }
 
 @Test func standardLibraryIncludesWindAndPercussionFamilies() {
