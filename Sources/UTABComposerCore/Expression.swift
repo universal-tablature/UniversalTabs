@@ -222,10 +222,14 @@ public struct Bar: Sendable, Hashable {
     public let annotations: SemanticAnnotations
 
     public init(_ expression: MusicalExpression, id: SemanticID? = nil, meter: TimeSignature? = nil, metadata: [String: MetadataValue] = [:]) {
+        self.init(expression, id: id, meter: meter, metadata: metadata, source: nil)
+    }
+
+    public init(_ expression: MusicalExpression, id: SemanticID? = nil, meter: TimeSignature? = nil, metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .derived(kind: "bar", components: [expression.id])
         self.expression = expression
         self.meter = meter
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 }
 

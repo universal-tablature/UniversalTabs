@@ -5,6 +5,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let meter: (numerator: TextToken, denominator: TextToken)?
     public let tempo: TextToken?
     public let scale: (tonic: TextToken, mode: TextToken)?
+    public let instruments: [TextInstrumentInstanceSyntax]
     public let phrases: [TextPhraseSyntax]
     public let sections: [TextSectionSyntax]
     public let main: [TextToken]
@@ -14,14 +15,21 @@ public struct TextCompositionSyntax: Sendable, Hashable {
         lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
-            && lhs.phrases == rhs.phrases && lhs.sections == rhs.sections && lhs.main == rhs.main && lhs.range == rhs.range
+            && lhs.instruments == rhs.instruments && lhs.phrases == rhs.phrases && lhs.sections == rhs.sections && lhs.main == rhs.main && lhs.range == rhs.range
     }
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
-        hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
+        hasher.combine(instruments); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
     }
+}
+
+public struct TextInstrumentInstanceSyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let model: TextToken
+    public let displayName: TextToken?
+    public let range: SourceRange
 }
 
 public struct TextPhraseSyntax: Sendable, Hashable {
@@ -53,10 +61,13 @@ public struct TextVoiceSyntax: Sendable, Hashable {
 public struct TextExpressionSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
         case note(pitch: TextToken, duration: TextToken)
+        case relativeNote(degree: TextToken, octave: TextToken, duration: TextToken)
+        case chord(root: TextToken, quality: TextToken, duration: TextToken)
         case rest(duration: TextToken)
         case reference(TextToken)
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])
         case bar([TextExpressionSyntax])
+        case parallel([TextExpressionSyntax])
     }
 
     public let kind: Kind

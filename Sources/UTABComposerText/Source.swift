@@ -25,6 +25,10 @@ public enum TextTokenKind: String, Sendable, Hashable {
     case comma
     case slash
     case semicolon
+    case newline
+    case atSign
+    case leftBracket
+    case rightBracket
     case endOfFile
     case invalid
 }
@@ -33,11 +37,13 @@ public struct TextToken: Sendable, Hashable {
     public let kind: TextTokenKind
     public let lexeme: Substring
     public let range: SourceRange
+    public let isSynthesized: Bool
 
-    public init(kind: TextTokenKind, lexeme: Substring, range: SourceRange) {
+    public init(kind: TextTokenKind, lexeme: Substring, range: SourceRange, isSynthesized: Bool = false) {
         self.kind = kind
         self.lexeme = lexeme
         self.range = range
+        self.isSynthesized = isSynthesized
     }
 
     public var stringValue: String? {
@@ -126,7 +132,10 @@ public struct TextLexer: Sendable {
                 let start = index
                 let position = SourcePosition(line: line, column: column)
                 let character = source.text[index]
-                if isIdentifierStart(character) { scanIdentifier(from: start, position: position) }
+                if character == "\n" {
+                    advance()
+                    append(.newline, from: start, position: position)
+                } else if isIdentifierStart(character) { scanIdentifier(from: start, position: position) }
                 else if character.isNumber { scanNumber(from: start, position: position) }
                 else if character == "\"" { scanString(from: start, position: position) }
                 else if let kind = punctuation(character) {
@@ -141,12 +150,12 @@ public struct TextLexer: Sendable {
             let position = SourcePosition(line: line, column: column)
             let empty = source.text[index..<index]
             tokens.append(.init(kind: .endOfFile, lexeme: empty, range: .init(fileID: source.fileID, start: position, end: position)))
-            return .init(tokens: tokens, diagnostics: diagnostics)
+            return .init(tokens: insertingSemicolons(tokens), diagnostics: diagnostics)
         }
 
         mutating func skipTrivia() {
             while index < source.text.endIndex {
-                if source.text[index].isWhitespace { advance(); continue }
+                if source.text[index] == " " || source.text[index] == "\t" || source.text[index] == "\r" { advance(); continue }
                 let next = source.text.index(after: index)
                 if source.text[index] == "/", next < source.text.endIndex, source.text[next] == "/" {
                     while index < source.text.endIndex, source.text[index] != "\n" { advance() }
@@ -209,8 +218,49 @@ public struct TextLexer: Sendable {
         func punctuation(_ character: Character) -> TextTokenKind? {
             switch character {
             case "{": .leftBrace; case "}": .rightBrace; case "(": .leftParen; case ")": .rightParen
+            case "[": .leftBracket; case "]": .rightBracket; case "@": .atSign
             case ":": .colon; case ",": .comma; case "/": .slash; case ";": .semicolon
             default: nil
+            }
+        }
+
+        func insertingSemicolons(_ input: [TextToken]) -> [TextToken] {
+            var result: [TextToken] = []
+            var parenthesisDepth = 0
+            for (tokenIndex, token) in input.enumerated() {
+                if token.kind == .leftParen { parenthesisDepth += 1 }
+                if token.kind == .rightParen { parenthesisDepth = max(0, parenthesisDepth - 1) }
+                guard token.kind == .newline else {
+                    result.append(token)
+                    continue
+                }
+                guard parenthesisDepth == 0,
+                      let previous = result.last,
+                      let next = input[(tokenIndex + 1)...].first(where: { $0.kind != .newline }),
+                      canEndStatement(previous.kind),
+                      canFollowInsertedSemicolon(next.kind) else { continue }
+                let position = token.range.start
+                result.append(.init(
+                    kind: .semicolon,
+                    lexeme: token.lexeme.prefix(0),
+                    range: .init(fileID: token.range.fileID, start: position, end: position),
+                    isSynthesized: true
+                ))
+            }
+            return result
+        }
+
+        func canEndStatement(_ kind: TextTokenKind) -> Bool {
+            switch kind {
+            case .identifier, .integerLiteral, .decimalLiteral, .stringLiteral, .rightBrace, .rightParen: true
+            default: false
+            }
+        }
+
+        func canFollowInsertedSemicolon(_ kind: TextTokenKind) -> Bool {
+            switch kind {
+            case .leftBrace, .comma, .semicolon, .colon, .slash, .rightParen, .endOfFile: false
+            default: true
             }
         }
     }

@@ -2,9 +2,17 @@ import UTABComposerCore
 
 public struct TextSemanticResult: Sendable {
     public let composition: Composition?
+    public let instruments: [TextInstrumentInstanceDeclaration]
     public let diagnostics: [TextDiagnostic]
 
     public var succeeded: Bool { composition != nil && !diagnostics.contains { $0.severity == .error } }
+}
+
+public struct TextInstrumentInstanceDeclaration: Sendable, Hashable {
+    public let name: String
+    public let model: String
+    public let displayName: String?
+    public let range: SourceRange
 }
 
 public struct TextSemanticLowerer: Sendable {
@@ -48,7 +56,7 @@ public struct TextSemanticLowerer: Sendable {
             })
             let scale = syntax.scale.flatMap { lowerScale($0.tonic, $0.mode) }
             guard !diagnostics.contains(where: { $0.severity == .error }) else {
-                return .init(composition: nil, diagnostics: diagnostics)
+                return .init(composition: nil, instruments: lowerInstruments(), diagnostics: diagnostics)
             }
             let title = syntax.title?.stringValue ?? "Untitled"
             return .init(
@@ -63,12 +71,35 @@ public struct TextSemanticLowerer: Sendable {
                     main: main,
                     source: syntax.range
                 ),
+                instruments: lowerInstruments(),
                 diagnostics: diagnostics
             )
         }
 
+        func lowerInstruments() -> [TextInstrumentInstanceDeclaration] {
+            syntax.instruments.map {
+                .init(
+                    name: String($0.name.lexeme),
+                    model: $0.model.stringValue ?? String($0.model.lexeme),
+                    displayName: $0.displayName?.stringValue,
+                    range: $0.range
+                )
+            }
+        }
+
         mutating func lowerPhrase(_ phrase: TextPhraseSyntax) -> Phrase {
-            .init(
+            if !phrase.expressions.isEmpty, phrase.expressions.allSatisfy({ if case .bar = $0.kind { true } else { false } }) {
+                let bars = phrase.expressions.map { expression -> Bar in
+                    guard case .bar(let children) = expression.kind else { preconditionFailure() }
+                    return .init(
+                        expressionSequence(children, range: expression.range),
+                        id: id("bar", expression.range),
+                        source: expression.range
+                    )
+                }
+                return .init(String(phrase.name.lexeme), id: .named("phrase", String(phrase.name.lexeme)), bars: bars, source: phrase.range)
+            }
+            return .init(
                 String(phrase.name.lexeme),
                 id: .named("phrase", String(phrase.name.lexeme)),
                 expression: expressionSequence(phrase.expressions, range: phrase.range),
@@ -133,6 +164,26 @@ public struct TextSemanticLowerer: Sendable {
                     kind: .note(.absolute(pitch), duration: duration(durationToken), constraints: []),
                     annotations: .init(source: expression.range)
                 )
+            case .relativeNote(let degree, let octave, let durationToken):
+                return .init(
+                    id: id("relative-note", expression.range),
+                    kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0), duration: duration(durationToken), constraints: []),
+                    annotations: .init(source: expression.range)
+                )
+            case .chord(let root, let quality, let durationToken):
+                guard let spelling = parsePitchClass(String(root.lexeme)) else {
+                    error("Invalid chord root '\(root.lexeme)'", at: root.range)
+                    return .rest(.zero, id: id("invalid", expression.range))
+                }
+                guard let chordQuality = chordQuality(quality) else {
+                    error("Unsupported chord quality '\(quality.lexeme)'", at: quality.range)
+                    return .rest(.zero, id: id("invalid", expression.range))
+                }
+                return .init(
+                    id: id("chord", expression.range),
+                    kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: []),
+                    annotations: .init(source: expression.range)
+                )
             case .rest(let token):
                 return .init(id: id("rest", expression.range), kind: .rest(duration(token)), annotations: .init(source: expression.range))
             case .reference(let token):
@@ -141,6 +192,8 @@ public struct TextSemanticLowerer: Sendable {
                 return .repeated(count: count.integerValue ?? 0, expressionSequence(expressions, range: expression.range), id: id("repeat", expression.range))
             case .bar(let expressions):
                 return expressionSequence(expressions, range: expression.range)
+            case .parallel(let expressions):
+                return .parallel(expressions.map { lowerExpression($0) }, id: id("parallel", expression.range))
             }
         }
 
@@ -189,6 +242,16 @@ public struct TextSemanticLowerer: Sendable {
             return .init(letter, accidental: accidental)
         }
 
+        func chordQuality(_ token: TextToken) -> ChordQuality? {
+            switch token.lexeme {
+            case "major": .major
+            case "minor": .minor
+            case "diminished": .diminished
+            case "sus4": .suspendedFourth
+            default: nil
+            }
+        }
+
         func noteLetter(_ character: Character) -> NoteLetter? {
             switch character.uppercased() {
             case "C": .c; case "D": .d; case "E": .e; case "F": .f
@@ -211,8 +274,8 @@ public struct TextCompositionFrontend: Sendable {
 
     public func compile(_ source: TextSource) -> TextSemanticResult {
         let parsed = TextParser().parse(source)
-        guard let syntax = parsed.syntax else { return .init(composition: nil, diagnostics: parsed.diagnostics) }
+        guard let syntax = parsed.syntax else { return .init(composition: nil, instruments: [], diagnostics: parsed.diagnostics) }
         let lowered = TextSemanticLowerer().lower(syntax)
-        return .init(composition: lowered.composition, diagnostics: parsed.diagnostics + lowered.diagnostics)
+        return .init(composition: lowered.composition, instruments: lowered.instruments, diagnostics: parsed.diagnostics + lowered.diagnostics)
     }
 }

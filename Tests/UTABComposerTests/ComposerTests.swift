@@ -1043,3 +1043,79 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(matched.succeeded)
     #expect(unexpected.issues.contains { $0.kind == .unexpectedDiagnostic })
 }
+
+@Test func lexerInjectsLocatedSemicolonsAtEligibleNewlines() throws {
+    let result = TextLexer().lex(.init("C4 q\nD4 q; E4 q\n", fileID: "timing.utab"))
+    let semicolons = result.tokens.filter { $0.kind == .semicolon }
+
+    #expect(semicolons.count == 2)
+    #expect(semicolons[0].isSynthesized)
+    #expect(semicolons[0].lexeme.isEmpty)
+    #expect(semicolons[0].range.start == SourcePosition(line: 1, column: 5))
+    #expect(!semicolons[1].isSynthesized)
+    #expect(semicolons[1].lexeme == ";")
+}
+
+@Test func textualCommaIsParallelAndSemicolonOrNewlineIsSequential() throws {
+    let source = TextSource(
+        """
+        meter 4/4
+        tempo 100
+        phrase harmony {
+            C4 q, E4 q,
+            G4 q
+            C5 h
+        }
+        """,
+        fileID: "temporal.utab"
+    )
+    let result = TextCompositionFrontend().compile(source)
+    let phrase = try #require(result.composition?.phrases.first)
+    guard case .sequence(let sequence) = phrase.expression.kind,
+          case .parallel(let parallel) = sequence.first?.kind else {
+        Issue.record("Expected a sequential phrase beginning with a parallel expression")
+        return
+    }
+
+    #expect(result.succeeded)
+    #expect(sequence.count == 2)
+    #expect(parallel.count == 3)
+    #expect(parallel.allSatisfy { $0.duration == .quarter })
+    #expect(sequence[1].duration == .half)
+}
+
+@Test func textualParserDiagnosesMissingSequentialSeparator() {
+    let result = TextParser().parse(.init("meter 4/4\ntempo 100\nphrase bad { C4 q D4 q }", fileID: "missing-semicolon.utab"))
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("Expected ';' or newline") })
+}
+
+@Test func completeTextualTwinkleCompilesDeterministicallyToUTab() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("LanguageFixtures/twinkle.utab")
+    let source = TextSource(try String(contentsOf: testFile, encoding: .utf8), fileID: testFile.lastPathComponent)
+    let frontend = TextCompositionFrontend().compile(source)
+    let composition = try #require(frontend.composition)
+    let resolution = TextInstrumentResolver().resolve(frontend.instruments, in: StandardInstruments.catalog)
+    let compiler = UTABCompositionCompiler(catalog: StandardInstruments.catalog, instrumentBindings: resolution.bindings)
+    let first = compiler.compile(composition)
+    let second = compiler.compile(composition)
+    let firstDocument = try #require(first.output)
+    let secondDocument = try #require(second.output)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let firstData = try encoder.encode(firstDocument)
+    let secondData = try encoder.encode(secondDocument)
+
+    #expect(frontend.succeeded)
+    #expect(resolution.succeeded)
+    #expect(composition.phrases.first?.bars.count == 2)
+    #expect(composition.phrases.first?.bars.first?.annotations.source?.fileID == "twinkle.utab")
+    #expect(first.succeeded)
+    #expect(firstData == secondData)
+    #expect(firstDocument.setup.instruments.map(\.id).sorted() == ["guitar_i", "guitar_ii", "piano_i", "voice_i"])
+    #expect(stableFingerprint(firstData) == "7bcb96263646b992")
+}

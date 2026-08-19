@@ -23,6 +23,7 @@ public struct TextParser: Sendable {
             var meter: (TextToken, TextToken)?
             var tempo: TextToken?
             var scale: (TextToken, TextToken)?
+            var instruments: [TextInstrumentInstanceSyntax] = []
             var phrases: [TextPhraseSyntax] = []
             var sections: [TextSectionSyntax] = []
             var main: [TextToken] = []
@@ -39,6 +40,8 @@ public struct TextParser: Sendable {
                     let tonic = expect(.identifier, "Expected scale tonic")
                     let mode = expect(.identifier, "Expected scale mode")
                     if let tonic, let mode { scale = (tonic, mode) }
+                } else if takeKeyword("instrument") {
+                    if let instrument = parseInstrumentInstance() { instruments.append(instrument) }
                 } else if takeKeyword("phrase") { if let value = parsePhrase() { phrases.append(value) } }
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
@@ -53,11 +56,24 @@ public struct TextParser: Sendable {
                 meter: meter,
                 tempo: tempo,
                 scale: scale,
+                instruments: instruments,
                 phrases: phrases,
                 sections: sections,
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseInstrumentInstance() -> TextInstrumentInstanceSyntax? {
+            guard let name = expect(.identifier, "Expected instrument instance name"),
+                  expect(.colon, "Expected ':' after instrument instance name") != nil else { return nil }
+            guard current.kind == .identifier || current.kind == .stringLiteral else {
+                diagnose("Expected instrument model name"); return nil
+            }
+            let model = advance()
+            var displayName: TextToken?
+            if takeKeyword("as") { displayName = expect(.stringLiteral, "Expected quoted instrument display name") }
+            return .init(name: name, model: model, displayName: displayName, range: spanning(name, displayName ?? model))
         }
 
         mutating func parsePhrase() -> TextPhraseSyntax? {
@@ -77,6 +93,7 @@ public struct TextParser: Sendable {
             guard let open = expect(.leftBrace, "Expected '{' after section name") else { return nil }
             var instruments: [TextInstrumentSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
                 if let instrument = parseInstrument() { instruments.append(instrument) } else { synchronizeBlockItem() }
             }
             let close = expect(.rightBrace, "Expected '}' after section") ?? current
@@ -91,6 +108,7 @@ public struct TextParser: Sendable {
             guard let open = expect(.leftBrace, "Expected '{' after instrument instance name") else { return nil }
             var voices: [TextVoiceSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
                 guard takeKeyword("voice") else { diagnose("Expected voice declaration"); synchronizeBlockItem(); continue }
                 if let voice = parseVoice() { voices.append(voice) }
             }
@@ -103,13 +121,15 @@ public struct TextParser: Sendable {
             var lyrics: [TextToken] = []
             var expressions: [TextExpressionSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
                 if takeKeyword("lyrics") {
                     lyrics.append(contentsOf: parseStringBlock())
-                } else if let expression = parseExpression() {
+                } else if let expression = parseTemporalGroup() {
                     expressions.append(expression)
                 } else {
                     synchronizeBlockItem()
                 }
+                requireSequenceSeparator(unlessAt: .rightBrace)
             }
             let close = expect(.rightBrace, "Expected '}' after voice") ?? current
             return .init(name: name, lyrics: lyrics, expressions: expressions, range: spanning(open, close))
@@ -118,14 +138,48 @@ public struct TextParser: Sendable {
         mutating func parseExpressions(until end: TextTokenKind) -> [TextExpressionSyntax] {
             var result: [TextExpressionSyntax] = []
             while current.kind != end && current.kind != .endOfFile {
-                if let expression = parseExpression() { result.append(expression) }
+                if take(.semicolon) { continue }
+                if let expression = parseTemporalGroup() { result.append(expression) }
                 else { synchronizeBlockItem() }
-                _ = take(.comma); _ = take(.semicolon)
+                requireSequenceSeparator(unlessAt: end)
             }
             return result
         }
 
+        mutating func parseTemporalGroup() -> TextExpressionSyntax? {
+            guard let first = parseExpression() else { return nil }
+            var expressions = [first]
+            while take(.comma) {
+                guard let next = parseExpression() else {
+                    diagnose("Expected expression after ','")
+                    break
+                }
+                expressions.append(next)
+            }
+            guard expressions.count > 1, let last = expressions.last else { return first }
+            return .init(
+                kind: .parallel(expressions),
+                range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end)
+            )
+        }
+
         mutating func parseExpression() -> TextExpressionSyntax? {
+            if take(.atSign) {
+                let start = tokens[index - 1]
+                guard let degree = expect(.integerLiteral, "Expected scale degree after '@'"),
+                      expect(.leftBracket, "Expected '[' before relative octave") != nil,
+                      let octave = expect(.integerLiteral, "Expected relative octave"),
+                      expect(.rightBracket, "Expected ']' after relative octave") != nil,
+                      let duration = expect(.identifier, "Expected note duration") else { return nil }
+                return .init(kind: .relativeNote(degree: degree, octave: octave, duration: duration), range: spanning(start, duration))
+            }
+            if takeKeyword("chord") {
+                let start = tokens[index - 1]
+                guard let root = expect(.identifier, "Expected chord root"),
+                      let quality = expect(.identifier, "Expected chord quality"),
+                      let duration = expect(.identifier, "Expected chord duration") else { return nil }
+                return .init(kind: .chord(root: root, quality: quality, duration: duration), range: spanning(start, duration))
+            }
             if takeKeyword("repeat") {
                 let keyword = tokens[index - 1]
                 guard let count = expect(.integerLiteral, "Expected repeat count"), expect(.leftBrace, "Expected '{' after repeat count") != nil else { return nil }
@@ -158,6 +212,7 @@ public struct TextParser: Sendable {
             guard expect(.leftBrace, "Expected '{'") != nil else { return [] }
             var names: [TextToken] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
                 if let name = expect(.identifier, "Expected section name") { names.append(name) } else { advance() }
                 _ = take(.comma); _ = take(.semicolon)
             }
@@ -169,6 +224,7 @@ public struct TextParser: Sendable {
             guard expect(.leftBrace, "Expected '{' after lyrics") != nil else { return [] }
             var strings: [TextToken] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
                 if let value = expect(.stringLiteral, "Expected lyric string") { strings.append(value) } else { advance() }
                 _ = take(.semicolon)
             }
@@ -204,6 +260,12 @@ public struct TextParser: Sendable {
         mutating func diagnose(_ message: String) { diagnostics.append(.init(.error, message: message, range: current.range)) }
         mutating func synchronizeBlockItem() {
             if current.kind != .rightBrace && current.kind != .endOfFile { advance() }
+        }
+        mutating func requireSequenceSeparator(unlessAt end: TextTokenKind) {
+            if take(.semicolon) { return }
+            if current.kind != end && current.kind != .endOfFile {
+                diagnose("Expected ';' or newline between sequential expressions")
+            }
         }
         func spanning(_ first: TextToken, _ last: TextToken) -> SourceRange {
             .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end)
