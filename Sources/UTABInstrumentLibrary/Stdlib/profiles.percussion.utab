@@ -20,7 +20,7 @@ profile TunableDrums {
     id "profile:percussion:tunable-drums"
     version "1"
     actuator membranes { minimumCount 1 }
-    actuator tuningControls
+    actuator tuningControls { control continuous; minimum 0.0; maximum 1.0 }
     interaction strike { targets membranes; effectors mallet, hand }
     interaction setPitch { targets tuningControls; effectors hand, foot }
     technique roll { target membranes }

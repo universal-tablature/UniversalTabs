@@ -15,11 +15,67 @@ profile SingleReedWind {
     id "profile:wind:single-reed"
     version "1"
     actuator reed { count 1; control continuous; minimum 0.0; maximum 1.0 }
-    actuator keys
+    actuator keys { control orderedBitset; width 18 }
     interaction blow { targets reed; effectors breath }
     interaction press { targets keys; effectors finger }
     technique bend { target reed }
     technique vibrato { target reed }
+}
+
+profile KeyedAirColumnWind {
+    id "profile:wind:keyed-air-column"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator keys { control orderedBitset; width 18 }
+    interaction blow { targets airColumn; effectors breath }
+    interaction press { targets keys; effectors finger }
+    technique overblow { target airColumn }
+    technique vibrato { target airColumn }
+}
+
+profile ValvedBrass {
+    id "profile:wind:valved-brass"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator valves { count 3; control orderedBitset; width 3 }
+    actuator tuningSlides { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction press { targets valves; effectors finger }
+    interaction adjustPitch { targets tuningSlides; effectors finger }
+    technique lipBend { target airColumn }
+    technique vibrato { target airColumn }
+}
+
+profile SlideBrass {
+    id "profile:wind:slide-brass"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator slidePosition { count 1; control continuous; minimum 1.0; maximum 7.0 }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction position { targets slidePosition; effectors hand }
+    technique glissando { target slidePosition }
+}
+
+profile MouthOrgan {
+    id "profile:wind:mouth-organ"
+    version "1"
+    actuator holes { minimumCount 10; control discrete }
+    actuator breathDirection { count 1; control discrete }
+    actuator pitchDeflection { count 1; control continuous; minimum -3.0; maximum 1.0 }
+    interaction breathe { targets holes, breathDirection; effectors breath }
+    interaction bend { targets pitchDeflection; effectors tongue, throat }
+    technique overblow { target holes }
+    technique overdraw { target holes }
+}
+
+profile BellowsFreeReed {
+    id "profile:wind:bellows-free-reed"
+    version "1"
+    actuator buttons { minimumCount 1; control discrete }
+    actuator bellowsDirection { count 1; control discrete }
+    actuator bellowsPressure { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction press { targets buttons; effectors finger }
+    interaction moveBellows { targets bellowsDirection, bellowsPressure; effectors arm }
 }
 
 profile DoubleReedWind {

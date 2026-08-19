@@ -232,6 +232,28 @@ public struct InstrumentCatalog: Sendable, Hashable {
         return results.count == 1 ? results.first : nil
     }
 
+    /// Resolves a physical configuration within a requested harmonic register.
+    /// Entries without a register remain available as register-independent fallbacks.
+    public func fingeringResult(for bitmap: String, register: Int, in fingeringID: InstrumentID) -> FingeringResult? {
+        func candidates(_ id: InstrumentID, depth: Int, visited: Set<InstrumentID>) -> [(FingeringEntry, Int)] {
+            guard !visited.contains(id), let map = fingerings.first(where: { $0.id == id }) else { return [] }
+            let nextVisited = visited.union([id])
+            let local = map.entries.filter {
+                $0.matches(bitmap) && ($0.register == nil || $0.register == register)
+            }.map { ($0, depth) }
+            let inherited = map.parent.map { candidates($0, depth: depth - 1, visited: nextVisited) } ?? []
+            return local + inherited
+        }
+        let matches = candidates(fingeringID, depth: 0, visited: [])
+        guard let registerSpecificity = matches.map({ $0.0.register == register ? 1 : 0 }).max() else { return nil }
+        let registered = matches.filter { ($0.0.register == register ? 1 : 0) == registerSpecificity }
+        guard let specificity = registered.map({ $0.0.specificity }).max() else { return nil }
+        let specific = registered.filter { $0.0.specificity == specificity }
+        guard let nearestDepth = specific.map(\.1).max() else { return nil }
+        let results = Set(specific.filter { $0.1 == nearestDepth }.map { $0.0.result })
+        return results.count == 1 ? results.first : nil
+    }
+
     /// Returns effective local and inherited entries, with a child entry replacing
     /// an inherited entry that has the same pattern and register.
     public func fingeringEntries(in fingeringID: InstrumentID) -> [FingeringEntry] {

@@ -118,7 +118,10 @@ public struct InstrumentCatalogValidator: Sendable {
                 for right in fingering.entries.indices where right > left {
                     let lhs = fingering.entries[left]
                     let rhs = fingering.entries[right]
-                    if lhs.specificity == rhs.specificity, lhs.overlaps(rhs), lhs.result != rhs.result {
+                    if lhs.specificity == rhs.specificity,
+                       lhs.register == rhs.register,
+                       lhs.overlaps(rhs),
+                       lhs.result != rhs.result {
                         result.append(.init(path: "\(path).entries[\(right)]", message: "Ambiguous equal-specificity fingering patterns '\(lhs.pattern)' and '\(rhs.pattern)'"))
                     }
                 }

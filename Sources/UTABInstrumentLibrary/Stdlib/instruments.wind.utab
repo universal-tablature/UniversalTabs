@@ -29,11 +29,44 @@ model BassRecorder : AirColumnWind {
     geometry toneHoles { lowestPitch F3; typicalRange "F3-G5"; keyed true }
 }
 
-model ConcertFlute : AirColumnWind {
+model ConcertFlute : KeyedAirColumnWind {
     id "instrument:flute:concert-c"
     name "Concert Flute"
     geometry bore { shape cylindrical; material metal; edgeBlown true }
     geometry toneHoles { keyed true; typicalRange "C4-D7" }
+}
+
+model BbTrumpet : ValvedBrass {
+    id "instrument:trumpet:b-flat"
+    name "B-flat Trumpet"
+    geometry bore { shape cylindricalThenConical; material brass; transposition "Bb" }
+    geometry valves { count 3; type piston; typicalWrittenRange "F#3-D6" }
+}
+
+model TenorTrombone : SlideBrass {
+    id "instrument:trombone:tenor-b-flat"
+    name "Tenor Trombone"
+    geometry bore { shape cylindricalThenConical; material brass; fundamental Bb1 }
+    geometry slide { positions 7; adjustable true; typicalRange "E2-F5" }
+}
+
+model C10DiatonicHarmonica : MouthOrgan {
+    id "instrument:harmonica:diatonic-10-hole:c"
+    name "10-hole Diatonic Harmonica in C"
+    geometry reedPlate { holes 10; tuning Richter; key C }
+}
+
+model PianoAccordion : BellowsFreeReed {
+    id "instrument:accordion:piano"
+    name "Piano Accordion"
+    geometry treble { layout pianoKeyboard; bisonoric false }
+    geometry bass { layout stradella; bisonoric false }
+}
+
+model AngloConcertina : BellowsFreeReed {
+    id "instrument:concertina:anglo"
+    name "Anglo Concertina"
+    geometry buttons { rows 2; bisonoric true; commonKeys "C/G" }
 }
 
 model BbClarinet : SingleReedWind {
@@ -129,5 +162,122 @@ extension AltoRecorder {
         G5 00100000 register 2 preferred
         A5 "h1111100" register 2 preferred
         C6 "h1110000" register 2 preferred
+    }
+}
+
+extension BbClarinet {
+    fingering boehm default {
+        id "fingering:clarinet:b-flat:boehm"
+        name "B-flat clarinet Boehm fingering"
+        actuators keys
+        bitOrder register, thumb, lh1, lh2, lh3, rh1, rh2, rh3, gSharp, aKey, ebLever, lowE, lowFSharp, lowF, sideBb, sideC, sideCSharp, sideDSharp
+
+        G4 000000000000000000 preferred
+        A4 000000000100000000 preferred
+        B4 010000000000000000 preferred
+        C5 011000000000000000 preferred
+        D5 011100000000000000 preferred
+        E5 011110000000000000 preferred
+        F5 011111000000000000 preferred
+        G5 011111100000000000 preferred
+        A5 011111110000000000 preferred
+        B5 111111110000000000 register 2 preferred
+        C6 111111100000000000 register 2 preferred
+        Bb4 000000001000000000 preferred
+        Bb4 000000000000001000 alternate "side-key"
+    }
+}
+
+extension ConcertFlute {
+    fingering boehmClosedHole default {
+        id "fingering:flute:concert-c:boehm-closed-hole"
+        name "Concert flute Boehm closed-hole fingering"
+        actuators keys
+        bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+
+        C5 111111000111000000 preferred
+        D5 111111000100000000 preferred
+        E5 111110000100000000 preferred
+        F5 111100000100000000 preferred
+        G5 111000000100000000 preferred
+        A5 110000000100000000 preferred
+        B5 100000000100000000 preferred
+        C6 000000000100000000 preferred
+    }
+
+    fingering boehmOpenHole {
+        id "fingering:flute:concert-c:boehm-open-hole"
+        name "Concert flute Boehm open-hole fingering"
+        actuators keys
+        extends "fingering:flute:concert-c:boehm-closed-hole"
+        bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+    }
+}
+
+extension AltoSaxophone {
+    fingering boehm default {
+        id "fingering:saxophone:alto:boehm"
+        name "Alto saxophone Boehm fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, bisBb, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp
+
+        B4 010000000000000000 preferred
+        A4 011000000000000000 preferred
+        G4 011100000000000000 preferred
+        F4 011110000000000000 preferred
+        E4 011111000000000000 preferred
+        D4 011111100000000000 preferred
+        C5 000000000100000000 preferred
+        Bb4 010000010000000000 preferred
+        Bb4 010000001000000000 alternate "side-key"
+        D5 111111100000000000 register 2 preferred
+        E5 111111000000000000 register 2 preferred
+        F5 111110000000000000 register 2 preferred
+    }
+}
+
+extension TenorSaxophone {
+    fingering boehm default {
+        id "fingering:saxophone:tenor:boehm"
+        name "Tenor saxophone Boehm fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, bisBb, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp
+
+        B4 010000000000000000 preferred
+        A4 011000000000000000 preferred
+        G4 011100000000000000 preferred
+        F4 011110000000000000 preferred
+        E4 011111000000000000 preferred
+        D4 011111100000000000 preferred
+        Bb4 010000010000000000 preferred
+        Bb4 010000001000000000 alternate "side-key"
+        D5 111111100000000000 register 2 preferred
+    }
+}
+
+extension BbTrumpet {
+    fingering standardValves default {
+        id "fingering:trumpet:b-flat:standard-valves"
+        name "B-flat trumpet standard valve combinations"
+        actuators valves
+        bitOrder valve1, valve2, valve3
+
+        F#3 111 register 2 preferred
+        G3 101 register 2 preferred
+        G#3 110 register 2 preferred
+        A3 011 register 2 preferred
+        Bb3 100 register 2 preferred
+        B3 010 register 2 preferred
+        C4 000 register 2 preferred
+        D4 101 register 3 preferred
+        E4 110 register 3 preferred
+        F4 100 register 3 preferred
+        G4 000 register 3 preferred
+        A4 110 register 4 preferred
+        Bb4 100 register 4 preferred
+        B4 010 register 4 preferred
+        C5 000 register 4 preferred
+        E5 000 register 5 preferred
+        G5 000 register 6 preferred
     }
 }
