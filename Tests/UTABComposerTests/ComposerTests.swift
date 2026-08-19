@@ -491,7 +491,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     ))
 
     #expect(!result.succeeded)
-    #expect(result.diagnostics.contains { $0.message.contains("produces chromatic pitch") })
+    #expect(result.diagnostics.contains { $0.message.contains("produces acoustic pitch") })
 }
 
 @Test func frettedStringRealizationLowersAbstractChordToDistinctStrings() {
@@ -787,6 +787,46 @@ private func stableFingerprint(_ data: Data) -> String {
 
     let relativeChord = ChordSymbol(scaleDegree: 1, .major)
     #expect(relativeChord.root == .scaleDegree(1))
+}
+
+@Test func microtonalPitchFrequencyAndTranspositionPreserveCents() {
+    let concertA = AbsolutePitch.concertA
+    let quarterSharpA = concertA.transposed(cents: 50)
+    let meantoneStep = AbsolutePitch(.g, octave: 3).transposed(cents: 76)
+
+    #expect(abs(concertA.frequency() - 440) < 0.000_001)
+    #expect(abs(quarterSharpA.frequency() - 440 * pow(2, 50.0 / 1_200)) < 0.000_001)
+    #expect(quarterSharpA.cents(relativeTo: concertA) == 50)
+    #expect(abs(quarterSharpA.spelling.tuningOffsetCents) == 50)
+    #expect(meantoneStep.acousticCents - AbsolutePitch(.g, octave: 3).acousticCents == 76)
+    #expect(AbsolutePitch(acousticCents: meantoneStep.acousticCents) == meantoneStep)
+}
+
+@Test func minimalLoweringPreservesMicrotonalPitchAsExactFrequency() throws {
+    let microtonalPitch = AbsolutePitch.concertA.transposed(cents: 50)
+    let composition = Composition(
+        title: "Microtonal frequency",
+        meter: .init(4, 4),
+        tempo: 80,
+        phrases: [],
+        sections: [.init("verse", duration: .whole, parts: [
+            .init(instrument: "voice", voices: [
+                .init("melody", content: [
+                    .expression(.note(.absolute(microtonalPitch), duration: .whole)),
+                ]),
+            ]),
+        ])]
+    )
+    let result = UTABCompositionCompiler(
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: ["voice": testInstance("voice_i", model: StandardInstruments.voice.id)]
+    ).compile(composition)
+    let document = try #require(result.output)
+    let json = String(decoding: try JSONEncoder().encode(document), as: UTF8.self)
+
+    #expect(result.succeeded)
+    #expect(json.contains("frequencyHz"))
+    #expect(json.contains("452.892"))
 }
 
 @Test func validatorReportsWrongBarAndIndependentVoiceDurations() {

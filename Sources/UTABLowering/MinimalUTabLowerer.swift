@@ -317,7 +317,10 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         func pitchValue(_ pitch: AbsolutePitch) -> JSONValue {
-            .object([
+            if pitch.spelling.tuningOffsetCents != 0 {
+                return .object(["frequencyHz": .number(pitch.frequency())])
+            }
+            return .object([
                 "tuning": .string("12edo"),
                 "degree": .number(Double(pitch.pitchClass.rawValue)),
                 "period": .number(Double(pitch.octave)),

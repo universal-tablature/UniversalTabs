@@ -1,3 +1,5 @@
+import Foundation
+
 public enum PitchClass: Int, Sendable, Hashable, CaseIterable {
     case c = 0, cSharp, d, eFlat, e, f, fSharp, g, aFlat, a, bFlat, b
 }
@@ -74,9 +76,48 @@ public struct AbsolutePitch: Sendable, Hashable {
     public var chromaticIndex: Int { (octave + 1) * 12 + pitchClass.rawValue }
     public var acousticCents: Int { chromaticIndex * 100 + spelling.tuningOffsetCents }
 
+    public static let concertA = AbsolutePitch(.a, octave: 4)
+
+    /// Frequency in hertz, retaining any fine-tuning offset carried by the spelling.
+    public func frequency(
+        referencePitch: AbsolutePitch = .concertA,
+        referenceFrequency: Double = 440
+    ) -> Double {
+        precondition(referenceFrequency > 0, "Reference frequency must be positive")
+        return referenceFrequency * pow(2, Double(acousticCents - referencePitch.acousticCents) / 1_200)
+    }
+
+    public func cents(relativeTo other: AbsolutePitch) -> Int {
+        acousticCents - other.acousticCents
+    }
+
+    /// Returns a canonically spelled pitch at the requested acoustic displacement.
+    public func transposed(cents: Int) -> AbsolutePitch {
+        AbsolutePitch(acousticCents: acousticCents + cents)
+    }
+
+    /// Creates a canonical spelling whose fine offset is within half a semitone.
+    public init(acousticCents: Int) {
+        let nearestChromaticIndex = Int((Double(acousticCents) / 100).rounded())
+        let pitchClassValue = ((nearestChromaticIndex % 12) + 12) % 12
+        let pitchClass = PitchClass(rawValue: pitchClassValue)!
+        self.spelling = .init(
+            SpelledPitchClass.canonical(pitchClass).letter,
+            accidental: SpelledPitchClass.canonical(pitchClass).accidental,
+            tuningOffsetCents: acousticCents - nearestChromaticIndex * 100
+        )
+        self.octave = floorDiv(nearestChromaticIndex, by: 12) - 1
+    }
+
     public func isAcousticallyEquivalent(to other: Self) -> Bool {
         acousticCents == other.acousticCents
     }
+}
+
+private func floorDiv(_ value: Int, by divisor: Int) -> Int {
+    let quotient = value / divisor
+    let remainder = value % divisor
+    return remainder < 0 ? quotient - 1 : quotient
 }
 
 public enum ScaleKind: Sendable, Hashable {

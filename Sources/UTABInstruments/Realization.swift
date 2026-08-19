@@ -332,8 +332,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 for (course, tuningCourse) in tuning.courses.enumerated() {
                     guard !used.contains(course), let open = tuningCourse.pitches.first else { continue }
                     for fret in 0...min(fretCount, 12) where (open.pitchClass.rawValue + fret) % 12 == tones[toneIndex] {
-                        let index = open.chromaticIndex + fret
-                        let pitch = AbsolutePitch(PitchClass(rawValue: index % 12)!, octave: index / 12 - 1)
+                        let pitch = open.transposed(cents: fret * 100)
                         let assignment = StringAssignment(
                             course: course,
                             stringNumber: tuning.courses.count - course,
@@ -356,7 +355,9 @@ public struct InstrumentRealizationStage: CompilerStage {
             guard let tuning = context.tuning, let fretCount = context.fretCount else { return nil }
             return tuning.courses.enumerated().compactMap { course, tuningCourse -> (Int, ActuatorAddress)? in
                 guard let open = tuningCourse.pitches.first else { return nil }
-                let fret = pitch.chromaticIndex - open.chromaticIndex
+                let cents = pitch.cents(relativeTo: open)
+                guard cents.isMultiple(of: 100) else { return nil }
+                let fret = cents / 100
                 guard (0...fretCount).contains(fret) else { return nil }
                 let stringNumber = tuning.courses.count - course
                 return (fret, .init(group: "strings", member: String(stringNumber), position: fret))
@@ -370,8 +371,11 @@ public struct InstrumentRealizationStage: CompilerStage {
             guard let keyboard = model.geometry.first(where: { $0.id == "keyboard" }),
                   case .pitch(let lowest) = keyboard.properties["lowestPitch"],
                   case .pitch(let highest) = keyboard.properties["highestPitch"],
-                  (lowest.chromaticIndex...highest.chromaticIndex).contains(pitch.chromaticIndex) else { return nil }
-            return pitch.chromaticIndex - lowest.chromaticIndex + 1
+                  pitch.acousticCents >= lowest.acousticCents,
+                  pitch.acousticCents <= highest.acousticCents else { return nil }
+            let centsFromLowest = pitch.cents(relativeTo: lowest)
+            guard centsFromLowest.isMultiple(of: 100) else { return nil }
+            return centsFromLowest / 100 + 1
         }
 
         mutating func validate(actuator: ActuatorExpression, context: Context, path: String) {
@@ -414,12 +418,12 @@ public struct InstrumentRealizationStage: CompilerStage {
                 diagnostics.append(.init(.error, path: path, message: "A physical string/fret position cannot retain an unresolved relative sounding pitch"))
                 return
             }
-            let producedIndex = openPitch.chromaticIndex + fret
-            if producedIndex != claimedPitch.chromaticIndex {
+            let producedPitch = openPitch.transposed(cents: fret * 100)
+            if !producedPitch.isAcousticallyEquivalent(to: claimedPitch) {
                 diagnostics.append(.init(
                     .error,
                     path: path,
-                    message: "String \(stringNumber) fret \(fret) produces chromatic pitch \(producedIndex), not requested pitch \(claimedPitch.chromaticIndex)"
+                    message: "String \(stringNumber) fret \(fret) produces acoustic pitch \(producedPitch.acousticCents) cents, not requested pitch \(claimedPitch.acousticCents) cents"
                 ))
             }
         }
