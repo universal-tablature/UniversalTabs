@@ -5,7 +5,7 @@ public struct TextSource: Sendable, Hashable {
     public let fileID: String
     public let text: String
 
-    public init(_ text: String, fileID: String = "<memory>") {
+    public init(_ text: String, fileID: String = UTabComposerLanguage.syntheticFileID) {
         precondition(!fileID.isEmpty, "A source file ID cannot be empty")
         self.fileID = fileID
         self.text = text

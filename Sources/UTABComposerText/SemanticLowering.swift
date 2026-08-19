@@ -20,19 +20,25 @@ public struct TextSemanticLowerer: Sendable {
         var diagnostics: [TextDiagnostic] = []
 
         mutating func lower() -> TextSemanticResult {
-            guard let meterTokens = syntax.meter else {
+            let numerator: Int
+            let denominator: Int
+            if let meterTokens = syntax.meter,
+               let parsedNumerator = meterTokens.numerator.integerValue,
+               let parsedDenominator = meterTokens.denominator.integerValue,
+               parsedNumerator > 0, parsedDenominator > 0 {
+                numerator = parsedNumerator
+                denominator = parsedDenominator
+            } else {
                 error("A composition requires a meter declaration", at: syntax.range)
-                return .init(composition: nil, diagnostics: diagnostics)
+                numerator = 4
+                denominator = 4
             }
-            guard let numerator = meterTokens.numerator.integerValue,
-                  let denominator = meterTokens.denominator.integerValue,
-                  numerator > 0, denominator > 0 else {
-                error("Meter values must be positive integers", at: meterTokens.numerator.range)
-                return .init(composition: nil, diagnostics: diagnostics)
-            }
-            guard let tempoToken = syntax.tempo, let tempo = tempoToken.decimalValue, tempo > 0 else {
+            let tempo: Double
+            if let tempoToken = syntax.tempo, let parsedTempo = tempoToken.decimalValue, parsedTempo > 0 {
+                tempo = parsedTempo
+            } else {
                 error("A composition requires a positive tempo declaration", at: syntax.tempo?.range ?? syntax.range)
-                return .init(composition: nil, diagnostics: diagnostics)
+                tempo = 120
             }
             let meter = TimeSignature(numerator, denominator)
             let phrases = syntax.phrases.map { lowerPhrase($0) }

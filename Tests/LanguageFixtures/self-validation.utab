@@ -1,0 +1,18 @@
+title "Self-validation"
+meter 4/4
+tempo 0 // expected-error {{positive tempo}}
+
+phrase melody {
+    H4 q // expected-error {{Invalid pitch}}
+    C4 h
+}
+
+section verse : 1 bars {
+    voice {
+        voice melody {
+            melody
+        }
+    }
+}
+
+main { verse }

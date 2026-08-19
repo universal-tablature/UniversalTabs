@@ -1016,3 +1016,30 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(composition.phrases.first?.annotations.source?.start.line == 6)
     #expect(result.succeeded)
 }
+
+@Test func plainUTabSourceFileSelfValidatesExpectedDiagnostics() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("LanguageFixtures/self-validation.utab")
+    let text = try String(contentsOf: testFile, encoding: .utf8)
+    let result = TextDiagnosticVerifier().verify(.init(text, fileID: testFile.lastPathComponent))
+
+    #expect(UTabComposerLanguage.fileExtension == "utab")
+    #expect(result.expectations.count == 2)
+    #expect(result.succeeded)
+}
+
+@Test func diagnosticVerifierSupportsRelativeLocationsAndReportsUnexpectedDiagnostics() {
+    let source = TextSource("// expected-warning@+1 {{careful}}\nitem\n", fileID: "verify.utab")
+    let warning = TextDiagnostic(
+        .warning,
+        message: "be careful here",
+        range: .init(fileID: "verify.utab", start: .init(line: 2, column: 1), end: .init(line: 2, column: 5))
+    )
+    let matched = TextDiagnosticVerifier().verify(source, diagnostics: [warning])
+    let unexpected = TextDiagnosticVerifier().verify(source, diagnostics: [warning, .init(.error, message: "extra", range: warning.range)])
+
+    #expect(matched.succeeded)
+    #expect(unexpected.issues.contains { $0.kind == .unexpectedDiagnostic })
+}
