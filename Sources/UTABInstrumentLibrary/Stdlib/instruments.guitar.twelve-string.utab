@@ -1,6 +1,7 @@
 module instruments.guitar.twelve-string
+import profiles.core
 
-model TwelveStringGuitar : "profile:plucked-courses" {
+model TwelveStringGuitar : PluckedCourses {
     id "instrument:guitar:twelve-string"
     name "12-string Guitar"
     geometry courses { count 6; doubled true }

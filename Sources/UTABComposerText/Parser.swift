@@ -22,6 +22,7 @@ public struct TextParser: Sendable {
             var title: TextToken?
             var module: TextQualifiedNameSyntax?
             var imports: [TextImportSyntax] = []
+            var profiles: [TextInstrumentProfileSyntax] = []
             var models: [TextInstrumentModelSyntax] = []
             var extensions: [TextInstrumentExtensionSyntax] = []
             var meter: (TextToken, TextToken)?
@@ -36,6 +37,8 @@ public struct TextParser: Sendable {
                 if takeKeyword("module") { module = parseQualifiedName() }
                 else if takeKeyword("import") {
                     if let name = parseQualifiedName() { imports.append(.init(name: name, range: name.range)) }
+                } else if takeKeyword("profile") {
+                    if let profile = parseInstrumentProfile() { profiles.append(profile) }
                 } else if takeKeyword("model") {
                     if let model = parseInstrumentModel() { models.append(model) }
                 } else if takeKeyword("extension") {
@@ -57,7 +60,7 @@ public struct TextParser: Sendable {
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
                 else {
-                    diagnose("Expected module, import, model, extension, title, meter, tempo, scale, instrument, phrase, section, or main declaration")
+                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, phrase, section, or main declaration")
                     advance()
                 }
                 _ = take(.semicolon)
@@ -65,6 +68,7 @@ public struct TextParser: Sendable {
             return .init(
                 module: module,
                 imports: imports,
+                profiles: profiles,
                 models: models,
                 extensions: extensions,
                 title: title,
@@ -77,6 +81,81 @@ public struct TextParser: Sendable {
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseInstrumentProfile() -> TextInstrumentProfileSyntax? {
+            guard let symbol = expect(.identifier, "Expected instrument profile name"),
+                  let open = expect(.leftBrace, "Expected '{' after instrument profile name") else { return nil }
+            var properties: [TextPropertySyntax] = []
+            var actuators: [TextActuatorSyntax] = []
+            var interactions: [TextInteractionSyntax] = []
+            var techniques: [TextTechniqueSyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("actuator") {
+                    if let actuator = parseActuator() { actuators.append(actuator) }
+                } else if takeKeyword("interaction") {
+                    if let interaction = parseInteraction() { interactions.append(interaction) }
+                } else if takeKeyword("technique") {
+                    if let technique = parseTechnique() { techniques.append(technique) }
+                } else if let property = parseProperty() { properties.append(property) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after instrument profile") ?? current
+            return .init(symbol: symbol, properties: properties, actuators: actuators, interactions: interactions, techniques: techniques, range: spanning(open, close))
+        }
+
+        mutating func parseActuator() -> TextActuatorSyntax? {
+            guard let name = expect(.identifier, "Expected actuator group name") else { return nil }
+            guard take(.leftBrace) else { return .init(name: name, properties: [], range: name.range) }
+            let open = tokens[index - 1]
+            let properties = parseProperties(until: .rightBrace)
+            let close = expect(.rightBrace, "Expected '}' after actuator group") ?? current
+            return .init(name: name, properties: properties, range: spanning(open, close))
+        }
+
+        mutating func parseInteraction() -> TextInteractionSyntax? {
+            guard let name = expect(.identifier, "Expected interaction name"),
+                  let open = expect(.leftBrace, "Expected '{' after interaction name") else { return nil }
+            var targets: [TextToken] = []
+            var effectors: [TextToken] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("targets") { targets.append(contentsOf: parseIdentifierList()) }
+                else if takeKeyword("effectors") { effectors.append(contentsOf: parseIdentifierList()) }
+                else { diagnose("Expected targets or effectors in interaction"); synchronizeBlockItem() }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after interaction") ?? current
+            return .init(name: name, targets: targets, effectors: effectors, range: spanning(open, close))
+        }
+
+        mutating func parseTechnique() -> TextTechniqueSyntax? {
+            guard let name = expect(.identifier, "Expected technique name") else { return nil }
+            guard take(.leftBrace) else { return .init(name: name, properties: [], range: name.range) }
+            let open = tokens[index - 1]
+            let properties = parseProperties(until: .rightBrace)
+            let close = expect(.rightBrace, "Expected '}' after technique") ?? current
+            return .init(name: name, properties: properties, range: spanning(open, close))
+        }
+
+        mutating func parseProperties(until end: TextTokenKind) -> [TextPropertySyntax] {
+            var result: [TextPropertySyntax] = []
+            while current.kind != end && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if let property = parseProperty() { result.append(property) }
+                _ = take(.semicolon)
+            }
+            return result
+        }
+
+        mutating func parseIdentifierList() -> [TextToken] {
+            var result: [TextToken] = []
+            if let value = expect(.identifier, "Expected identifier") { result.append(value) }
+            while take(.comma) {
+                if let value = expect(.identifier, "Expected identifier after ','") { result.append(value) }
+            }
+            return result
         }
 
         mutating func parseQualifiedName() -> TextQualifiedNameSyntax? {

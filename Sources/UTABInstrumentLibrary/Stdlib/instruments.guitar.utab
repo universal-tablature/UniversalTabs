@@ -1,6 +1,7 @@
 module instruments.guitar
+import profiles.core
 
-model Guitar : "profile:fretted-strings" {
+model Guitar : FrettedStrings {
     id "instrument:guitar:classical-six-string"
     name "Six-string Classical Guitar"
     geometry strings { count 6 }

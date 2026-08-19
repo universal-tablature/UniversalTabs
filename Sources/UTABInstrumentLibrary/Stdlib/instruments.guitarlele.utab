@@ -1,6 +1,7 @@
 module instruments.guitarlele
+import profiles.core
 
-model Guitarlele : "profile:fretted-strings" {
+model Guitarlele : FrettedStrings {
     id "instrument:guitarlele:standard"
     name "Six-string Guitarlele"
     geometry strings { count 6 }

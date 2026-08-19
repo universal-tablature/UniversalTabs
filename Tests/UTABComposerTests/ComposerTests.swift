@@ -1133,17 +1133,25 @@ private func stableFingerprint(_ data: Data) -> String {
         fileID: "catalogue.utab"
     )
     let loaded = TextModuleLoader().load(root: root, provider: StandardTextModuleProvider())
-    let profilesOnly = InstrumentCatalog(profiles: StandardInstruments.catalog.profiles, models: [])
-    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: profilesOnly)
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: .init(profiles: [], models: []))
     let semantic = try #require(loaded.root.map { TextSemanticLowerer().lower($0.syntax) })
     let resolved = TextInstrumentResolver().resolve(semantic.instruments, in: compiled.catalog, modelBindings: compiled.modelBindings)
     let guitar = try #require(compiled.catalog.models.first { $0.id.rawValue == "instrument:guitar:classical-six-string" })
     let twelveString = try #require(compiled.catalog.models.first { $0.id.rawValue == "instrument:guitar:twelve-string" })
     let doubledCourse = try #require(compiled.catalog.tunings.first { $0.id.rawValue == "tuning:guitar-12:standard" }?.courses.first)
+    let bowedProfile = try #require(compiled.catalog.profiles.first { $0.id.rawValue == "profile:fretless-bowed-strings" })
+    let bowedStrings = try #require(bowedProfile.actuators.first { $0.id == "strings" })
 
     #expect(loaded.succeeded)
-    #expect(loaded.modules.map(\.name) == ["instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
+    #expect(loaded.modules.map(\.name) == ["profiles.core", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
+    #expect(compiled.catalog.profiles.count == 5)
+    #expect(compiled.profileBindings["FrettedStrings"]?.rawValue == "profile:fretted-strings")
+    #expect(guitar.profile.rawValue == "profile:fretted-strings")
+    #expect(bowedStrings.cardinality == .range(1...16))
+    #expect(bowedStrings.control == .continuous(range: 0...1))
+    #expect(bowedProfile.interactions.contains { $0.id == "bow" && $0.effectors == ["bow"] })
+    #expect(bowedProfile.techniques.contains { $0.id == "pizzicato" && $0.target == "strings" })
     #expect(guitar.tunings.map(\.rawValue) == ["tuning:guitar:standard", "tuning:guitar:drop-d"])
     #expect(guitar.defaultTuning?.rawValue == "tuning:guitar:standard")
     #expect(twelveString.defaultTuning?.rawValue == "tuning:guitar-12:standard")
@@ -1165,4 +1173,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(result.diagnostics.contains {
         $0.range.fileID == "b.utab" && $0.message.contains("cycle.a -> cycle.b -> cycle.a")
     })
+}
+
+@Test func textualProfilesDiagnoseInvalidControlsAndCapabilityTargets() {
+    let loaded = TextModuleLoader().load(
+        root: .init(
+            """
+            module profiles.invalid
+            profile Broken {
+                actuator switches { control orderedBitset }
+                interaction play { targets strings }
+                technique bend { target strings }
+            }
+            """,
+            fileID: "invalid-profile.utab"
+        ),
+        provider: DictionaryTextModuleProvider([:])
+    )
+    let compiled = TextInstrumentCatalogCompiler().compile(
+        loaded.modules,
+        extending: .init(profiles: [], models: [])
+    )
+
+    #expect(!compiled.succeeded)
+    #expect(compiled.diagnostics.contains { $0.message.contains("requires a positive width") })
+    #expect(compiled.diagnostics.contains { $0.message.contains("targets unknown actuator group 'strings'") })
 }

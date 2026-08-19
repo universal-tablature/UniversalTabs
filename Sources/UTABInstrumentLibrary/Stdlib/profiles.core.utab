@@ -1,0 +1,57 @@
+module profiles.core
+
+profile FrettedStrings {
+    id "profile:fretted-strings"
+    version "1"
+    actuator strings
+    interaction setPosition { targets strings }
+    interaction pluck { targets strings; effectors finger, pick }
+    interaction strum { targets strings; effectors finger, pick }
+    technique slide { target strings }
+    technique bend { target strings }
+    technique vibrato { target strings }
+}
+
+profile PluckedCourses {
+    id "profile:plucked-courses"
+    version "1"
+    actuator courses
+    interaction setPosition { targets courses }
+    interaction pluck { targets courses; effectors finger, plectrum }
+    interaction strum { targets courses; effectors finger, plectrum }
+    technique tremolo { target courses }
+}
+
+profile FretlessBowedStrings {
+    id "profile:fretless-bowed-strings"
+    version "1"
+    actuator strings {
+        minimumCount 1
+        maximumCount 16
+        control continuous
+        minimum 0.0
+        maximum 1.0
+    }
+    interaction setPosition { targets strings }
+    interaction bow { targets strings; effectors bow }
+    interaction pluck { targets strings; effectors finger }
+    technique vibrato { target strings }
+    technique pizzicato { target strings }
+}
+
+profile Keyboard {
+    id "profile:keyboard"
+    version "1"
+    actuator keys { count 88 }
+    actuator pedals { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pressKeys { targets keys; effectors finger }
+    interaction pressPedals { targets pedals; effectors foot }
+}
+
+profile SingingVoice {
+    id "profile:singing-voice"
+    version "1"
+    actuator voice { count 1; control continuous }
+    interaction sing { targets voice; effectors breath }
+    technique vibrato { target voice }
+}

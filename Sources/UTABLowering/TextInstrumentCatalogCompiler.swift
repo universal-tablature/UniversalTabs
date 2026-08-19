@@ -4,6 +4,7 @@ import UTABInstruments
 
 public struct TextInstrumentCatalogResult: Sendable {
     public let catalog: InstrumentCatalog
+    public let profileBindings: [String: InstrumentID]
     /// Unqualified and module-qualified names exported by the loaded language modules.
     public let modelBindings: [String: InstrumentID]
     public let diagnostics: [TextDiagnostic]
@@ -18,16 +19,18 @@ public struct TextInstrumentCatalogCompiler: Sendable {
 
     public func compile(_ modules: [TextLoadedModule], extending base: InstrumentCatalog) -> TextInstrumentCatalogResult {
         var worker = Worker(base: base)
+        for module in modules { worker.addProfiles(from: module) }
         for module in modules { worker.addModels(from: module) }
         for module in modules { worker.applyExtensions(from: module) }
-        return .init(catalog: worker.catalog, modelBindings: worker.symbols, diagnostics: worker.diagnostics)
+        return .init(catalog: worker.catalog, profileBindings: worker.profileSymbols, modelBindings: worker.symbols, diagnostics: worker.diagnostics)
     }
 
     private struct Worker {
-        let profiles: [InstrumentProfileDefinition]
+        var profiles: [InstrumentProfileDefinition]
         var tunings: [InstrumentTuningDefinition]
         var models: [InstrumentModelDefinition]
         var symbols: [String: InstrumentID]
+        var profileSymbols: [String: InstrumentID]
         var diagnostics: [TextDiagnostic] = []
 
         init(base: InstrumentCatalog) {
@@ -35,9 +38,91 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             tunings = base.tunings
             models = base.models
             symbols = Dictionary(uniqueKeysWithValues: base.models.map { ($0.name, $0.id) })
+            profileSymbols = [:]
         }
 
         var catalog: InstrumentCatalog { .init(tunings: tunings, profiles: profiles, models: models) }
+
+        mutating func addProfiles(from module: TextLoadedModule) {
+            for syntax in module.syntax.profiles {
+                let symbol = String(syntax.symbol.lexeme)
+                let qualifiedSymbol = "\(module.name).\(symbol)"
+                guard profileSymbols[symbol] == nil, profileSymbols[qualifiedSymbol] == nil else {
+                    error("Duplicate instrument profile '\(symbol)'", at: syntax.range); continue
+                }
+                let idString = property("id", in: syntax.properties) ?? "profile:\(module.name):\(symbol)"
+                guard !profiles.contains(where: { $0.id.rawValue == idString }) else {
+                    error("Duplicate instrument profile ID '\(idString)'", at: syntax.range); continue
+                }
+                let actuators = syntax.actuators.compactMap { lowerActuator($0) }
+                let actuatorNames = Set(actuators.map(\.id))
+                let interactions = syntax.interactions.compactMap { interaction -> Interaction? in
+                    let targets = interaction.targets.map { String($0.lexeme) }
+                    let unknown = targets.filter { !actuatorNames.contains($0) }
+                    guard unknown.isEmpty else {
+                        error("Interaction '\(interaction.name.lexeme)' targets unknown actuator group '\(unknown[0])'", at: interaction.range)
+                        return nil
+                    }
+                    return .init(
+                        String(interaction.name.lexeme),
+                        targets: targets,
+                        effectors: interaction.effectors.map { String($0.lexeme) }
+                    )
+                }
+                let techniques = syntax.techniques.compactMap { technique -> InstrumentTechnique? in
+                    let target = property("target", in: technique.properties)
+                    if let target, !actuatorNames.contains(target) {
+                        error("Technique '\(technique.name.lexeme)' targets unknown actuator group '\(target)'", at: technique.range)
+                        return nil
+                    }
+                    return .init(String(technique.name.lexeme), target: target)
+                }
+                let profile = InstrumentProfileDefinition(
+                    id: .init(rawValue: idString),
+                    version: property("version", in: syntax.properties) ?? "1",
+                    actuators: actuators,
+                    interactions: interactions,
+                    techniques: techniques
+                )
+                profiles.append(profile)
+                profileSymbols[symbol] = profile.id
+                profileSymbols[qualifiedSymbol] = profile.id
+            }
+        }
+
+        mutating func lowerActuator(_ syntax: TextActuatorSyntax) -> ActuatorGroup? {
+            let name = String(syntax.name.lexeme)
+            let cardinality: ActuatorCardinality
+            if let count = integerProperty("count", in: syntax.properties) {
+                guard count >= 0 else { error("Actuator count cannot be negative", at: syntax.range); return nil }
+                cardinality = .exact(count)
+            } else if let minimum = integerProperty("minimumCount", in: syntax.properties),
+                      let maximum = integerProperty("maximumCount", in: syntax.properties) {
+                guard minimum >= 0, maximum >= minimum else { error("Invalid actuator cardinality range", at: syntax.range); return nil }
+                cardinality = .range(minimum...maximum)
+            } else {
+                cardinality = .unconstrained
+            }
+            let controlName = property("control", in: syntax.properties) ?? "discrete"
+            let control: ActuatorControl
+            switch controlName {
+            case "discrete": control = .discrete
+            case "binary": control = .binary
+            case "continuous":
+                if let minimum = decimalProperty("minimum", in: syntax.properties),
+                   let maximum = decimalProperty("maximum", in: syntax.properties), minimum <= maximum {
+                    control = .continuous(range: minimum...maximum)
+                } else { control = .continuous(range: nil) }
+            case "orderedBitset":
+                guard let width = integerProperty("width", in: syntax.properties), width > 0 else {
+                    error("An orderedBitset actuator requires a positive width", at: syntax.range); return nil
+                }
+                control = .orderedBitset(width: width)
+            default:
+                error("Unknown actuator control '\(controlName)'", at: syntax.range); return nil
+            }
+            return .init(name, cardinality: cardinality, control: control)
+        }
 
         mutating func addModels(from module: TextLoadedModule) {
             for syntax in module.syntax.models {
@@ -47,7 +132,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     error("Duplicate instrument model '\(symbol)'", at: syntax.range); continue
                 }
                 let profileName = syntax.profile.stringValue ?? String(syntax.profile.lexeme)
-                guard let profile = profiles.first(where: { $0.id.rawValue == profileName }) else {
+                guard let profile = profiles.first(where: { $0.id.rawValue == profileName || profileSymbols[profileName] == $0.id }) else {
                     error("Unknown instrument profile '\(profileName)'", at: syntax.profile.range); continue
                 }
                 let id = property("id", in: syntax.properties) ?? "instrument:\(module.name):\(symbol)"
@@ -106,6 +191,14 @@ public struct TextInstrumentCatalogCompiler: Sendable {
 
         func property(_ name: String, in properties: [TextPropertySyntax]) -> String? {
             properties.first { String($0.name.lexeme) == name }.map { $0.value.stringValue ?? String($0.value.lexeme) }
+        }
+
+        func integerProperty(_ name: String, in properties: [TextPropertySyntax]) -> Int? {
+            properties.first { String($0.name.lexeme) == name }?.value.integerValue
+        }
+
+        func decimalProperty(_ name: String, in properties: [TextPropertySyntax]) -> Double? {
+            properties.first { String($0.name.lexeme) == name }?.value.decimalValue
         }
 
         func instrumentValue(_ token: TextToken) -> InstrumentValue {
