@@ -24,6 +24,15 @@ profile PluckedCourses {
     technique tremolo { target courses }
 }
 
+profile PluckedOpenStrings {
+    id "profile:plucked-open-strings"
+    version "1"
+    actuator strings { minimumCount 1; maximumCount 32 }
+    interaction pluck { targets strings; effectors finger, plectrum }
+    interaction strum { targets strings; effectors finger, plectrum }
+    technique damp { target strings }
+}
+
 profile FretlessBowedStrings {
     id "profile:fretless-bowed-strings"
     version "1"

@@ -1,0 +1,39 @@
+module instruments.lyre.sammu
+import profiles.core
+
+// Nine-string sammûm/lyre used by the late Bronze Age Mesopotamian tuning texts.
+// String numbers follow the ancient convention used in modern reconstructions:
+// 1 is highest, 9 is lowest; strings 8 and 9 double 1 and 2 at the octave.
+model NineStringSammu : PluckedOpenStrings {
+    id "instrument:lyre:sammu:nine-string"
+    name "Nine-string Sammûm / Lyre"
+    geometry strings {
+        count 9
+        numbering highToLow
+        octavePairs "1:8,2:9"
+    }
+    geometry provenance {
+        culture mesopotamian
+        period lateBronzeAge
+        reconstruction true
+    }
+}
+
+extension NineStringSammu {
+    // Relative nīd qablim reconstruction. Ancient notation supplies interval and
+    // string relationships, not an absolute concert pitch; D is an editorial anchor.
+    tuning nidQablimD default {
+        id "tuning:lyre:sammu:nid-qablim-d-relative"
+        name "Nīd qablim, relative D reconstruction"
+        tags sammu, lyre, akkadian, nid-qablim, reconstructed, relative-pitch
+        course E4
+        course D4
+        course C4
+        course B3
+        course A3
+        course G3
+        course F3
+        course E3
+        course D3
+    }
+}

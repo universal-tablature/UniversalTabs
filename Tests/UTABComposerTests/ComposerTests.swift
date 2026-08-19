@@ -702,6 +702,7 @@ private func stableFingerprint(_ data: Data) -> String {
         """
         title "Bayati on Oud"
         import instruments.oud.arabic
+        import instruments.lyre.sammu
         meter 4/4
         tempo 80
         scale D MaqamBayati
@@ -763,6 +764,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(options.count == 4)
     #expect(options.allSatisfy { if case .scale = $0 { true } else { false } })
     #expect(InstrumentCatalogValidator().validate(compiled.catalog).isEmpty)
+}
+
+@Test func nineStringSammuUsesRelativeNidQablimReconstruction() throws {
+    let source = TextSource(
+        "module tests.sammu\nimport instruments.lyre.sammu\n",
+        fileID: "sammu.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: .init(profiles: [], models: []))
+    let model = try #require(compiled.catalog.models.first { $0.id.rawValue == "instrument:lyre:sammu:nine-string" })
+    let tuning = try #require(compiled.catalog.tunings.first { $0.id.rawValue == "tuning:lyre:sammu:nid-qablim-d-relative" })
+
+    #expect(loaded.succeeded)
+    #expect(compiled.succeeded)
+    #expect(model.defaultTuning == tuning.id)
+    #expect(model.geometry.first { $0.id == "strings" }?.properties["count"] == .integer(9))
+    #expect(tuning.courses.map { $0.pitches[0] } == [
+        AbsolutePitch(.e, octave: 4), AbsolutePitch(.d, octave: 4),
+        AbsolutePitch(.c, octave: 4), AbsolutePitch(.b, octave: 3),
+        AbsolutePitch(.a, octave: 3), AbsolutePitch(.g, octave: 3),
+        AbsolutePitch(.f, octave: 3), AbsolutePitch(.e, octave: 3),
+        AbsolutePitch(.d, octave: 3),
+    ])
 }
 
 @Test func instrumentCatalogRejectsInvalidAndMissingScales() {
@@ -930,9 +954,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 19)
-    #expect(catalog.profiles.count == 18)
-    #expect(catalog.models.count == 49)
+    #expect(catalog.tunings.count == 20)
+    #expect(catalog.profiles.count == 19)
+    #expect(catalog.models.count == 50)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -1718,7 +1742,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(loaded.succeeded)
     #expect(loaded.modules.map(\.name) == ["profiles.core", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
-    #expect(compiled.catalog.profiles.count == 5)
+    #expect(compiled.catalog.profiles.count == 6)
     #expect(compiled.profileBindings["profiles.core.FrettedStrings"]?.rawValue == "profile:fretted-strings")
     #expect(guitar.profile.rawValue == "profile:fretted-strings")
     #expect(bowedStrings.cardinality == .range(1...16))
@@ -1730,6 +1754,23 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(twelveString.defaultTuning?.rawValue == "tuning:guitar-12:standard")
     #expect(doubledCourse.pitches.map(\.chromaticIndex) == [40, 52])
     #expect(resolved.bindings["rhythm"]?.model == guitar.id)
+}
+
+@Test func hurrianHymnFixtureCompilesWithReconstructedMelodyAndLyrics() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("LanguageFixtures/hurrian-hymn-6.utab")
+    let source = TextSource(try String(contentsOf: testFile, encoding: .utf8), fileID: testFile.lastPathComponent)
+    let result = UTabTextCompiler().compile(source, modules: StandardTextModuleProvider())
+    let composition = try #require(result.composition)
+    let verse = try #require(composition.sections.first?.parts.first?.voices.first?.lyrics.first)
+
+    #expect(result.succeeded)
+    #expect(result.diagnostics.isEmpty)
+    #expect(composition.phrases.first?.bars.count == 9)
+    #expect(verse.syllables.count == 34)
+    #expect(result.document?.setup.instruments.first?.id == "sammu")
 }
 
 @Test func catalogueLookupUsesSwiftLikeImportedAndQualifiedNames() throws {

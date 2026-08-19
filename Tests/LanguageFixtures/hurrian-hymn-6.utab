@@ -1,0 +1,43 @@
+module examples.hurrian-hymn-6
+import instruments.lyre.sammu
+
+title "Hurrian Hymn No. 6 (Hymn to Nikkal) — pitch reconstruction"
+
+// RS 15.30 + 15.49 + 17.387. The tablet does not preserve an unambiguous
+// rhythm or syllable-to-note alignment. Quarter notes, 4/4 grouping, D as the
+// absolute anchor, and the lyric alignment below are explicitly editorial.
+meter 4/4
+tempo 60
+scale D minor
+
+instrument sammu : NineStringSammu as "Nine-string Sammûm / Lyre"
+
+// Pitch contour from the second member of the tablet's 34 interval pairs,
+// following the high-to-low string numbering used by M. L. West. Strings 1
+// and 2 are rendered with their lower octave partners 8 and 9 where applicable.
+phrase reconstructedPitchSequence {
+    bar { D3 q; F3 q; D3 q; A3 q }
+    bar { G3 q; A3 q; G3 q; A3 q }
+    bar { G3 q; F3 q; F3 q; G3 q }
+    bar { F3 q; E3 q; B3 q; A3 q }
+    bar { G3 q; A3 q; G3 q; F3 q }
+    bar { E3 q; A3 q; G3 q; A3 q }
+    bar { G3 q; A3 q; G3 q; F3 q }
+    bar { C4 q; D3 q; C4 q; D3 q }
+    bar { C4 q; D3 q; rest h }
+}
+
+section tablet : 9 bars {
+    sammu {
+        voice reconstruction {
+            // Opening transliteration only. The surviving Hurrian text is longer,
+            // but its placement under individual notes cannot be recovered securely.
+            lyrics {
+                "a-ta-aḫ-ḫa-aš-ta a-li-it-ta nu-ú-ḫa-aš-ta ti-ta-an-na-pí-en za-zi-na ku-uk-ku-ub-bi za-ar-pí-iš-ša"
+            }
+            reconstructedPitchSequence
+        }
+    }
+}
+
+main { tablet }
