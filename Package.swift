@@ -5,6 +5,7 @@ import PackageDescription
 let package = Package(
     name: "UniversalTabs",
     platforms: [
+        .iOS(.v18),
         .macOS(.v15)
     ],
 
@@ -41,7 +42,7 @@ let package = Package(
         .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstruments"]),
         .target(
             name: "UTABAudio",
-            linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.macOS]))]
+            linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.iOS, .macOS]))]
         ),
         .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
         .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
