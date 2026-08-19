@@ -4,6 +4,10 @@ import PackageDescription
 
 let package = Package(
     name: "UniversalTabs",
+    platforms: [
+        .macOS(.v15)
+    ],
+
     products: [
         .library(name: "UniversalTabs", targets: ["UniversalTabs"]),
         .library(name: "UTABComposerCore", targets: ["UTABComposerCore"]),
@@ -14,6 +18,7 @@ let package = Package(
         .library(name: "UTABLowering", targets: ["UTABLowering"]),
         .library(name: "UTABAudio", targets: ["UTABAudio"]),
         .library(name: "UTABPitchDetection", targets: ["UTABPitchDetection"]),
+        .executable(name: "utabc", targets: ["UTabCompiler"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
         .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
@@ -39,6 +44,7 @@ let package = Package(
             linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.macOS]))]
         ),
         .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
+        .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabPDMXIndex", dependencies: [

@@ -1,12 +1,17 @@
+module examples.twinkle
+import instruments.piano
+import instruments.guitar
+import instruments.voice
+
 title "Twinkle Twinkle Little Star"
 meter 4/4
 tempo 100
 scale C major
 
-instrument piano_i : "instrument:piano:88-key" as "Piano"
-instrument guitar_i : "instrument:guitar:classical-six-string" as "Rhythm Guitar"
-instrument guitar_ii : "instrument:guitar:classical-six-string" as "Lead Guitar"
-instrument voice_i : "instrument:voice:generic" as "Vocals"
+instrument piano_i : Piano as "Piano"
+instrument guitar_i : Guitar as "Rhythm Guitar"
+instrument guitar_ii : Guitar as "Lead Guitar"
+instrument voice_i : Voice as "Vocals"
 
 phrase melody {
     bar {

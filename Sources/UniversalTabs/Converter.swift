@@ -40,6 +40,11 @@ public final class UTabMIDIConverter {
             throw UTabConversionError.invalidDocument(error)
         }
 
+        return convert(document: document)
+    }
+
+    public func convert(document: UTabDocument) -> ConversionResult {
+
         diagnostics = UTabValidator().validate(document).map(\.description)
         bpm = 120
         numerator = 4
@@ -217,7 +222,9 @@ public final class UTabMIDIConverter {
                 for target in eventTargets {
                     let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
                     let stringIndex = targetIndex(target, group: group)
-                    let note = pitchesFromBitsets[target] ?? stringIndex.flatMap {
+                    let note = pitchValue(parameters["pitch"]).flatMap(midiNote)
+                        ?? pitchesFromBitsets[target]
+                        ?? stringIndex.flatMap {
                         stringNote(index: $0, tuning: tuning, order: indexOrder, fret: frets[$0] ?? 0, ratio: ratios[$0])
                     }
                     if let index = stringIndex, !muted.contains(index), let note {

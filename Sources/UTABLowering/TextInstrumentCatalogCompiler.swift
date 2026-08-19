@@ -207,6 +207,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             if let value = token.stringValue { return .text(value) }
             if token.lexeme == "true" { return .boolean(true) }
             if token.lexeme == "false" { return .boolean(false) }
+            if let pitch = parsePitch(token) { return .pitch(pitch) }
             return .text(String(token.lexeme))
         }
 

@@ -1,0 +1,11 @@
+module instruments.piano
+import profiles.core
+
+model Piano : Keyboard {
+    id "instrument:piano:88-key"
+    name "88-key Piano"
+    geometry keyboard {
+        lowestPitch A0
+        highestPitch C8
+    }
+}

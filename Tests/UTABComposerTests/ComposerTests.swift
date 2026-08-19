@@ -1097,27 +1097,26 @@ private func stableFingerprint(_ data: Data) -> String {
         .deletingLastPathComponent()
         .appendingPathComponent("LanguageFixtures/twinkle.utab")
     let source = TextSource(try String(contentsOf: testFile, encoding: .utf8), fileID: testFile.lastPathComponent)
-    let frontend = TextCompositionFrontend().compile(source)
-    let composition = try #require(frontend.composition)
-    let resolution = TextInstrumentResolver().resolve(frontend.instruments, in: StandardInstruments.catalog)
-    let compiler = UTABCompositionCompiler(catalog: StandardInstruments.catalog, instrumentBindings: resolution.bindings)
-    let first = compiler.compile(composition)
-    let second = compiler.compile(composition)
-    let firstDocument = try #require(first.output)
-    let secondDocument = try #require(second.output)
+    let compiler = UTabTextCompiler()
+    let first = compiler.compile(source, modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    let second = compiler.compile(source, modules: StandardTextModuleProvider())
+    let firstDocument = try #require(first.document)
+    let secondDocument = try #require(second.document)
+    let composition = try #require(first.composition)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
     let firstData = try encoder.encode(firstDocument)
     let secondData = try encoder.encode(secondDocument)
 
-    #expect(frontend.succeeded)
-    #expect(resolution.succeeded)
+    #expect(first.succeeded)
+    #expect(second.succeeded)
+    #expect(first.diagnostics.isEmpty)
+    #expect(String(decoding: try #require(first.artifact(.midi)).data.prefix(4), as: UTF8.self) == "MThd")
     #expect(composition.phrases.first?.bars.count == 2)
     #expect(composition.phrases.first?.bars.first?.annotations.source?.fileID == "twinkle.utab")
-    #expect(first.succeeded)
     #expect(firstData == secondData)
     #expect(firstDocument.setup.instruments.map(\.id).sorted() == ["guitar_i", "guitar_ii", "piano_i", "voice_i"])
-    #expect(stableFingerprint(firstData) == "7bcb96263646b992")
+    #expect(stableFingerprint(firstData) == "51c350c1e7a920cb")
 }
 
 @Test func importedStandardLibraryModelsAndTuningExtensionsBuildCatalog() throws {
@@ -1198,4 +1197,73 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(!compiled.succeeded)
     #expect(compiled.diagnostics.contains { $0.message.contains("requires a positive width") })
     #expect(compiled.diagnostics.contains { $0.message.contains("targets unknown actuator group 'strings'") })
+}
+
+@Test func textCompilerDriverProducesUTabJSONAndMIDIFromImportedSource() throws {
+    let source = TextSource(
+        """
+        module examples.single-note
+        import instruments.guitar
+
+        title "Compiler Driver"
+        instrument guitar_i : Guitar as "Guitar"
+        meter 4/4
+        tempo 96
+
+        section verse : 1 bars {
+            guitar_i {
+                voice melody {
+                    E2 w
+                }
+            }
+        }
+        main { verse }
+        """,
+        fileID: "compiler-driver.utab"
+    )
+    let result = UTabTextCompiler().compile(
+        source,
+        modules: StandardTextModuleProvider(),
+        options: .init(outputs: [.uTabJSON, .midi], prettyPrintedJSON: false)
+    )
+    let document = try #require(result.document)
+    let json = try #require(result.artifact(.uTabJSON))
+    let midi = try #require(result.artifact(.midi))
+    let decoded = try JSONDecoder().decode(UTabDocument.self, from: json.data)
+
+    #expect(result.succeeded)
+    #expect(result.modules.map(\.name) == ["profiles.core", "instruments.guitar", "examples.single-note"])
+    #expect(result.instrumentBindings["guitar_i"]?.model.rawValue == "instrument:guitar:classical-six-string")
+    #expect(decoded.utab.documentId == document.utab.documentId)
+    #expect(json.suggestedFileExtension == "utab.json")
+    #expect(midi.suggestedFileExtension == "mid")
+    #expect(String(decoding: midi.data.prefix(4), as: UTF8.self) == "MThd")
+}
+
+@Test func filesystemModuleProviderSupportsNestedFlatAndLayeredLookup() throws {
+    let temporary = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let nested = temporary.appendingPathComponent("instruments", isDirectory: true)
+    try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: temporary) }
+
+    try "module instruments.local\n".write(
+        to: nested.appendingPathComponent("local.utab"),
+        atomically: true,
+        encoding: .utf8
+    )
+    try "module tunings.local\n".write(
+        to: temporary.appendingPathComponent("tunings.local.utab"),
+        atomically: true,
+        encoding: .utf8
+    )
+    let filesystem = FileSystemTextModuleProvider(searchRoots: [temporary])
+    let layered = LayeredTextModuleProvider([
+        DictionaryTextModuleProvider(["instruments.local": .init("module override\n", fileID: "override.utab")]),
+        filesystem,
+    ])
+
+    #expect(filesystem.source(for: "instruments.local")?.fileID.hasSuffix("instruments/local.utab") == true)
+    #expect(filesystem.source(for: "tunings.local")?.fileID.hasSuffix("tunings.local.utab") == true)
+    #expect(layered.source(for: "instruments.local")?.fileID == "override.utab")
 }

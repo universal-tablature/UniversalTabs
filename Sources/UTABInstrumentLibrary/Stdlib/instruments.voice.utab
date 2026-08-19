@@ -1,0 +1,7 @@
+module instruments.voice
+import profiles.core
+
+model Voice : SingingVoice {
+    id "instrument:voice:generic"
+    name "Singing Voice"
+}
