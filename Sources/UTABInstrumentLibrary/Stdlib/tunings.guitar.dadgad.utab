@@ -1,0 +1,16 @@
+module tunings.guitar.dadgad
+import instruments.guitar
+
+extension Guitar {
+    tuning dadgad {
+        id "tuning:guitar:dadgad"
+        name "Guitar DADGAD"
+        tags guitar, alternate, open
+        course D2
+        course A2
+        course D3
+        course G3
+        course A3
+        course D4
+    }
+}

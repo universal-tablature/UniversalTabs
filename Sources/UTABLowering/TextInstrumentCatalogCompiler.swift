@@ -5,7 +5,7 @@ import UTABInstruments
 public struct TextInstrumentCatalogResult: Sendable {
     public let catalog: InstrumentCatalog
     public let profileBindings: [String: InstrumentID]
-    /// Unqualified and module-qualified names exported by the loaded language modules.
+    /// Names visible to the root module, plus fully qualified names from loaded modules.
     public let modelBindings: [String: InstrumentID]
     public let diagnostics: [TextDiagnostic]
 
@@ -18,26 +18,36 @@ public struct TextInstrumentCatalogCompiler: Sendable {
     public init() {}
 
     public func compile(_ modules: [TextLoadedModule], extending base: InstrumentCatalog) -> TextInstrumentCatalogResult {
-        var worker = Worker(base: base)
+        var worker = Worker(base: base, modules: modules)
         for module in modules { worker.addProfiles(from: module) }
         for module in modules { worker.addModels(from: module) }
         for module in modules { worker.applyExtensions(from: module) }
-        return .init(catalog: worker.catalog, profileBindings: worker.profileSymbols, modelBindings: worker.symbols, diagnostics: worker.diagnostics)
+        if let root = modules.first(where: \.isRoot) {
+            worker.validateInstrumentReferences(in: root)
+        }
+        return .init(
+            catalog: worker.catalog,
+            profileBindings: worker.visibleBindings(worker.profileSymbols),
+            modelBindings: worker.visibleBindings(worker.modelSymbols),
+            diagnostics: worker.diagnostics
+        )
     }
 
     private struct Worker {
         var profiles: [InstrumentProfileDefinition]
         var tunings: [InstrumentTuningDefinition]
         var models: [InstrumentModelDefinition]
-        var symbols: [String: InstrumentID]
+        let modules: [TextLoadedModule]
+        var modelSymbols: [String: InstrumentID]
         var profileSymbols: [String: InstrumentID]
         var diagnostics: [TextDiagnostic] = []
 
-        init(base: InstrumentCatalog) {
+        init(base: InstrumentCatalog, modules: [TextLoadedModule]) {
             profiles = base.profiles
             tunings = base.tunings
             models = base.models
-            symbols = Dictionary(uniqueKeysWithValues: base.models.map { ($0.name, $0.id) })
+            self.modules = modules
+            modelSymbols = [:]
             profileSymbols = [:]
         }
 
@@ -47,7 +57,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             for syntax in module.syntax.profiles {
                 let symbol = String(syntax.symbol.lexeme)
                 let qualifiedSymbol = "\(module.name).\(symbol)"
-                guard profileSymbols[symbol] == nil, profileSymbols[qualifiedSymbol] == nil else {
+                guard profileSymbols[qualifiedSymbol] == nil else {
                     error("Duplicate instrument profile '\(symbol)'", at: syntax.range); continue
                 }
                 let idString = property("id", in: syntax.properties) ?? "profile:\(module.name):\(symbol)"
@@ -85,7 +95,6 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     techniques: techniques
                 )
                 profiles.append(profile)
-                profileSymbols[symbol] = profile.id
                 profileSymbols[qualifiedSymbol] = profile.id
             }
         }
@@ -128,12 +137,12 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             for syntax in module.syntax.models {
                 let symbol = String(syntax.symbol.lexeme)
                 let qualifiedSymbol = "\(module.name).\(symbol)"
-                guard symbols[symbol] == nil, symbols[qualifiedSymbol] == nil else {
+                guard modelSymbols[qualifiedSymbol] == nil else {
                     error("Duplicate instrument model '\(symbol)'", at: syntax.range); continue
                 }
-                let profileName = syntax.profile.stringValue ?? String(syntax.profile.lexeme)
-                guard let profile = profiles.first(where: { $0.id.rawValue == profileName || profileSymbols[profileName] == $0.id }) else {
-                    error("Unknown instrument profile '\(profileName)'", at: syntax.profile.range); continue
+                guard let profileID = resolve(syntax.profile, from: module, symbols: profileSymbols, kind: "instrument profile"),
+                      let profile = profiles.first(where: { $0.id == profileID }) else {
+                    continue
                 }
                 let id = property("id", in: syntax.properties) ?? "instrument:\(module.name):\(symbol)"
                 guard !models.contains(where: { $0.id.rawValue == id }) else {
@@ -147,16 +156,16 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 }
                 let model = InstrumentModelDefinition(id: .init(rawValue: id), name: name, profile: profile.id, geometry: geometry)
                 models.append(model)
-                symbols[symbol] = model.id
-                symbols[qualifiedSymbol] = model.id
+                modelSymbols[qualifiedSymbol] = model.id
             }
         }
 
         mutating func applyExtensions(from module: TextLoadedModule) {
             for syntax in module.syntax.extensions {
-                let target = String(syntax.model.lexeme)
-                guard let modelID = symbols[target], let index = models.firstIndex(where: { $0.id == modelID }) else {
-                    error("Unknown instrument model '\(target)'", at: syntax.model.range); continue
+                let target = syntax.model.value
+                guard let modelID = resolve(syntax.model, from: module, symbols: modelSymbols, kind: "instrument model"),
+                      let index = models.firstIndex(where: { $0.id == modelID }) else {
+                    continue
                 }
                 var model = models[index]
                 var tuningIDs = model.tunings
@@ -187,6 +196,73 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, defaults: model.defaults)
                 models[index] = model
             }
+        }
+
+        mutating func validateInstrumentReferences(in module: TextLoadedModule) {
+            for instrument in module.syntax.instruments {
+                _ = resolve(instrument.model, from: module, symbols: modelSymbols, kind: "instrument model")
+            }
+        }
+
+        mutating func resolve(
+            _ reference: TextSymbolReferenceSyntax,
+            from module: TextLoadedModule,
+            symbols: [String: InstrumentID],
+            kind: String
+        ) -> InstrumentID? {
+            let name = reference.value
+            if reference.isStableID {
+                let definitions = kind == "instrument profile" ? profiles.map { $0.id } : models.map { $0.id }
+                if let id = definitions.first(where: { $0.rawValue == name }) { return id }
+                error("Unknown \(kind) '\(name)'", at: reference.range)
+                return nil
+            }
+            if reference.isQualified {
+                if let id = symbols[name] { return id }
+                error("Unknown \(kind) '\(name)'", at: reference.range)
+                return nil
+            }
+
+            let localName = "\(module.name).\(name)"
+            if let id = symbols[localName] { return id }
+            let candidates = module.syntax.imports
+                .map { "\($0.name.value).\(name)" }
+                .compactMap { qualified in symbols[qualified].map { (qualified, $0) } }
+            if candidates.count == 1 { return candidates[0].1 }
+            if candidates.count > 1 {
+                error("Ambiguous \(kind) '\(name)'; use one of: \(candidates.map(\.0).sorted().joined(separator: ", "))", at: reference.range)
+                return nil
+            }
+
+            let baseMatches: [InstrumentID]
+            if kind == "instrument profile" {
+                baseMatches = profiles.filter { $0.id.rawValue == name }.map { $0.id }
+            } else {
+                baseMatches = models.filter { $0.name == name || $0.id.rawValue == name }.map { $0.id }
+            }
+            if baseMatches.count == 1 { return baseMatches[0] }
+            error("Unknown \(kind) '\(name)'", at: reference.range)
+            return nil
+        }
+
+        func visibleBindings(_ symbols: [String: InstrumentID]) -> [String: InstrumentID] {
+            var result = symbols
+            guard let root = modules.first(where: \.isRoot) else { return result }
+            let localPrefix = "\(root.name)."
+            for (qualified, id) in symbols where qualified.hasPrefix(localPrefix) {
+                result[String(qualified.dropFirst(localPrefix.count))] = id
+            }
+            var imported: [String: [(String, InstrumentID)]] = [:]
+            for importedModule in root.syntax.imports.map(\.name.value) {
+                let prefix = "\(importedModule)."
+                for (qualified, id) in symbols where qualified.hasPrefix(prefix) {
+                    imported[String(qualified.dropFirst(prefix.count)), default: []].append((qualified, id))
+                }
+            }
+            for (name, candidates) in imported where result[name] == nil && candidates.count == 1 {
+                result[name] = candidates[0].1
+            }
+            return result
         }
 
         func property(_ name: String, in properties: [TextPropertySyntax]) -> String? {

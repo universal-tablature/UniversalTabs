@@ -11,7 +11,7 @@ model Guitarlele : FrettedStrings {
 extension Guitarlele {
     tuning standard default {
         id "tuning:guitarlele:standard"
-        name "Guitarlele Standard (A-A)"
+        name "Guitarlele Standard (A–A)"
         tags guitarlele, standard
         course A2
         course D3

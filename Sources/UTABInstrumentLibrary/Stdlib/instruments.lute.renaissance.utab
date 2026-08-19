@@ -1,0 +1,23 @@
+module instruments.lute.renaissance
+import profiles.core
+
+model RenaissanceLute : PluckedCourses {
+    id "instrument:lute:renaissance-six-course"
+    name "Six-course Renaissance Lute"
+    geometry courses { count 6; doubled true }
+    geometry frets { movable true }
+}
+
+extension RenaissanceLute {
+    tuning renaissanceG default {
+        id "tuning:lute:renaissance-g"
+        name "Six-course Renaissance Lute in G"
+        tags lute, courses
+        course G2, G3
+        course C3, C4
+        course F3, F4
+        course A3, A3
+        course D4, D4
+        course G4, G4
+    }
+}

@@ -168,13 +168,20 @@ public struct TextParser: Sendable {
             return .init(components: components, range: spanning(first, components.last ?? first))
         }
 
+        mutating func parseSymbolReference(_ message: String) -> TextSymbolReferenceSyntax? {
+            if current.kind == .stringLiteral {
+                let token = advance()
+                return .init(components: [token], range: token.range)
+            }
+            guard current.kind == .identifier else { diagnose(message); return nil }
+            guard let name = parseQualifiedName() else { return nil }
+            return .init(components: name.components, range: name.range)
+        }
+
         mutating func parseInstrumentModel() -> TextInstrumentModelSyntax? {
             guard let symbol = expect(.identifier, "Expected instrument model name"),
                   expect(.colon, "Expected ':' after instrument model name") != nil else { return nil }
-            guard current.kind == .identifier || current.kind == .stringLiteral else {
-                diagnose("Expected capability profile name"); return nil
-            }
-            let profile = advance()
+            guard let profile = parseSymbolReference("Expected capability profile name") else { return nil }
             guard let open = expect(.leftBrace, "Expected '{' after instrument model profile") else { return nil }
             var properties: [TextPropertySyntax] = []
             var geometries: [TextGeometrySyntax] = []
@@ -212,7 +219,7 @@ public struct TextParser: Sendable {
         }
 
         mutating func parseInstrumentExtension() -> TextInstrumentExtensionSyntax? {
-            guard let model = expect(.identifier, "Expected instrument model name"),
+            guard let model = parseSymbolReference("Expected instrument model name"),
                   let open = expect(.leftBrace, "Expected '{' after extension target") else { return nil }
             var tunings: [TextTuningSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -256,13 +263,11 @@ public struct TextParser: Sendable {
         mutating func parseInstrumentInstance() -> TextInstrumentInstanceSyntax? {
             guard let name = expect(.identifier, "Expected instrument instance name"),
                   expect(.colon, "Expected ':' after instrument instance name") != nil else { return nil }
-            guard current.kind == .identifier || current.kind == .stringLiteral else {
-                diagnose("Expected instrument model name"); return nil
-            }
-            let model = advance()
+            guard let model = parseSymbolReference("Expected instrument model name") else { return nil }
             var displayName: TextToken?
             if takeKeyword("as") { displayName = expect(.stringLiteral, "Expected quoted instrument display name") }
-            return .init(name: name, model: model, displayName: displayName, range: spanning(name, displayName ?? model))
+            let end = displayName?.range.end ?? model.range.end
+            return .init(name: name, model: model, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
         }
 
         mutating func parsePhrase() -> TextPhraseSyntax? {

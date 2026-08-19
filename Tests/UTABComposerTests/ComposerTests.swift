@@ -793,6 +793,48 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
+@Test func remainingStandardInstrumentDefinitionsAreAuthoredInTextualStdlib() throws {
+    let source = TextSource(
+        """
+        module tests.complete-stdlib
+        import tunings.guitar.dadgad
+        import instruments.banjo
+        import instruments.violin
+        import instruments.cello
+        import instruments.lute.renaissance
+        import instruments.oud.arabic
+        """,
+        fileID: "complete-stdlib.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: .init(profiles: [], models: []))
+    let expectedModels = [
+        StandardInstruments.fiveStringBanjo,
+        StandardInstruments.violin,
+        StandardInstruments.cello,
+        StandardInstruments.renaissanceLute,
+        StandardInstruments.oud,
+    ]
+    let expectedTunings = [
+        StandardInstruments.guitarDADGAD,
+        StandardInstruments.banjoOpenG,
+        StandardInstruments.violinStandard,
+        StandardInstruments.celloStandard,
+        StandardInstruments.renaissanceLuteG,
+        StandardInstruments.arabicOud,
+    ]
+
+    #expect(loaded.succeeded)
+    #expect(compiled.succeeded)
+    for expected in expectedModels {
+        #expect(compiled.catalog.models.first { $0.id == expected.id } == expected)
+    }
+    for expected in expectedTunings {
+        #expect(compiled.catalog.tunings.first { $0.id == expected.id } == expected)
+    }
+    #expect(InstrumentCatalogValidator().validate(compiled.catalog).isEmpty)
+}
+
 @Test func twelveStringGuitarHasSixDoubledCoursesWithStandardOctaves() {
     let tuning = StandardInstruments.twelveStringGuitarStandard
     let guitar = StandardInstruments.twelveStringGuitar
@@ -1123,6 +1165,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let root = TextSource(
         """
         module examples.catalogue
+        import instruments.guitar
         import tunings.guitar.drop
         import instruments.guitar.twelve-string
         instrument rhythm : Guitar as "Rhythm Guitar"
@@ -1145,7 +1188,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(loaded.modules.map(\.name) == ["profiles.core", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
     #expect(compiled.catalog.profiles.count == 5)
-    #expect(compiled.profileBindings["FrettedStrings"]?.rawValue == "profile:fretted-strings")
+    #expect(compiled.profileBindings["profiles.core.FrettedStrings"]?.rawValue == "profile:fretted-strings")
     #expect(guitar.profile.rawValue == "profile:fretted-strings")
     #expect(bowedStrings.cardinality == .range(1...16))
     #expect(bowedStrings.control == .continuous(range: 0...1))
@@ -1156,6 +1199,74 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(twelveString.defaultTuning?.rawValue == "tuning:guitar-12:standard")
     #expect(doubledCourse.pitches.map(\.chromaticIndex) == [40, 52])
     #expect(resolved.bindings["rhythm"]?.model == guitar.id)
+}
+
+@Test func catalogueLookupUsesSwiftLikeImportedAndQualifiedNames() throws {
+    let provider = DictionaryTextModuleProvider([
+        "catalogue.a": .init(
+            """
+            module catalogue.a
+            profile Strings { id "profile:a" }
+            model Guitar : Strings { id "instrument:a" }
+            """,
+            fileID: "a.utab"
+        ),
+        "catalogue.b": .init(
+            """
+            module catalogue.b
+            profile Strings { id "profile:b" }
+            model Guitar : Strings { id "instrument:b" }
+            """,
+            fileID: "b.utab"
+        ),
+    ])
+    let qualified = TextModuleLoader().load(
+        root: .init(
+            """
+            module example
+            import catalogue.a
+            import catalogue.b
+            instrument first : catalogue.a.Guitar
+            instrument second : catalogue.b.Guitar
+            extension catalogue.a.Guitar {
+                tuning Alternate { id "tuning:a:alternate"; course E2 }
+            }
+            """,
+            fileID: "qualified.utab"
+        ),
+        provider: provider
+    )
+    let compiled = TextInstrumentCatalogCompiler().compile(qualified.modules, extending: .init(profiles: [], models: []))
+    let semantic = try #require(qualified.root.map { TextSemanticLowerer().lower($0.syntax) })
+    let resolved = TextInstrumentResolver().resolve(semantic.instruments, in: compiled.catalog, modelBindings: compiled.modelBindings)
+
+    #expect(compiled.succeeded)
+    #expect(resolved.bindings["first"]?.model.rawValue == "instrument:a")
+    #expect(resolved.bindings["second"]?.model.rawValue == "instrument:b")
+    #expect(compiled.catalog.models.first { $0.id.rawValue == "instrument:a" }?.tunings.first?.rawValue == "tuning:a:alternate")
+    #expect(compiled.modelBindings["Guitar"] == nil)
+}
+
+@Test func catalogueLookupDiagnosesAmbiguousImportedNames() {
+    let provider = DictionaryTextModuleProvider([
+        "catalogue.a": .init("module catalogue.a\nprofile P { id \"profile:a\" }\nmodel Guitar : P { id \"instrument:a\" }", fileID: "a.utab"),
+        "catalogue.b": .init("module catalogue.b\nprofile P { id \"profile:b\" }\nmodel Guitar : P { id \"instrument:b\" }", fileID: "b.utab"),
+    ])
+    let loaded = TextModuleLoader().load(
+        root: .init("module example\nimport catalogue.a\nimport catalogue.b\ninstrument guitar : Guitar", fileID: "ambiguous.utab"),
+        provider: provider
+    )
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: .init(profiles: [], models: []))
+
+    #expect(!compiled.succeeded)
+    #expect(compiled.diagnostics.contains {
+        $0.range.fileID == "ambiguous.utab"
+            && $0.message.contains("catalogue.a.Guitar")
+            && $0.message.contains("catalogue.b.Guitar")
+    })
+    #expect(compiled.modelBindings["Guitar"] == nil)
+    #expect(compiled.modelBindings["catalogue.a.Guitar"]?.rawValue == "instrument:a")
+    #expect(compiled.modelBindings["catalogue.b.Guitar"]?.rawValue == "instrument:b")
 }
 
 @Test func moduleLoaderDiagnosesImportCyclesAtImportLocation() {

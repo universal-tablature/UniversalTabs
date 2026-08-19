@@ -44,8 +44,8 @@ profile Keyboard {
     version "1"
     actuator keys { count 88 }
     actuator pedals { count 3; control continuous; minimum 0.0; maximum 1.0 }
-    interaction pressKeys { targets keys; effectors finger }
-    interaction pressPedals { targets pedals; effectors foot }
+    interaction press { targets keys; effectors finger }
+    interaction press { targets pedals; effectors foot }
 }
 
 profile SingingVoice {

@@ -1,0 +1,20 @@
+module instruments.violin
+import profiles.core
+
+model Violin : FretlessBowedStrings {
+    id "instrument:violin:four-string"
+    name "Four-string Violin"
+    geometry strings { count 4 }
+}
+
+extension Violin {
+    tuning standard default {
+        id "tuning:violin:standard"
+        name "Violin Standard"
+        tags violin, fifths
+        course G3
+        course D4
+        course A4
+        course E5
+    }
+}

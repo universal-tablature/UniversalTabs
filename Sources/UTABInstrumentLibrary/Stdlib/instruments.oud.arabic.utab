@@ -1,0 +1,23 @@
+module instruments.oud.arabic
+import profiles.core
+
+model ArabicOud : PluckedCourses {
+    id "instrument:oud:arabic-six-course"
+    name "Six-course Arabic Oud"
+    geometry courses { count 6; doubled true }
+    geometry fingerboard { fretted false }
+}
+
+extension ArabicOud {
+    tuning arabicC default {
+        id "tuning:oud:arabic-c"
+        name "Arabic Oud in C"
+        tags oud, courses
+        course C2
+        course F2, F2
+        course A2, A2
+        course D3, D3
+        course G3, G3
+        course C4, C4
+    }
+}

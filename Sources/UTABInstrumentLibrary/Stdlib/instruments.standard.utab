@@ -1,0 +1,14 @@
+module instruments.standard
+
+import instruments.guitar
+import tunings.guitar.drop
+import tunings.guitar.dadgad
+import instruments.guitar.twelve-string
+import instruments.guitarlele
+import instruments.banjo
+import instruments.violin
+import instruments.cello
+import instruments.lute.renaissance
+import instruments.oud.arabic
+import instruments.piano
+import instruments.voice

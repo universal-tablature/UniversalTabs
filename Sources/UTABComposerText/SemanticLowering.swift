@@ -80,7 +80,7 @@ public struct TextSemanticLowerer: Sendable {
             syntax.instruments.map {
                 .init(
                     name: String($0.name.lexeme),
-                    model: $0.model.stringValue ?? String($0.model.lexeme),
+                    model: $0.model.value,
                     displayName: $0.displayName?.stringValue,
                     range: $0.range
                 )

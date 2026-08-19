@@ -1,0 +1,20 @@
+module instruments.cello
+import profiles.core
+
+model Cello : FretlessBowedStrings {
+    id "instrument:cello:four-string"
+    name "Four-string Cello"
+    geometry strings { count 4 }
+}
+
+extension Cello {
+    tuning standard default {
+        id "tuning:cello:standard"
+        name "Cello Standard"
+        tags cello, fifths
+        course C2
+        course G2
+        course D3
+        course A3
+    }
+}

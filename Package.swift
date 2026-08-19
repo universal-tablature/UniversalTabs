@@ -35,7 +35,7 @@ let package = Package(
         .target(name: "UTABComposerText", dependencies: ["UTABComposerCore"]),
         .target(
             name: "UTABInstrumentLibrary",
-            dependencies: ["UTABInstruments", "UTABComposerDSL", "UTABComposerText"],
+            dependencies: ["UTABInstruments", "UTABComposerText", "UTABLowering"],
             resources: [.copy("Stdlib")]
         ),
         .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstruments"]),

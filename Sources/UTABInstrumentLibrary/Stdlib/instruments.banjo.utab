@@ -1,0 +1,22 @@
+module instruments.banjo
+import profiles.core
+
+model FiveStringBanjo : FrettedStrings {
+    id "instrument:banjo:five-string"
+    name "Five-string Banjo"
+    geometry strings { count 5; reentrant true }
+    geometry frets { count 22; movable false }
+}
+
+extension FiveStringBanjo {
+    tuning openG default {
+        id "tuning:banjo-5:open-g"
+        name "Five-string Banjo Open G"
+        tags banjo, reentrant, open
+        course G4
+        course D3
+        course G3
+        course B3
+        course D4
+    }
+}

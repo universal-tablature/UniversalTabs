@@ -39,6 +39,20 @@ public struct TextQualifiedNameSyntax: Sendable, Hashable {
     public var value: String { components.map { String($0.lexeme) }.joined(separator: ".") }
 }
 
+/// A catalogue symbol written either as an identifier path or as a quoted stable ID.
+public struct TextSymbolReferenceSyntax: Sendable, Hashable {
+    public let components: [TextToken]
+    public let range: SourceRange
+
+    public var value: String {
+        if components.count == 1, let value = components[0].stringValue { return value }
+        return components.map { String($0.lexeme) }.joined(separator: ".")
+    }
+
+    public var isStableID: Bool { components.count == 1 && components[0].kind == .stringLiteral }
+    public var isQualified: Bool { !isStableID && components.count > 1 }
+}
+
 public struct TextImportSyntax: Sendable, Hashable {
     public let name: TextQualifiedNameSyntax
     public let range: SourceRange
@@ -74,14 +88,14 @@ public struct TextTechniqueSyntax: Sendable, Hashable {
 
 public struct TextInstrumentModelSyntax: Sendable, Hashable {
     public let symbol: TextToken
-    public let profile: TextToken
+    public let profile: TextSymbolReferenceSyntax
     public let properties: [TextPropertySyntax]
     public let geometries: [TextGeometrySyntax]
     public let range: SourceRange
 }
 
 public struct TextInstrumentExtensionSyntax: Sendable, Hashable {
-    public let model: TextToken
+    public let model: TextSymbolReferenceSyntax
     public let tunings: [TextTuningSyntax]
     public let range: SourceRange
 }
@@ -109,7 +123,7 @@ public struct TextTuningSyntax: Sendable, Hashable {
 
 public struct TextInstrumentInstanceSyntax: Sendable, Hashable {
     public let name: TextToken
-    public let model: TextToken
+    public let model: TextSymbolReferenceSyntax
     public let displayName: TextToken?
     public let range: SourceRange
 }
