@@ -40,7 +40,9 @@ model BbTrumpet : ValvedBrass {
     id "instrument:trumpet:b-flat"
     name "B-flat Trumpet"
     geometry bore { shape cylindricalThenConical; material brass; transposition "Bb" }
-    geometry valves { count 3; type piston; typicalWrittenRange "F#3-D6" }
+    geometry valves { count 3; type piston; firstValveSemitones 2; secondValveSemitones 1; thirdValveSemitones 3; typicalWrittenRange "F#3-D6" }
+    geometry harmonics { lowestPartial 2; highestPartial 10; pedalPartial 1; registerRequired true; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68; thirteenthPartialOffsetCents 40.53 }
+    geometry tuningSlides { firstValve true; thirdValve true; continuous true }
 }
 
 model TenorTrombone : SlideBrass {
@@ -372,22 +374,50 @@ extension BbTrumpet {
         actuators valves
         bitOrder valve1, valve2, valve3
 
+        // Second partial: the lowest conventional chromatic register.
         F#3 111 register 2 preferred
         G3 101 register 2 preferred
         G#3 110 register 2 preferred
         A3 011 register 2 preferred
+        A3 001 register 2 alternate "third-valve-use-slide"
         Bb3 100 register 2 preferred
         B3 010 register 2 preferred
         C4 000 register 2 preferred
+
+        // Third partial.
+        C#4 111 register 3 preferred
         D4 101 register 3 preferred
-        E4 110 register 3 preferred
+        D#4 110 register 3 preferred
+        E4 011 register 3 preferred
+        E4 001 register 3 alternate "third-valve-use-slide"
         F4 100 register 3 preferred
+        F#4 010 register 3 preferred
         G4 000 register 3 preferred
-        A4 110 register 4 preferred
+
+        // Fourth partial.
+        G#4 110 register 4 preferred
+        A4 011 register 4 preferred
+        A4 001 register 4 alternate "third-valve-use-slide"
         Bb4 100 register 4 preferred
         B4 010 register 4 preferred
         C5 000 register 4 preferred
+
+        // Fifth through tenth partials make the upper register progressively
+        // more dependent on lip selection and harmonic intonation.
+        C#5 011 register 5 preferred
+        D5 100 register 5 preferred
+        D#5 010 register 5 preferred
         E5 000 register 5 preferred
+        F5 100 register 6 preferred
+        F#5 010 register 6 preferred
         G5 000 register 6 preferred
+        G#5 110 register 7 preferred
+        A5 011 register 7 preferred
+        A5 001 register 7 alternate "third-valve-use-slide"
+        Bb5 100 register 7 preferred
+        B5 010 register 8 preferred
+        C6 000 register 8 preferred
+        C#6 011 register 9 preferred
+        D6 100 register 10 preferred
     }
 }

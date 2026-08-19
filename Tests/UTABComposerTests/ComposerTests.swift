@@ -1138,6 +1138,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
+@Test func standardTrumpetUsesValvesWithinExplicitHarmonicRegisters() throws {
+    let catalog = StandardInstruments.catalog
+    let trumpet = try #require(catalog.models.first { $0.id.rawValue == "instrument:trumpet:b-flat" })
+    let fingering = try #require(trumpet.defaultFingering)
+    let harmonics = try #require(trumpet.geometry.first { $0.id == "harmonics" })
+    let slides = try #require(trumpet.geometry.first { $0.id == "tuningSlides" })
+
+    #expect(catalog.fingeringResult(for: "000", register: 2, in: fingering) == .pitch(.init(.c, octave: 4)))
+    #expect(catalog.fingeringResult(for: "000", register: 3, in: fingering) == .pitch(.init(.g, octave: 4)))
+    #expect(catalog.fingeringResult(for: "000", register: 4, in: fingering) == .pitch(.init(.c, octave: 5)))
+    #expect(catalog.fingeringResult(for: "000", register: 5, in: fingering) == .pitch(.init(.e, octave: 5)))
+    #expect(catalog.fingeringResult(for: "000", register: 6, in: fingering) == .pitch(.init(.g, octave: 5)))
+    #expect(catalog.fingeringResult(for: "000", register: 8, in: fingering) == .pitch(.init(.c, octave: 6)))
+    #expect(catalog.fingeringResult(for: "000", in: fingering) == nil)
+
+    let a3Alternatives = catalog.fingerings(for: .init(.a, octave: 3), in: fingering)
+    #expect(a3Alternatives.map(\.pattern) == ["011", "001"])
+    #expect(a3Alternatives.last?.label == "third-valve-use-slide")
+    #expect(harmonics.properties["seventhPartialOffsetCents"] == .decimal(-31.17))
+    #expect(slides.properties["thirdValve"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
     let catalog = StandardInstruments.catalog
     let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })
