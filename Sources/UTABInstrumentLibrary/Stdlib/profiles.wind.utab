@@ -76,6 +76,7 @@ profile MouthOrgan {
     actuator pitchDeflection { count 1; control continuous; minimum -3.0; maximum 1.0 }
     interaction breathe { targets holes, breathDirection; effectors breath }
     interaction bend { targets pitchDeflection; effectors tongue, throat }
+    technique bend { target pitchDeflection }
     technique overblow { target holes }
     technique overdraw { target holes }
 }

@@ -202,6 +202,8 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     if ids.count == propertySyntax.values.count {
                         properties[name] = .list(ids.map(InstrumentValue.scale))
                     }
+                } else if propertySyntax.values.count > 1 {
+                    properties[name] = .list(propertySyntax.values.map(instrumentValue))
                 } else {
                     properties[name] = instrumentValue(propertySyntax.value)
                 }

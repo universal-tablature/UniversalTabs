@@ -64,6 +64,47 @@ model C10DiatonicHarmonica : MouthOrgan {
     id "instrument:harmonica:diatonic-10-hole:c"
     name "10-hole Diatonic Harmonica in C"
     geometry reedPlate { holes 10; tuning Richter; key C }
+    geometry reedState1Blow { hole 1; direction blow; technique normal; pitch C4 }
+    geometry reedState1Draw { hole 1; direction draw; technique normal; pitch D4 }
+    geometry reedState2Blow { hole 2; direction blow; technique normal; pitch E4 }
+    geometry reedState2Draw { hole 2; direction draw; technique normal; pitch G4 }
+    geometry reedState3Blow { hole 3; direction blow; technique normal; pitch G4 }
+    geometry reedState3Draw { hole 3; direction draw; technique normal; pitch B4 }
+    geometry reedState4Blow { hole 4; direction blow; technique normal; pitch C5 }
+    geometry reedState4Draw { hole 4; direction draw; technique normal; pitch D5 }
+    geometry reedState5Blow { hole 5; direction blow; technique normal; pitch E5 }
+    geometry reedState5Draw { hole 5; direction draw; technique normal; pitch F5 }
+    geometry reedState6Blow { hole 6; direction blow; technique normal; pitch G5 }
+    geometry reedState6Draw { hole 6; direction draw; technique normal; pitch A5 }
+    geometry reedState7Blow { hole 7; direction blow; technique normal; pitch C6 }
+    geometry reedState7Draw { hole 7; direction draw; technique normal; pitch B5 }
+    geometry reedState8Blow { hole 8; direction blow; technique normal; pitch E6 }
+    geometry reedState8Draw { hole 8; direction draw; technique normal; pitch D6 }
+    geometry reedState9Blow { hole 9; direction blow; technique normal; pitch G6 }
+    geometry reedState9Draw { hole 9; direction draw; technique normal; pitch F6 }
+    geometry reedState10Blow { hole 10; direction blow; technique normal; pitch C7 }
+    geometry reedState10Draw { hole 10; direction draw; technique normal; pitch A6 }
+
+    geometry reedState1DrawBend1 { hole 1; direction draw; technique bend; bendSemitones -1; pitch C#4 }
+    geometry reedState2DrawBend1 { hole 2; direction draw; technique bend; bendSemitones -1; pitch F#4 }
+    geometry reedState2DrawBend2 { hole 2; direction draw; technique bend; bendSemitones -2; pitch F4 }
+    geometry reedState3DrawBend1 { hole 3; direction draw; technique bend; bendSemitones -1; pitch Bb4 }
+    geometry reedState3DrawBend2 { hole 3; direction draw; technique bend; bendSemitones -2; pitch A4 }
+    geometry reedState3DrawBend3 { hole 3; direction draw; technique bend; bendSemitones -3; pitch G#4 }
+    geometry reedState4DrawBend1 { hole 4; direction draw; technique bend; bendSemitones -1; pitch C#5 }
+    geometry reedState6DrawBend1 { hole 6; direction draw; technique bend; bendSemitones -1; pitch G#5 }
+    geometry reedState8BlowBend1 { hole 8; direction blow; technique bend; bendSemitones -1; pitch D#6 }
+    geometry reedState9BlowBend1 { hole 9; direction blow; technique bend; bendSemitones -1; pitch F#6 }
+    geometry reedState10BlowBend1 { hole 10; direction blow; technique bend; bendSemitones -1; pitch B6 }
+    geometry reedState10BlowBend2 { hole 10; direction blow; technique bend; bendSemitones -2; pitch Bb6 }
+
+    geometry reedState1Overblow { hole 1; direction blow; technique overblow; pitch D#4 }
+    geometry reedState4Overblow { hole 4; direction blow; technique overblow; pitch D#5 }
+    geometry reedState5Overblow { hole 5; direction blow; technique overblow; pitch F#5 }
+    geometry reedState6Overblow { hole 6; direction blow; technique overblow; pitch Bb5 }
+    geometry reedState7Overdraw { hole 7; direction draw; technique overdraw; pitch C#6 }
+    geometry reedState9Overdraw { hole 9; direction draw; technique overdraw; pitch G#6 }
+    geometry reedState10Overdraw { hole 10; direction draw; technique overdraw; pitch C#7 }
 }
 
 model PianoAccordion : BellowsFreeReed {
@@ -71,12 +112,64 @@ model PianoAccordion : BellowsFreeReed {
     name "Piano Accordion"
     geometry treble { layout pianoKeyboard; bisonoric false }
     geometry bass { layout stradella; bisonoric false }
+    geometry buttonStateC4 { button "C4"; direction push, pull; pitch C4 }
+    geometry buttonStateCSharp4 { button "C#4"; direction push, pull; pitch C#4 }
+    geometry buttonStateD4 { button "D4"; direction push, pull; pitch D4 }
+    geometry buttonStateDSharp4 { button "D#4"; direction push, pull; pitch D#4 }
+    geometry buttonStateE4 { button "E4"; direction push, pull; pitch E4 }
+    geometry buttonStateF4 { button "F4"; direction push, pull; pitch F4 }
+    geometry buttonStateFSharp4 { button "F#4"; direction push, pull; pitch F#4 }
+    geometry buttonStateG4 { button "G4"; direction push, pull; pitch G4 }
+    geometry buttonStateGSharp4 { button "G#4"; direction push, pull; pitch G#4 }
+    geometry buttonStateA4 { button "A4"; direction push, pull; pitch A4 }
+    geometry buttonStateBFlat4 { button "Bb4"; direction push, pull; pitch Bb4 }
+    geometry buttonStateB4 { button "B4"; direction push, pull; pitch B4 }
 }
 
 model AngloConcertina : BellowsFreeReed {
     id "instrument:concertina:anglo"
     name "Anglo Concertina"
-    geometry buttons { rows 2; bisonoric true; commonKeys "C/G" }
+    geometry buttons { count 20; rows 2; bisonoric true; layout common20Button; commonKeys "C/G" }
+    geometry buttonStateC1Push { button "C1"; direction push; pitch C3 }
+    geometry buttonStateC1Pull { button "C1"; direction pull; pitch G3 }
+    geometry buttonStateC2Push { button "C2"; direction push; pitch G3 }
+    geometry buttonStateC2Pull { button "C2"; direction pull; pitch B3 }
+    geometry buttonStateC3Push { button "C3"; direction push; pitch C4 }
+    geometry buttonStateC3Pull { button "C3"; direction pull; pitch D4 }
+    geometry buttonStateC4Push { button "C4"; direction push; pitch E4 }
+    geometry buttonStateC4Pull { button "C4"; direction pull; pitch F4 }
+    geometry buttonStateC5Push { button "C5"; direction push; pitch G4 }
+    geometry buttonStateC5Pull { button "C5"; direction pull; pitch A4 }
+    geometry buttonStateC6Push { button "C6"; direction push; pitch C5 }
+    geometry buttonStateC6Pull { button "C6"; direction pull; pitch B4 }
+    geometry buttonStateC7Push { button "C7"; direction push; pitch E5 }
+    geometry buttonStateC7Pull { button "C7"; direction pull; pitch D5 }
+    geometry buttonStateC8Push { button "C8"; direction push; pitch G5 }
+    geometry buttonStateC8Pull { button "C8"; direction pull; pitch F5 }
+    geometry buttonStateC9Push { button "C9"; direction push; pitch C6 }
+    geometry buttonStateC9Pull { button "C9"; direction pull; pitch A5 }
+    geometry buttonStateC10Push { button "C10"; direction push; pitch E6 }
+    geometry buttonStateC10Pull { button "C10"; direction pull; pitch B5 }
+    geometry buttonStateG1Push { button "G1"; direction push; pitch G3 }
+    geometry buttonStateG1Pull { button "G1"; direction pull; pitch D3 }
+    geometry buttonStateG2Push { button "G2"; direction push; pitch D4 }
+    geometry buttonStateG2Pull { button "G2"; direction pull; pitch F#4 }
+    geometry buttonStateG3Push { button "G3"; direction push; pitch G4 }
+    geometry buttonStateG3Pull { button "G3"; direction pull; pitch A4 }
+    geometry buttonStateG4Push { button "G4"; direction push; pitch B4 }
+    geometry buttonStateG4Pull { button "G4"; direction pull; pitch C5 }
+    geometry buttonStateG5Push { button "G5"; direction push; pitch D5 }
+    geometry buttonStateG5Pull { button "G5"; direction pull; pitch E5 }
+    geometry buttonStateG6Push { button "G6"; direction push; pitch G5 }
+    geometry buttonStateG6Pull { button "G6"; direction pull; pitch F#5 }
+    geometry buttonStateG7Push { button "G7"; direction push; pitch B5 }
+    geometry buttonStateG7Pull { button "G7"; direction pull; pitch A5 }
+    geometry buttonStateG8Push { button "G8"; direction push; pitch D6 }
+    geometry buttonStateG8Pull { button "G8"; direction pull; pitch C6 }
+    geometry buttonStateG9Push { button "G9"; direction push; pitch G6 }
+    geometry buttonStateG9Pull { button "G9"; direction pull; pitch E6 }
+    geometry buttonStateG10Push { button "G10"; direction push; pitch B6 }
+    geometry buttonStateG10Pull { button "G10"; direction pull; pitch F#6 }
 }
 
 model BbClarinet : SingleReedWind {

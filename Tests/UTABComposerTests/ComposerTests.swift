@@ -1193,6 +1193,84 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
+@Test func harmonicaCombinesHoleBreathBendAndOverblowState() throws {
+    let catalog = StandardInstruments.catalog
+    let harmonica: InstrumentID = "instrument:harmonica:diatonic-10-hole:c"
+    var state = InstrumentPerformanceState(modelID: harmonica)
+
+    state.set(.integer(2), for: "hole")
+    state.set(.text("blow"), for: "direction")
+    #expect(catalog.resolve(state) == .pitch(.init(.e, octave: 4)))
+    state.set(.text("draw"), for: "direction")
+    #expect(catalog.resolve(state) == .pitch(.init(.g, octave: 4)))
+    state.activeTechniques = ["bend"]
+    state.set(.integer(-2), for: "bendSemitones")
+    #expect(catalog.resolve(state) == .pitch(.init(.f, octave: 4)))
+    state.set(.integer(3), for: "hole")
+    state.set(.integer(-3), for: "bendSemitones")
+    guard case .pitch(let tripleBend)? = catalog.resolve(state) else {
+        Issue.record("Expected the authored triple-bend mapping")
+        return
+    }
+    #expect(tripleBend.isAcousticallyEquivalent(to: .init(.aFlat, octave: 4)))
+    state.activeTechniques = ["overblow"]
+    state.set(.integer(6), for: "hole")
+    state.set(.text("blow"), for: "direction")
+    #expect(catalog.resolve(state) == .pitch(.init(.bFlat, octave: 5)))
+    state.activeTechniques = ["overdraw"]
+    state.set(.integer(7), for: "hole")
+    state.set(.text("draw"), for: "direction")
+    #expect(catalog.resolve(state) == .pitch(.init(.cSharp, octave: 6)))
+    state.activeTechniques = ["bend"]
+    state.set(.integer(5), for: "hole")
+    state.set(.integer(-1), for: "bendSemitones")
+    #expect(catalog.resolve(state) == nil)
+}
+
+@Test func accordionAndConcertinaResolveButtonPitchByBellowsDirection() throws {
+    let catalog = StandardInstruments.catalog
+    let accordion: InstrumentID = "instrument:accordion:piano"
+    let concertina: InstrumentID = "instrument:concertina:anglo"
+
+    var accordionState = InstrumentPerformanceState(modelID: accordion, values: ["button": .text("C#4"), "direction": .text("push")])
+    #expect(catalog.resolve(accordionState) == .pitch(.init(.cSharp, octave: 4)))
+    accordionState.set(.text("pull"), for: "direction")
+    #expect(catalog.resolve(accordionState) == .pitch(.init(.cSharp, octave: 4)))
+
+    var concertinaState = InstrumentPerformanceState(modelID: concertina, values: ["button": .text("C3"), "direction": .text("push")])
+    #expect(catalog.resolve(concertinaState) == .pitch(.init(.c, octave: 4)))
+    concertinaState.set(.text("pull"), for: "direction")
+    #expect(catalog.resolve(concertinaState) == .pitch(.init(.d, octave: 4)))
+    concertinaState.set(.text("G2"), for: "button")
+    concertinaState.set(.text("push"), for: "direction")
+    #expect(catalog.resolve(concertinaState) == .pitch(.init(.d, octave: 4)))
+    concertinaState.set(.text("pull"), for: "direction")
+    #expect(catalog.resolve(concertinaState) == .pitch(.init(.fSharp, octave: 4)))
+    concertinaState.set(.text("missing"), for: "button")
+    #expect(catalog.resolve(concertinaState) == nil)
+}
+
+@Test func timpaniRetuningChangesSubsequentlyPlayedPitchAndEnforcesDrumRange() throws {
+    let catalog = StandardInstruments.catalog
+    let timpani: InstrumentID = "instrument:percussion:timpani"
+    var state = try #require(catalog.performanceState(for: timpani))
+    state.set(.text("strike"), for: "interaction")
+    state.set(.text("drum29"), for: "target")
+
+    #expect(catalog.resolve(state) == .pitch(.init(.f, octave: 2)))
+    let tunedToBFlat = state.set(.pitch(.init(.bFlat, octave: 2)), for: "drum29")
+    #expect(tunedToBFlat)
+    #expect(catalog.resolve(state) == .pitch(.init(.bFlat, octave: 2)))
+    let tunedToB = state.set(.pitch(.init(.b, octave: 2)), for: "drum29")
+    #expect(tunedToB)
+    #expect(catalog.resolve(state) == .pitch(.init(.b, octave: 2)))
+    let rejectedOutOfRangePitch = state.set(.pitch(.init(.d, octave: 3)), for: "drum29")
+    #expect(!rejectedOutOfRangePitch)
+    #expect(catalog.resolve(state) == .pitch(.init(.b, octave: 2)))
+    state.set(.text("missing"), for: "target")
+    #expect(catalog.resolve(state) == nil)
+}
+
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
     let catalog = StandardInstruments.catalog
     let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })

@@ -59,6 +59,14 @@ model Vibraphone : PitchedPercussion {
 model Timpani : TunableDrums {
     id "instrument:percussion:timpani"
     name "Timpani"
-    geometry membranes { typicalCount 4; definitePitch true; typicalRange "D2-C4" }
-    geometry tuningControls { pedal true; continuous true }
+    geometry membranes { typicalCount 4; definitePitch true; typicalRange "D2-A3" }
+    geometry tuningControls { count 4; pedal true; continuous true; statePersistsUntilRetuned true }
+    geometry drum32 { diameterInches 32; stateKey "drum32"; minimum D2; maximum A2; initial D2 }
+    geometry drum29 { diameterInches 29; stateKey "drum29"; minimum F2; maximum C3; initial F2 }
+    geometry drum26 { diameterInches 26; stateKey "drum26"; minimum Bb2; maximum F3; initial Bb2 }
+    geometry drum23 { diameterInches 23; stateKey "drum23"; minimum D3; maximum A3; initial D3 }
+    geometry strikeDrum32 { interaction strike; target "drum32"; stateValue "drum32" }
+    geometry strikeDrum29 { interaction strike; target "drum29"; stateValue "drum29" }
+    geometry strikeDrum26 { interaction strike; target "drum26"; stateValue "drum26" }
+    geometry strikeDrum23 { interaction strike; target "drum23"; stateValue "drum23" }
 }

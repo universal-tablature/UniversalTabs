@@ -86,6 +86,15 @@ public struct InstrumentCatalogValidator: Sendable {
                 result.append(.init(path: "\(path).defaultFingering", message: "Default fingering must be listed in model fingerings"))
             }
             if let profile = catalog.profiles.first(where: { $0.id == model.profile }) {
+                let techniqueIDs = Set(profile.techniques.map(\.id))
+                for geometry in model.geometry where geometry.properties["pitch"] != nil || geometry.properties["effect"] != nil || geometry.properties["stateValue"] != nil {
+                    if let technique = geometry.properties["technique"],
+                       case .text(let techniqueID) = technique,
+                       techniqueID != "normal",
+                       !techniqueIDs.contains(techniqueID) {
+                        result.append(.init(path: "\(path).geometry.\(geometry.id).technique", message: "Unknown technique '\(techniqueID)'"))
+                    }
+                }
                 for actuator in profile.actuators {
                     guard let geometry = model.geometry.first(where: { $0.id == actuator.id }),
                           case .integer(let count) = geometry.properties["count"] else { continue }

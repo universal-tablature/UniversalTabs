@@ -33,6 +33,11 @@ private extension InstrumentValue {
         guard case .integer(let value) = self else { return nil }
         return value
     }
+
+    var textValue: String? {
+        guard case .text(let value) = self else { return nil }
+        return value
+    }
 }
 
 /// A named octave-repeating pitch collection published by an instrument catalogue.
@@ -172,6 +177,47 @@ public struct SlidePitchResolution: Sendable, Hashable {
     public let slidePosition: Double
     public let namedPosition: String?
     public let positionDeviation: Double?
+}
+
+public enum InstrumentStateResult: Sendable, Hashable {
+    case pitch(AbsolutePitch)
+    case effect(String)
+}
+
+/// Runtime actuator values and active language-defined techniques. The model layer
+/// deliberately has no knowledge of particular instruments or symbolic state domains.
+public struct InstrumentPerformanceState: Sendable, Hashable {
+    public let modelID: InstrumentID
+    public private(set) var values: [String: InstrumentValue]
+    public var activeTechniques: Set<String>
+    private let constraints: [String: ClosedRange<Double>]
+
+    public init(modelID: InstrumentID, values: [String: InstrumentValue] = [:], activeTechniques: Set<String> = []) {
+        self.init(modelID: modelID, values: values, activeTechniques: activeTechniques, constraints: [:])
+    }
+
+    fileprivate init(modelID: InstrumentID, values: [String: InstrumentValue], activeTechniques: Set<String>, constraints: [String: ClosedRange<Double>]) {
+        self.modelID = modelID
+        self.values = values
+        self.activeTechniques = activeTechniques
+        self.constraints = constraints
+    }
+
+    @discardableResult
+    public mutating func set(_ value: InstrumentValue, for key: String) -> Bool {
+        if let range = constraints[key] {
+            let comparable: Double?
+            switch value {
+            case .pitch(let pitch): comparable = Double(pitch.acousticCents)
+            case .integer(let number): comparable = Double(number)
+            case .decimal(let number): comparable = number
+            default: comparable = nil
+            }
+            guard let comparable, range.contains(comparable) else { return false }
+        }
+        values[key] = value
+        return true
+    }
 }
 
 public struct ActuatorMember: Sendable, Hashable {
@@ -335,6 +381,59 @@ public struct InstrumentCatalog: Sendable, Hashable {
             namedPosition: namedPosition,
             positionDeviation: namedPosition == nil ? nil : deviation
         )
+    }
+
+    public func performanceState(for modelID: InstrumentID) -> InstrumentPerformanceState? {
+        guard let model = models.first(where: { $0.id == modelID }) else { return nil }
+        var values: [String: InstrumentValue] = [:]
+        var constraints: [String: ClosedRange<Double>] = [:]
+        for definition in model.geometry {
+            guard let key = definition.properties["stateKey"]?.textValue,
+                  let initial = definition.properties["initial"] else { continue }
+            values[key] = initial
+            let minimum = definition.properties["minimum"]
+            let maximum = definition.properties["maximum"]
+            let bounds: (Double, Double)?
+            switch (minimum, maximum) {
+            case (.pitch(let low)?, .pitch(let high)?): bounds = (Double(low.acousticCents), Double(high.acousticCents))
+            case (let low?, let high?):
+                if let low = low.numericValue, let high = high.numericValue { bounds = (low, high) } else { bounds = nil }
+            default: bounds = nil
+            }
+            if let bounds { constraints[key] = bounds.0...bounds.1 }
+        }
+        return .init(modelID: modelID, values: values, activeTechniques: [], constraints: constraints)
+    }
+
+    /// Resolves any language-authored state mapping. A mapping is a geometry record
+    /// with `pitch`, `effect`, or `stateValue`; all other properties are conditions.
+    public func resolve(_ state: InstrumentPerformanceState) -> InstrumentStateResult? {
+        guard let model = models.first(where: { $0.id == state.modelID }) else { return nil }
+        let reserved = Set(["pitch", "effect", "stateValue", "technique"])
+        let matches = model.geometry.compactMap { mapping -> InstrumentStateResult? in
+            let result: InstrumentStateResult
+            if case .pitch(let pitch)? = mapping.properties["pitch"] { result = .pitch(pitch) }
+            else if let effect = mapping.properties["effect"]?.textValue { result = .effect(effect) }
+            else if let key = mapping.properties["stateValue"]?.textValue,
+                    case .pitch(let pitch)? = state.values[key] { result = .pitch(pitch) }
+            else { return nil }
+
+            if let technique = mapping.properties["technique"]?.textValue {
+                if technique == "normal" {
+                    guard state.activeTechniques.isEmpty else { return nil }
+                } else {
+                    guard state.activeTechniques.contains(technique) else { return nil }
+                }
+            }
+            for (key, expected) in mapping.properties where !reserved.contains(key) {
+                guard let actual = state.values[key] else { return nil }
+                if case .list(let choices) = expected {
+                    guard choices.contains(actual) else { return nil }
+                } else if actual != expected { return nil }
+            }
+            return result
+        }
+        return Set(matches).count == 1 ? matches.first : nil
     }
 
     /// Returns nil for combinations the selected map does not claim to understand.
