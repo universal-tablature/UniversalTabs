@@ -266,13 +266,15 @@ public struct Voice: Sendable, Hashable {
     public let name: String
     public let content: [VoiceContent]
     public let constraints: [PerformanceConstraint]
+    public let lyrics: [LyricVerse]
     public let annotations: SemanticAnnotations
 
-    public init(_ name: String, id: SemanticID? = nil, content: [VoiceContent], constraints: [PerformanceConstraint] = [], metadata: [String: MetadataValue] = [:]) {
+    public init(_ name: String, id: SemanticID? = nil, content: [VoiceContent], constraints: [PerformanceConstraint] = [], lyrics: [LyricVerse] = [], metadata: [String: MetadataValue] = [:]) {
         self.id = id ?? .named("voice", name)
         self.name = name
         self.content = content
         self.constraints = constraints
+        self.lyrics = lyrics
         self.annotations = .init(metadata: metadata)
     }
 }

@@ -169,9 +169,10 @@ public func Play(_ declaration: SemanticID) -> VoiceContent { .reference(declara
 public func Voice(
     _ name: String,
     constraints: [PerformanceConstraint] = [],
+    lyrics: [LyricVerse] = [],
     @VoiceContentBuilder _ content: () -> [VoiceContent]
 ) -> UTABComposerCore.Voice {
-    .init(name, content: content(), constraints: constraints)
+    .init(name, content: content(), constraints: constraints, lyrics: lyrics)
 }
 
 @resultBuilder

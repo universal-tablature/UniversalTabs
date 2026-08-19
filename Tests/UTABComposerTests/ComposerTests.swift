@@ -845,3 +845,109 @@ private func stableFingerprint(_ data: Data) -> String {
     let diagnostics = InstrumentCatalogValidator().validate(catalog)
     #expect(diagnostics.count == 3)
 }
+
+@Test func hyphenatedLyricsPreserveWordsSyllablesAndStableIDs() {
+    let first = LyricVerse("Twin-kle lit-tle star", id: "lyrics:verse-1", language: "en")
+    let second = LyricVerse("Twin-kle lit-tle star", id: "lyrics:verse-1", language: "en")
+
+    #expect(first.words.map(\.text) == ["Twinkle", "little", "star"])
+    #expect(first.syllables.map(\.text) == ["Twin", "kle", "lit", "tle", "star"])
+    #expect(first.syllables.map(\.position) == [.beginning, .end, .beginning, .end, .single])
+    #expect(first == second)
+}
+
+@Test func lyricAlignmentBindsSyllablesToTimedNoteAttacks() {
+    let melody = MusicalExpression.sequence([
+        .note(.absolute(.init(.c, octave: 4)), duration: .quarter, id: "note:twin"),
+        .rest(.quarter, id: "rest:between"),
+        .note(.absolute(.init(.d, octave: 4)), duration: .half, id: "note:kle"),
+    ])
+    let lyrics = LyricVerse("Twin-kle", id: "lyrics:verse-1")
+    let composition = Composition(
+        title: "Lyrics",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init("verse", duration: .whole, parts: [
+            .init(instrument: "voice", voices: [
+                .init("melody", content: [.expression(melody)], lyrics: [lyrics]),
+            ]),
+        ])]
+    )
+
+    guard let named = NameResolutionStage().run(composition).output,
+          let expanded = ReferenceExpansionStage().run(named).output,
+          let timed = TemporalResolutionStage().run(expanded).output else {
+        Issue.record("Expected temporal compilation to succeed")
+        return
+    }
+    let aligned = LyricAlignmentStage().run(timed)
+    let syllables = aligned.output?.sections.first?.parts.first?.voices.first?.lyrics.first?.syllables
+
+    #expect(aligned.succeeded)
+    #expect(syllables?.map(\.syllable.text) == ["Twin", "kle"])
+    #expect(syllables?.map(\.offset) == [.zero, .half])
+    #expect(syllables?.map(\.duration) == [.quarter, .half])
+}
+
+@Test func lyricAlignmentDiagnosesAttackCountMismatch() {
+    let composition = Composition(
+        title: "Broken Lyrics",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init("verse", duration: .whole, parts: [
+            .init(instrument: "voice", voices: [
+                .init(
+                    "melody",
+                    content: [.expression(.note(.absolute(.init(.c, octave: 4)), duration: .whole))],
+                    lyrics: [.init("Twin-kle", id: "lyrics:verse-1")]
+                ),
+            ]),
+        ])]
+    )
+
+    guard let named = NameResolutionStage().run(composition).output,
+          let expanded = ReferenceExpansionStage().run(named).output,
+          let timed = TemporalResolutionStage().run(expanded).output else {
+        Issue.record("Expected temporal compilation to succeed")
+        return
+    }
+    let result = LyricAlignmentStage().run(timed)
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("2 syllables") && $0.message.contains("1 lyric attacks") })
+}
+
+@Test func compilerLowersAlignedLyricsAsEventMetadata() throws {
+    let composition = Composition(
+        title: "Lowered Lyrics",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init("verse", duration: .whole, parts: [
+            .init(instrument: "voice", voices: [
+                .init(
+                    "melody",
+                    content: [.expression(.sequence([
+                        .note(.absolute(.init(.c, octave: 4)), duration: .half, id: "note:twin"),
+                        .note(.absolute(.init(.d, octave: 4)), duration: .half, id: "note:kle"),
+                    ]))],
+                    lyrics: [.init("Twin-kle", id: "lyrics:verse-1")]
+                ),
+            ]),
+        ])]
+    )
+    let compiler = UTABCompositionCompiler(
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: ["voice": testInstance("voice_i", model: StandardInstruments.voice.id)]
+    )
+    let result = compiler.compile(composition)
+    let document = try #require(result.output)
+    let json = String(decoding: try JSONEncoder().encode(document), as: UTF8.self)
+
+    #expect(result.succeeded)
+    #expect(json.contains("_lyrics"))
+    #expect(json.contains("Twin"))
+    #expect(json.contains("kle"))
+}

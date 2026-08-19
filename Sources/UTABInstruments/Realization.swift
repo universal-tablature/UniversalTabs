@@ -45,6 +45,7 @@ public struct RealizedExpression: Sendable, Hashable {
 public struct RealizedVoice: Sendable, Hashable {
     public let source: Voice
     public let expression: RealizedExpression
+    public let lyrics: [AlignedLyricVerse]
 }
 
 public struct RealizedPart: Sendable, Hashable {
@@ -92,7 +93,8 @@ public struct InstrumentRealizationStage: CompilerStage {
                                 voice.expression,
                                 context: context,
                                 path: "\(path).voices[\(voiceIndex)]"
-                            )
+                            ),
+                            lyrics: voice.lyrics
                         )
                     }
                     parts.append(.init(

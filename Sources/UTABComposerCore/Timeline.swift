@@ -26,6 +26,13 @@ public struct TimedExpression: Sendable, Hashable {
 public struct TimedVoice: Sendable, Hashable {
     public let source: Voice
     public let expression: TimedExpression
+    public let lyrics: [AlignedLyricVerse]
+
+    public init(source: Voice, expression: TimedExpression, lyrics: [AlignedLyricVerse] = []) {
+        self.source = source
+        self.expression = expression
+        self.lyrics = lyrics
+    }
 }
 
 public struct TimedPart: Sendable, Hashable {
@@ -196,6 +203,13 @@ public struct PitchResolvedExpression: Sendable, Hashable {
 public struct PitchResolvedVoice: Sendable, Hashable {
     public let source: Voice
     public let expression: PitchResolvedExpression
+    public let lyrics: [AlignedLyricVerse]
+
+    public init(source: Voice, expression: PitchResolvedExpression, lyrics: [AlignedLyricVerse] = []) {
+        self.source = source
+        self.expression = expression
+        self.lyrics = lyrics
+    }
 }
 
 public struct PitchResolvedPart: Sendable, Hashable {
@@ -231,7 +245,8 @@ public struct PitchResolutionStage: CompilerStage {
                         voices: part.voices.map { voice in
                             PitchResolvedVoice(
                                 source: voice.source,
-                                expression: resolve(voice.expression, scale: scale, diagnostics: &diagnostics)
+                                expression: resolve(voice.expression, scale: scale, diagnostics: &diagnostics),
+                                lyrics: voice.lyrics
                             )
                         }
                     )

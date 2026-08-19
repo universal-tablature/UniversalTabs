@@ -30,7 +30,11 @@ public struct UTABCompositionCompiler: Sendable {
         diagnostics += timed.diagnostics
         guard let timedOutput = timed.output else { return .init(output: nil, diagnostics: diagnostics) }
 
-        let pitched = PitchResolutionStage().run(timedOutput)
+        let aligned = LyricAlignmentStage().run(timedOutput)
+        diagnostics += aligned.diagnostics
+        guard let alignedOutput = aligned.output else { return .init(output: nil, diagnostics: diagnostics) }
+
+        let pitched = PitchResolutionStage().run(alignedOutput)
         diagnostics += pitched.diagnostics
         guard let pitchedOutput = pitched.output else { return .init(output: nil, diagnostics: diagnostics) }
 

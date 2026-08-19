@@ -35,6 +35,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var capabilities: [String: Capability] = [:]
         var tracks: [String: TrackAccumulator] = [:]
         var instances: [String: InstrumentInstanceDefinition] = [:]
+        var lyricsByOccurrence: [SemanticID: [AlignedLyricSyllable]] = [:]
 
         var composition: Composition { input.source.source.source.source.source }
 
@@ -110,6 +111,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 let instanceID = part.instrumentInstance.id.rawValue
                 instances[instanceID] = part.instrumentInstance
                 for voice in part.voices {
+                    for aligned in voice.lyrics.flatMap(\.syllables) {
+                        lyricsByOccurrence[aligned.attackOccurrenceID, default: []].append(aligned)
+                    }
                     var events: [PerformanceEvent] = []
                     lower(
                         voice.expression,
@@ -221,6 +225,19 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 "ancestry": .array(expression.provenance.ancestry.map { .string($0.rawValue) }),
                 "path": .array(expression.provenance.expansionPath.map(JSONValue.string)),
             ])
+            if let lyrics = lyricsByOccurrence[expression.provenance.occurrenceID], !lyrics.isEmpty {
+                eventParameters["_lyrics"] = .array(lyrics.sorted {
+                    $0.verseID.rawValue < $1.verseID.rawValue
+                }.map { lyric in
+                    .object([
+                        "verse": .string(lyric.verseID.rawValue),
+                        "word": .string(lyric.wordID.rawValue),
+                        "syllable": .string(lyric.syllable.id.rawValue),
+                        "text": .string(lyric.syllable.text),
+                        "position": .string(lyric.syllable.position.rawValue),
+                    ])
+                })
+            }
             return .init(
                 id: expression.provenance.occurrenceID.rawValue,
                 at: eventTime(expression.offset, meter: meter),
