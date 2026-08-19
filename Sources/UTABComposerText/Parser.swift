@@ -22,6 +22,7 @@ public struct TextParser: Sendable {
             var title: TextToken?
             var module: TextQualifiedNameSyntax?
             var imports: [TextImportSyntax] = []
+            var scaleDefinitions: [TextScaleDefinitionSyntax] = []
             var profiles: [TextInstrumentProfileSyntax] = []
             var models: [TextInstrumentModelSyntax] = []
             var extensions: [TextInstrumentExtensionSyntax] = []
@@ -51,9 +52,13 @@ public struct TextParser: Sendable {
                     if let numerator, let denominator { meter = (numerator, denominator) }
                 } else if takeKeyword("tempo") { tempo = expectNumber("Expected tempo") }
                 else if takeKeyword("scale") {
-                    let tonic = expect(.identifier, "Expected scale tonic")
-                    let mode = expect(.identifier, "Expected scale mode")
-                    if let tonic, let mode { scale = (tonic, mode) }
+                    let first = expect(.identifier, "Expected scale name or tonic")
+                    if let first, current.kind == .leftBrace {
+                        if let definition = parseScaleDefinition(symbol: first) { scaleDefinitions.append(definition) }
+                    } else {
+                        let mode = expect(.identifier, "Expected scale mode")
+                        if let first, let mode { scale = (first, mode) }
+                    }
                 } else if takeKeyword("instrument") {
                     if let instrument = parseInstrumentInstance() { instruments.append(instrument) }
                 } else if takeKeyword("phrase") { if let value = parsePhrase() { phrases.append(value) } }
@@ -68,6 +73,7 @@ public struct TextParser: Sendable {
             return .init(
                 module: module,
                 imports: imports,
+                scaleDefinitions: scaleDefinitions,
                 profiles: profiles,
                 models: models,
                 extensions: extensions,
@@ -81,6 +87,22 @@ public struct TextParser: Sendable {
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseScaleDefinition(symbol: TextToken) -> TextScaleDefinitionSyntax? {
+            guard let open = expect(.leftBrace, "Expected '{' after scale name") else { return nil }
+            guard takeKeyword("cents") else {
+                diagnose("Expected 'cents' in scale definition")
+                return nil
+            }
+            var intervals: [TextToken] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                guard let interval = expect(.integerLiteral, "Expected a whole-number cent offset") else { break }
+                intervals.append(interval)
+                if !take(.comma) { break }
+            }
+            let close = expect(.rightBrace, "Expected '}' after scale definition") ?? current
+            return .init(symbol: symbol, centIntervals: intervals, range: spanning(open, close))
         }
 
         mutating func parseInstrumentProfile() -> TextInstrumentProfileSyntax? {

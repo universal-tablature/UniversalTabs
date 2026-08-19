@@ -23,10 +23,13 @@ public enum NoteLetter: Int, Sendable, Hashable, CaseIterable {
 public struct SpelledPitchClass: Sendable, Hashable {
     public let letter: NoteLetter
     public let accidental: Int
+    /// Fine tuning relative to the conventionally spelled 12-TET pitch.
+    public let tuningOffsetCents: Int
 
-    public init(_ letter: NoteLetter, accidental: Int = 0) {
+    public init(_ letter: NoteLetter, accidental: Int = 0, tuningOffsetCents: Int = 0) {
         self.letter = letter
         self.accidental = accidental
+        self.tuningOffsetCents = tuningOffsetCents
     }
 
     public var pitchClass: PitchClass {
@@ -69,20 +72,29 @@ public struct AbsolutePitch: Sendable, Hashable {
     }
 
     public var chromaticIndex: Int { (octave + 1) * 12 + pitchClass.rawValue }
+    public var acousticCents: Int { chromaticIndex * 100 + spelling.tuningOffsetCents }
 
     public func isAcousticallyEquivalent(to other: Self) -> Bool {
-        chromaticIndex == other.chromaticIndex
+        acousticCents == other.acousticCents
     }
 }
 
 public enum ScaleKind: Sendable, Hashable {
     case major
     case naturalMinor
+    case custom(name: String, centIntervals: [Int])
 
     public var intervals: [Int] {
+        centIntervals.map { $0 / 100 }
+    }
+
+    /// A 12-TET reference form. Performers may shade neutral degrees by region,
+    /// direction, and melodic context; those deviations remain expressible as cents.
+    public var centIntervals: [Int] {
         switch self {
-        case .major: [0, 2, 4, 5, 7, 9, 11]
-        case .naturalMinor: [0, 2, 3, 5, 7, 8, 10]
+        case .major: [0, 200, 400, 500, 700, 900, 1100]
+        case .naturalMinor: [0, 200, 300, 500, 700, 800, 1000]
+        case .custom(_, let centIntervals): centIntervals
         }
     }
 }
@@ -106,10 +118,13 @@ public struct Scale: Sendable, Hashable {
     public func resolve(degree: Int, octave: Int) -> AbsolutePitch? {
         guard degree > 0 else { return nil }
         let zeroBased = degree - 1
-        let scaleOctave = zeroBased / kind.intervals.count
-        let chromatic = tonic.rawValue + kind.intervals[zeroBased % kind.intervals.count]
+        let scaleOctave = zeroBased / kind.centIntervals.count
+        let cents = tonic.rawValue * 100 + kind.centIntervals[zeroBased % kind.centIntervals.count]
+        let chromatic = cents / 100
+        let pitchClass = PitchClass(rawValue: chromatic % 12)!
+        let canonical = SpelledPitchClass.canonical(pitchClass)
         return AbsolutePitch(
-            PitchClass(rawValue: chromatic % 12)!,
+            .init(canonical.letter, accidental: canonical.accidental, tuningOffsetCents: cents % 100),
             octave: octave + scaleOctave + chromatic / 12
         )
     }

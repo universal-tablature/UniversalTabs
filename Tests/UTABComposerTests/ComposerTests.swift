@@ -682,6 +682,46 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(cMajor.resolve(degree: 8, octave: 4) == AbsolutePitch(.c, octave: 5))
 }
 
+@Test func resolvesOudMaqamatWithMicrotonalDegrees() throws {
+    let rast = Scale(.c, .custom(name: "MaqamRast", centIntervals: [0, 200, 350, 500, 700, 900, 1_050]))
+    let rastThird = try #require(rast.resolve(degree: 3, octave: 4))
+    let rastSeventh = try #require(rast.resolve(degree: 7, octave: 4))
+    let bayati = Scale(.d, .custom(name: "MaqamBayati", centIntervals: [0, 150, 300, 500, 700, 800, 1_000]))
+    let bayatiSecond = try #require(bayati.resolve(degree: 2, octave: 4))
+
+    #expect(rastThird.pitchClass == .eFlat)
+    #expect(rastThird.spelling.tuningOffsetCents == 50)
+    #expect(rastThird.acousticCents - AbsolutePitch(.c, octave: 4).acousticCents == 350)
+    #expect(rastSeventh.acousticCents - AbsolutePitch(.c, octave: 4).acousticCents == 1_050)
+    #expect(bayatiSecond.acousticCents - AbsolutePitch(.d, octave: 4).acousticCents == 150)
+    #expect(!rastThird.isAcousticallyEquivalent(to: AbsolutePitch(.eFlat, octave: 4)))
+}
+
+@Test func textComposerAcceptsMaqamScaleAndResolvesRelativePitch() throws {
+    let source = TextSource(
+        """
+        title "Bayati on Oud"
+        import instruments.oud.arabic
+        meter 4/4
+        tempo 80
+        scale D MaqamBayati
+
+        phrase melody {
+            @2[4] w
+        }
+        """,
+        fileID: "bayati-oud.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let lowered = TextSemanticLowerer().lower(loaded.modules)
+    let composition = try #require(lowered.composition)
+    let scale = try #require(composition.scale)
+
+    #expect(lowered.diagnostics.isEmpty)
+    #expect(scale.kind == .custom(name: "MaqamBayati", centIntervals: [0, 150, 300, 500, 700, 800, 1_000]))
+    #expect(scale.resolve(degree: 2, octave: 4)?.spelling.tuningOffsetCents == 50)
+}
+
 @Test func preservesEnharmonicSpellingWithoutForcingAcousticDistinction() {
     let fSharp = AbsolutePitch(.init(.f, accidental: 1), octave: 4)
     let gFlat = AbsolutePitch(.init(.g, accidental: -1), octave: 4)

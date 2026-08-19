@@ -1,11 +1,24 @@
 module instruments.oud.arabic
 import profiles.core
 
+scale MaqamRast { cents 0, 200, 350, 500, 700, 900, 1050 }
+scale MaqamBayati { cents 0, 150, 300, 500, 700, 800, 1000 }
+scale MaqamHijaz { cents 0, 100, 400, 500, 700, 800, 1000 }
+scale MaqamNahawand { cents 0, 200, 300, 500, 700, 800, 1000 }
+scale MaqamKurd { cents 0, 100, 300, 500, 700, 800, 1000 }
+scale MaqamAjam { cents 0, 200, 400, 500, 700, 900, 1100 }
+scale MaqamSaba { cents 0, 150, 300, 400, 700, 800, 1000 }
+
 model ArabicOud : PluckedCourses {
     id "instrument:oud:arabic-six-course"
     name "Six-course Arabic Oud"
     geometry courses { count 6; doubled true }
     geometry fingerboard { fretted false }
+    geometry pitchSystem {
+        continuousPitch true
+        referenceDivision 24
+        commonMaqamat "Rast, Bayati, Hijaz, Nahawand, Kurd, Ajam, Saba"
+    }
 }
 
 extension ArabicOud {

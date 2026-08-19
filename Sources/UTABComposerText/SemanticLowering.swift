@@ -20,13 +20,45 @@ public struct TextSemanticLowerer: Sendable {
     public init() {}
 
     public func lower(_ syntax: TextCompositionSyntax) -> TextSemanticResult {
-        var worker = Worker(syntax: syntax)
+        let definitions = scaleKinds(in: [syntax])
+        var worker = Worker(syntax: syntax, scaleKinds: definitions.kinds, diagnostics: definitions.diagnostics)
         return worker.lower()
+    }
+
+    public func lower(_ modules: [TextLoadedModule]) -> TextSemanticResult {
+        guard let root = modules.last(where: \.isRoot) else {
+            return .init(composition: nil, instruments: [], diagnostics: [])
+        }
+        let definitions = scaleKinds(in: modules.map(\.syntax))
+        var worker = Worker(syntax: root.syntax, scaleKinds: definitions.kinds, diagnostics: definitions.diagnostics)
+        return worker.lower()
+    }
+
+    private func scaleKinds(in syntaxes: [TextCompositionSyntax]) -> (kinds: [String: ScaleKind], diagnostics: [TextDiagnostic]) {
+        var result: [String: ScaleKind] = ["major": .major, "minor": .naturalMinor]
+        var diagnostics: [TextDiagnostic] = []
+        for definition in syntaxes.flatMap(\.scaleDefinitions) {
+            let name = String(definition.symbol.lexeme)
+            let intervals = definition.centIntervals.compactMap(\.integerValue)
+            if result[name] != nil {
+                diagnostics.append(.init(.error, message: "Duplicate scale definition '\(name)'", range: definition.range))
+                continue
+            }
+            guard intervals.first == 0,
+                  intervals.allSatisfy({ 0 <= $0 && $0 < 1_200 }),
+                  zip(intervals, intervals.dropFirst()).allSatisfy(<) else {
+                diagnostics.append(.init(.error, message: "Scale '\(name)' must start at 0 cents and contain strictly increasing offsets below 1200 cents", range: definition.range))
+                continue
+            }
+            result[name] = .custom(name: name, centIntervals: intervals)
+        }
+        return (result, diagnostics)
     }
 
     private struct Worker {
         let syntax: TextCompositionSyntax
-        var diagnostics: [TextDiagnostic] = []
+        let scaleKinds: [String: ScaleKind]
+        var diagnostics: [TextDiagnostic]
 
         mutating func lower() -> TextSemanticResult {
             let numerator: Int
@@ -229,10 +261,16 @@ public struct TextSemanticLowerer: Sendable {
             guard let spelling = parsePitchClass(String(tonic.lexeme)) else {
                 error("Invalid scale tonic '\(tonic.lexeme)'", at: tonic.range); return nil
             }
-            let kind: ScaleKind?
-            switch mode.lexeme { case "major": kind = .major; case "minor": kind = .naturalMinor; default: kind = nil }
+            let kind = scaleKinds[String(mode.lexeme)]
             guard let kind else { error("Unsupported scale mode '\(mode.lexeme)'", at: mode.range); return nil }
+            guard isValid(kind) else { error("Scale '\(mode.lexeme)' must start at 0 cents and contain strictly increasing offsets below 1200 cents", at: mode.range); return nil }
             return .init(spelling, kind)
+        }
+
+        func isValid(_ kind: ScaleKind) -> Bool {
+            let intervals = kind.centIntervals
+            return intervals.first == 0 && intervals.allSatisfy { 0 <= $0 && $0 < 1_200 }
+                && zip(intervals, intervals.dropFirst()).allSatisfy(<)
         }
 
         func parsePitchClass(_ text: String) -> SpelledPitchClass? {

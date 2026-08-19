@@ -103,7 +103,7 @@ public struct UTabTextCompiler: Sendable {
             return result(modules: loaded.modules, catalog: catalogResult.catalog, diagnostics: diagnostics)
         }
 
-        let semantic = TextSemanticLowerer().lower(rootModule.syntax)
+        let semantic = TextSemanticLowerer().lower(loaded.modules)
         diagnostics += semantic.diagnostics.map { diagnostic($0, stage: .semantics) }
         guard semantic.succeeded, let composition = semantic.composition else {
             return result(modules: loaded.modules, catalog: catalogResult.catalog, composition: semantic.composition, diagnostics: diagnostics)
