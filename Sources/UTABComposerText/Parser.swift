@@ -318,9 +318,13 @@ public struct TextParser: Sendable {
                   expect(.colon, "Expected ':' after instrument instance name") != nil else { return nil }
             guard let model = parseSymbolReference("Expected instrument model name") else { return nil }
             var displayName: TextToken?
-            if takeKeyword("as") { displayName = expect(.stringLiteral, "Expected quoted instrument display name") }
-            let end = displayName?.range.end ?? model.range.end
-            return .init(name: name, model: model, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
+            var fingering: TextSymbolReferenceSyntax?
+            while current.kind == .identifier, current.lexeme == "as" || current.lexeme == "fingering" {
+                if takeKeyword("as") { displayName = expect(.stringLiteral, "Expected quoted instrument display name") }
+                else if takeKeyword("fingering") { fingering = parseSymbolReference("Expected fingering name or stable ID") }
+            }
+            let end = displayName?.range.end ?? fingering?.range.end ?? model.range.end
+            return .init(name: name, model: model, fingering: fingering, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
         }
 
         mutating func parsePhrase() -> TextPhraseSyntax? {

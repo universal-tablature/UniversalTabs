@@ -11,6 +11,7 @@ public struct TextSemanticResult: Sendable {
 public struct TextInstrumentInstanceDeclaration: Sendable, Hashable {
     public let name: String
     public let model: String
+    public let fingering: String?
     public let displayName: String?
     public let range: SourceRange
 }
@@ -81,6 +82,7 @@ public struct TextSemanticLowerer: Sendable {
                 .init(
                     name: String($0.name.lexeme),
                     model: $0.model.value,
+                    fingering: $0.fingering?.value,
                     displayName: $0.displayName?.stringValue,
                     range: $0.range
                 )

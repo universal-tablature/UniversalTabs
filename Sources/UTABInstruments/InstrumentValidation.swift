@@ -111,16 +111,37 @@ public struct InstrumentCatalogValidator: Sendable {
                     if base.bitOrder != fingering.bitOrder { result.append(.init(path: "\(path).bitOrder", message: "An extending fingering must preserve bitOrder")) }
                 } else { result.append(.init(path: "\(path).parent", message: "Unknown parent fingering '\(parent)'")) }
             }
-            for entry in fingering.entries where entry.pattern.count != fingering.bitOrder.count || !entry.pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "x" }) {
-                result.append(.init(path: "\(path).entries", message: "Invalid fingering bitmap"))
+            for entry in fingering.entries where entry.pattern.count != fingering.bitOrder.count || !entry.pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "h" || $0 == "x" }) {
+                result.append(.init(path: "\(path).entries", message: "Invalid fingering pattern"))
+            }
+            for left in fingering.entries.indices {
+                for right in fingering.entries.indices where right > left {
+                    let lhs = fingering.entries[left]
+                    let rhs = fingering.entries[right]
+                    if lhs.specificity == rhs.specificity, lhs.overlaps(rhs), lhs.result != rhs.result {
+                        result.append(.init(path: "\(path).entries[\(right)]", message: "Ambiguous equal-specificity fingering patterns '\(lhs.pattern)' and '\(rhs.pattern)'"))
+                    }
+                }
+            }
+            var ancestors = Set<InstrumentID>()
+            var ancestor = fingering.parent
+            while let current = ancestor, let definition = catalog.fingerings.first(where: { $0.id == current }) {
+                if current == fingering.id || !ancestors.insert(current).inserted {
+                    result.append(.init(path: "\(path).parent", message: "Fingering inheritance cycle")); break
+                }
+                ancestor = definition.parent
             }
         }
         return result
     }
 
     public func validate(_ instance: InstrumentInstanceDefinition, in catalog: InstrumentCatalog) -> [InstrumentDiagnostic] {
-        catalog.models.contains { $0.id == instance.model }
-            ? []
-            : [.init(path: "instance.model", message: "Unknown model '\(instance.model)'")]
+        guard let model = catalog.models.first(where: { $0.id == instance.model }) else {
+            return [.init(path: "instance.model", message: "Unknown model '\(instance.model)'")]
+        }
+        if let fingering = instance.fingering, !model.fingerings.contains(fingering) {
+            return [.init(path: "instance.fingering", message: "Fingering '\(fingering)' is not supported by model '\(model.id)'")]
+        }
+        return []
     }
 }

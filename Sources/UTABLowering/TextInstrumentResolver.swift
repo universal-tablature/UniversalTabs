@@ -36,10 +36,22 @@ public struct TextInstrumentResolver: Sendable {
                 diagnostics.append(.init(.error, message: "Duplicate instrument instance '\(declaration.name)'", range: declaration.range))
                 continue
             }
+            let fingering: InstrumentID?
+            if let requested = declaration.fingering {
+                let candidates = catalog.fingerings.filter {
+                    model.fingerings.contains($0.id) && ($0.id.rawValue == requested || $0.name.caseInsensitiveCompare(requested) == .orderedSame)
+                }
+                guard candidates.count == 1, let selected = candidates.first else {
+                    diagnostics.append(.init(.error, message: candidates.isEmpty ? "Unknown fingering '\(requested)' for '\(model.name)'" : "Ambiguous fingering '\(requested)' for '\(model.name)'", range: declaration.range))
+                    continue
+                }
+                fingering = selected.id
+            } else { fingering = model.defaultFingering }
             bindings[declaration.name] = .init(
                 id: .init(rawValue: declaration.name),
                 name: declaration.displayName ?? declaration.name,
-                model: model.id
+                model: model.id,
+                fingering: fingering
             )
         }
         return .init(bindings: bindings, diagnostics: diagnostics)

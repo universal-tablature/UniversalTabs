@@ -125,9 +125,10 @@ public func ConfiguredInstrument(
     _ id: InstrumentID,
     name: String? = nil,
     model: InstrumentID,
+    fingering: InstrumentID? = nil,
     configuration: [String: InstrumentValue] = [:]
 ) -> InstrumentInstanceDefinition {
-    .init(id: id, name: name, model: model, configuration: configuration)
+    .init(id: id, name: name, model: model, fingering: fingering, configuration: configuration)
 }
 
 public enum CatalogComponent: Sendable {

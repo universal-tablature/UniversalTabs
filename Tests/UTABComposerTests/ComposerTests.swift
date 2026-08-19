@@ -834,6 +834,8 @@ private func stableFingerprint(_ data: Data) -> String {
                 effect multiphonic "10101010" alternate "composer-defined"
             }
         }
+
+        instrument recorder : SopranoRecorder fingering "fingering:recorder:soprano:experimental" as "Solo Recorder"
         """,
         fileID: "experimental-recorder.utab"
     )
@@ -847,6 +849,62 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(compiled.catalog.fingeringResult(for: "10101010", in: experimental) == .effect("multiphonic"))
     #expect(compiled.catalog.fingeringResult(for: "11111111", in: experimental) == .pitch(.init(.c, octave: 5)))
     #expect(compiled.catalog.fingeringResult(for: "00000000", in: experimental) == nil)
+    let rootModule = loaded.modules.first { $0.isRoot }
+    let root = try #require(rootModule)
+    let declarations = TextSemanticLowerer().lower(root.syntax).instruments
+    let resolved = TextInstrumentResolver().resolve(declarations, in: compiled.catalog, modelBindings: compiled.modelBindings)
+    #expect(resolved.succeeded)
+    #expect(resolved.bindings["recorder"]?.fingering == experimental)
+}
+
+@Test func fingeringLookupPrefersSpecificPatternsAndListsPitchAlternatives() throws {
+    let modelID = InstrumentID(rawValue: "instrument:test:wind")
+    let profileID = InstrumentID(rawValue: "profile:test:wind")
+    let mapID = InstrumentID(rawValue: "fingering:test:wind")
+    let map = FingeringDefinition(
+        id: mapID,
+        name: "Test map",
+        model: modelID,
+        actuatorGroup: "holes",
+        bitOrder: ["a", "b", "c"],
+        entries: [
+            .init(pattern: "1xx", result: .effect("noise")),
+            .init(pattern: "101", result: .pitch(.init(.c, octave: 5))),
+            .init(pattern: "001", result: .pitch(.init(.c, octave: 5)), preference: .alternate, label: "soft"),
+        ]
+    )
+    let catalog = InstrumentCatalog(
+        fingerings: [map],
+        profiles: [.init(id: profileID, version: "1", actuators: [.init("holes", count: 3, control: .orderedBitset(width: 3))], interactions: [])],
+        models: [.init(id: modelID, name: "Test wind", profile: profileID, fingerings: [mapID], defaultFingering: mapID)]
+    )
+
+    #expect(catalog.fingeringResult(for: "101", in: mapID) == .pitch(.init(.c, octave: 5)))
+    #expect(catalog.fingeringResult(for: "110", in: mapID) == .effect("noise"))
+    let alternatives = catalog.fingerings(for: .init(.c, octave: 5), in: mapID)
+    #expect(alternatives.map(\.pattern) == ["101", "001"])
+    #expect(alternatives.map(\.preference) == [.preferred, .alternate])
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func standardRecorderFamilyProvidesYamahaBaroqueAndGermanMapIdentities() throws {
+    let catalog = StandardInstruments.catalog
+    let soprano = try #require(catalog.models.first { $0.id.rawValue == "instrument:recorder:soprano" })
+    let alto = try #require(catalog.models.first { $0.id.rawValue == "instrument:recorder:alto" })
+    let sopranoBaroque = InstrumentID(rawValue: "fingering:recorder:soprano:baroque")
+    let sopranoGerman = InstrumentID(rawValue: "fingering:recorder:soprano:german")
+    let altoBaroque = InstrumentID(rawValue: "fingering:recorder:alto:baroque")
+
+    #expect(soprano.defaultFingering == sopranoBaroque)
+    #expect(Set(soprano.fingerings) == [sopranoBaroque, sopranoGerman])
+    #expect(alto.defaultFingering == altoBaroque)
+    #expect(alto.fingerings == [altoBaroque])
+    #expect(catalog.fingeringResult(for: "11111011", in: sopranoBaroque) == .pitch(.init(.f, octave: 5)))
+    #expect(catalog.fingeringResult(for: "11111000", in: sopranoGerman) == .pitch(.init(.f, octave: 5)))
+    #expect(catalog.fingeringResult(for: "11111011", in: altoBaroque) == .pitch(.init(.bFlat, octave: 4)))
+    #expect(catalog.fingeringResult(for: "h1111100", in: sopranoBaroque) == .pitch(.init(.e, octave: 6)))
+    #expect(catalog.fingeringResult(for: "h1111100", in: sopranoGerman) == .pitch(.init(.e, octave: 6)))
+    #expect(catalog.fingeringResult(for: "h1111100", in: altoBaroque) == .pitch(.init(.a, octave: 5)))
 }
 
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {

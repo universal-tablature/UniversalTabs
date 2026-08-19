@@ -212,8 +212,8 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     guard !bitOrder.isEmpty else { error("A fingering requires a non-empty bitOrder", at: fingeringSyntax.range); continue }
                     let entries = fingeringSyntax.entries.compactMap { entry -> FingeringEntry? in
                         let pattern = entry.pattern.stringValue ?? String(entry.pattern.lexeme)
-                        guard pattern.count == bitOrder.count, pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "x" }) else {
-                            error("Fingering bitmap must contain exactly \(bitOrder.count) characters from 0, 1, or x", at: entry.pattern.range); return nil
+                        guard pattern.count == bitOrder.count, pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "h" || $0 == "x" }) else {
+                            error("Fingering pattern must contain exactly \(bitOrder.count) characters from 0, 1, h, or x", at: entry.pattern.range); return nil
                         }
                         let result: FingeringResult
                         if let token = entry.pitch, let pitch = parsePitch(token) { result = .pitch(pitch) }

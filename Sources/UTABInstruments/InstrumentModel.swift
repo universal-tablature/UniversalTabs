@@ -82,8 +82,8 @@ public enum FingeringPreference: String, Sendable, Hashable {
     case alternate
 }
 
-/// One explicitly documented actuator configuration. A pattern contains `0`, `1`,
-/// and optionally `x` for an actuator whose state does not affect this result.
+/// One explicitly documented actuator configuration. A pattern contains `0` (open),
+/// `1` (closed), `h` (half/partially closed), and optionally `x` (state-independent).
 public struct FingeringEntry: Sendable, Hashable {
     public let pattern: String
     public let result: FingeringResult
@@ -106,6 +106,12 @@ public struct FingeringEntry: Sendable, Hashable {
     }
 
     public var specificity: Int { pattern.reduce(0) { $1 == "x" ? $0 : $0 + 1 } }
+
+    public func overlaps(_ other: FingeringEntry) -> Bool {
+        pattern.count == other.pattern.count && zip(pattern, other.pattern).allSatisfy { lhs, rhs in
+            lhs == "x" || rhs == "x" || lhs == rhs
+        }
+    }
 }
 
 public struct FingeringDefinition: Sendable, Hashable {
@@ -192,10 +198,11 @@ public struct InstrumentInstanceDefinition: Sendable, Hashable {
     public let id: InstrumentID
     public let name: String?
     public let model: InstrumentID
+    public let fingering: InstrumentID?
     public let configuration: [String: InstrumentValue]
 
-    public init(id: InstrumentID, name: String? = nil, model: InstrumentID, configuration: [String: InstrumentValue] = [:]) {
-        self.id = id; self.name = name; self.model = model; self.configuration = configuration
+    public init(id: InstrumentID, name: String? = nil, model: InstrumentID, fingering: InstrumentID? = nil, configuration: [String: InstrumentValue] = [:]) {
+        self.id = id; self.name = name; self.model = model; self.fingering = fingering; self.configuration = configuration
     }
 }
 
@@ -223,5 +230,33 @@ public struct InstrumentCatalog: Sendable, Hashable {
         guard let nearestDepth = specific.map(\.1).max() else { return nil }
         let results = Set(specific.filter { $0.1 == nearestDepth }.map { $0.0.result })
         return results.count == 1 ? results.first : nil
+    }
+
+    /// Returns effective local and inherited entries, with a child entry replacing
+    /// an inherited entry that has the same pattern and register.
+    public func fingeringEntries(in fingeringID: InstrumentID) -> [FingeringEntry] {
+        func collect(_ id: InstrumentID, visited: Set<InstrumentID>) -> [FingeringEntry] {
+            guard !visited.contains(id), let map = fingerings.first(where: { $0.id == id }) else { return [] }
+            var entries = map.parent.map { collect($0, visited: visited.union([id])) } ?? []
+            for entry in map.entries {
+                entries.removeAll { $0.pattern == entry.pattern && $0.register == entry.register }
+                entries.append(entry)
+            }
+            return entries
+        }
+        return collect(fingeringID, visited: [])
+    }
+
+    /// Finds every documented physical configuration for a pitch, preferred first.
+    public func fingerings(for pitch: AbsolutePitch, in fingeringID: InstrumentID) -> [FingeringEntry] {
+        fingeringEntries(in: fingeringID).filter {
+            if case .pitch(let value) = $0.result { return value == pitch }
+            return false
+        }.sorted {
+            if $0.preference != $1.preference { return $0.preference == .preferred }
+            if $0.specificity != $1.specificity { return $0.specificity > $1.specificity }
+            if $0.register != $1.register { return ($0.register ?? 0) < ($1.register ?? 0) }
+            return $0.pattern < $1.pattern
+        }
     }
 }

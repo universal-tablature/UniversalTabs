@@ -144,6 +144,7 @@ public struct TextTuningSyntax: Sendable, Hashable {
 public struct TextInstrumentInstanceSyntax: Sendable, Hashable {
     public let name: TextToken
     public let model: TextSymbolReferenceSyntax
+    public let fingering: TextSymbolReferenceSyntax?
     public let displayName: TextToken?
     public let range: SourceRange
 }

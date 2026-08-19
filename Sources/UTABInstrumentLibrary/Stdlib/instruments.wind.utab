@@ -81,6 +81,53 @@ extension SopranoRecorder {
         C5 11111111 preferred
         D5 11111110 preferred
         E5 11111100 preferred
+        F5 11111011 preferred
         G5 11110000 preferred
+        A5 11100000 preferred
+        B5 11000000 preferred
+        C6 10100000 register 2 preferred
+        D6 00100000 register 2 preferred
+        E6 "h1111100" register 2 preferred
+        G6 "h1110000" register 2 preferred
+    }
+
+    fingering german {
+        id "fingering:recorder:soprano:german"
+        name "Soprano recorder German fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        C5 11111111 preferred
+        D5 11111110 preferred
+        E5 11111100 preferred
+        F5 11111000 preferred
+        G5 11110000 preferred
+        A5 11100000 preferred
+        B5 11000000 preferred
+        C6 10100000 register 2 preferred
+        D6 00100000 register 2 preferred
+        E6 "h1111100" register 2 preferred
+        G6 "h1110000" register 2 preferred
+    }
+}
+
+extension AltoRecorder {
+    fingering baroque default {
+        id "fingering:recorder:alto:baroque"
+        name "Alto recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        F4 11111111 preferred
+        G4 11111110 preferred
+        A4 11111100 preferred
+        Bb4 11111011 preferred
+        C5 11110000 preferred
+        D5 11100000 preferred
+        E5 11000000 preferred
+        F5 10100000 register 2 preferred
+        G5 00100000 register 2 preferred
+        A5 "h1111100" register 2 preferred
+        C6 "h1110000" register 2 preferred
     }
 }
