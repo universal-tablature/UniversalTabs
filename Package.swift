@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "UTABComposerCore", targets: ["UTABComposerCore"]),
         .library(name: "UTABInstruments", targets: ["UTABInstruments"]),
         .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
+        .library(name: "UTABComposerText", targets: ["UTABComposerText"]),
         .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
         .library(name: "UTABLowering", targets: ["UTABLowering"]),
         .library(name: "UTABAudio", targets: ["UTABAudio"]),
@@ -26,6 +27,7 @@ let package = Package(
         .target(name: "UTABComposerCore"),
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
+        .target(name: "UTABComposerText", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
         .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABInstruments"]),
         .target(
@@ -46,7 +48,7 @@ let package = Package(
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",
-            dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
+            dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
         ),
         .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]

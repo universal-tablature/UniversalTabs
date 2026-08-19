@@ -237,19 +237,27 @@ public struct Phrase: Sendable, Hashable {
     public let annotations: SemanticAnnotations
 
     public init(_ name: String, id: SemanticID? = nil, bars: [Bar], metadata: [String: MetadataValue] = [:]) {
+        self.init(name, id: id, bars: bars, metadata: metadata, source: nil)
+    }
+
+    public init(_ name: String, id: SemanticID? = nil, bars: [Bar], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("phrase", name)
         self.name = name
         self.bars = bars
         self.expression = .sequence(bars.map(\.expression), id: .derived(kind: "phrase-body", components: bars.map(\.id)))
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 
     public init(_ name: String, id: SemanticID? = nil, expression: MusicalExpression, metadata: [String: MetadataValue] = [:]) {
+        self.init(name, id: id, expression: expression, metadata: metadata, source: nil)
+    }
+
+    public init(_ name: String, id: SemanticID? = nil, expression: MusicalExpression, metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("phrase", name)
         self.name = name
         self.expression = expression
         self.bars = []
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 
     public var duration: MusicalDuration? { expression.duration }
@@ -270,12 +278,16 @@ public struct Voice: Sendable, Hashable {
     public let annotations: SemanticAnnotations
 
     public init(_ name: String, id: SemanticID? = nil, content: [VoiceContent], constraints: [PerformanceConstraint] = [], lyrics: [LyricVerse] = [], metadata: [String: MetadataValue] = [:]) {
+        self.init(name, id: id, content: content, constraints: constraints, lyrics: lyrics, metadata: metadata, source: nil)
+    }
+
+    public init(_ name: String, id: SemanticID? = nil, content: [VoiceContent], constraints: [PerformanceConstraint] = [], lyrics: [LyricVerse] = [], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("voice", name)
         self.name = name
         self.content = content
         self.constraints = constraints
         self.lyrics = lyrics
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 }
 
@@ -286,10 +298,14 @@ public struct Part: Sendable, Hashable {
     public let annotations: SemanticAnnotations
 
     public init(instrument: String, id: SemanticID? = nil, voices: [Voice], metadata: [String: MetadataValue] = [:]) {
+        self.init(instrument: instrument, id: id, voices: voices, metadata: metadata, source: nil)
+    }
+
+    public init(instrument: String, id: SemanticID? = nil, voices: [Voice], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("part", instrument)
         self.instrument = instrument
         self.voices = voices
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 }
 
@@ -304,12 +320,16 @@ public struct Section: Sendable, Hashable {
     public var duration: MusicalDuration? { expectedDuration }
 
     public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, parts: [Part], metadata: [String: MetadataValue] = [:]) {
+        self.init(name, id: id, duration: duration, meter: meter, parts: parts, metadata: metadata, source: nil)
+    }
+
+    public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, parts: [Part], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("section", name)
         self.name = name
         self.expectedDuration = duration
         self.parts = parts
         self.meter = meter
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 }
 
@@ -325,6 +345,10 @@ public struct Composition: Sendable, Hashable {
     public let annotations: SemanticAnnotations
 
     public init(title: String, id: SemanticID? = nil, meter: TimeSignature, tempo: Double, scale: Scale? = nil, phrases: [Phrase], sections: [Section], main: MusicalExpression? = nil, metadata: [String: MetadataValue] = [:]) {
+        self.init(title: title, id: id, meter: meter, tempo: tempo, scale: scale, phrases: phrases, sections: sections, main: main, metadata: metadata, source: nil)
+    }
+
+    public init(title: String, id: SemanticID? = nil, meter: TimeSignature, tempo: Double, scale: Scale? = nil, phrases: [Phrase], sections: [Section], main: MusicalExpression? = nil, metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("composition", title)
         self.title = title
         self.meter = meter
@@ -333,7 +357,7 @@ public struct Composition: Sendable, Hashable {
         self.phrases = phrases
         self.sections = sections
         self.main = main
-        self.annotations = .init(metadata: metadata)
+        self.annotations = .init(metadata: metadata, source: source)
     }
 }
 

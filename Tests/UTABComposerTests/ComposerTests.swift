@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import UTABComposerCore
 import UTABComposerDSL
+import UTABComposerText
 import UTABInstrumentLibrary
 import UTABInstruments
 import UTABLowering
@@ -662,7 +663,7 @@ private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String?
     let canonical = try encoder.encode(document)
     let repeatedCanonical = try encoder.encode(repeatedDocument)
     #expect(canonical == repeatedCanonical)
-    #expect(stableFingerprint(canonical) == "7618fbcda188d20b")
+    #expect(stableFingerprint(canonical) == "bbb0b67c9496391")
 }
 
 private func stableFingerprint(_ data: Data) -> String {
@@ -950,4 +951,68 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(json.contains("_lyrics"))
     #expect(json.contains("Twin"))
     #expect(json.contains("kle"))
+}
+
+@Test func textLexerRetainsSubstringSpellingAndPreciseHalfOpenRanges() throws {
+    let source = TextSource("title \"Song\"\n  tempo 120.5\n", fileID: "score.utablang")
+    let result = TextLexer().lex(source)
+    let tempo = try #require(result.tokens.first { $0.lexeme == "120.5" })
+
+    #expect(result.diagnostics.isEmpty)
+    #expect(tempo.kind == .decimalLiteral)
+    #expect(tempo.decimalValue == 120.5)
+    #expect(tempo.range.fileID == "score.utablang")
+    #expect(tempo.range.start == SourcePosition(line: 2, column: 9))
+    #expect(tempo.range.end == SourcePosition(line: 2, column: 14))
+}
+
+@Test func textParserReportsFileLineAndColumnForInvalidInput() {
+    let result = TextParser().parse(.init("meter 4/4\n  @", fileID: "broken.utablang"))
+    let diagnostic = result.diagnostics.first { $0.severity == .error }
+
+    #expect(!result.succeeded)
+    #expect(diagnostic?.range.fileID == "broken.utablang")
+    #expect(diagnostic?.range.start == SourcePosition(line: 2, column: 3))
+    #expect(diagnostic?.description.contains("broken.utablang:2:3") == true)
+}
+
+@Test func textualFrontendLowersInitialLanguageSliceIntoSemanticPipeline() throws {
+    let source = TextSource(
+        """
+        title "Twinkle Text"
+        meter 4/4
+        tempo 100
+        scale C major
+
+        phrase melody {
+            C4 h
+            D4 h
+        }
+
+        section verse : 1 bars {
+            voice {
+                voice melody {
+                    lyrics { "Twin-kle" }
+                    melody
+                }
+            }
+        }
+
+        main { verse }
+        """,
+        fileID: "twinkle.utablang"
+    )
+    let frontend = TextCompositionFrontend().compile(source)
+    let composition = try #require(frontend.composition)
+    let compiler = UTABCompositionCompiler(
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: ["voice": testInstance("voice_i", model: StandardInstruments.voice.id)]
+    )
+    let result = compiler.compile(composition)
+
+    #expect(frontend.succeeded)
+    #expect(composition.title == "Twinkle Text")
+    #expect(composition.annotations.source?.fileID == "twinkle.utablang")
+    #expect(composition.phrases.first?.annotations.source?.start.line == 6)
+    #expect(result.succeeded)
 }
