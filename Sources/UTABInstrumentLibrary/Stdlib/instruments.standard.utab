@@ -12,3 +12,4 @@ import instruments.lute.renaissance
 import instruments.oud.arabic
 import instruments.piano
 import instruments.voice
+import instruments.nyckelharpa

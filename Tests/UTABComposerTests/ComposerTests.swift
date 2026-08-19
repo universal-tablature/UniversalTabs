@@ -787,10 +787,32 @@ private func stableFingerprint(_ data: Data) -> String {
 
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
-    #expect(catalog.tunings.count == 10)
-    #expect(catalog.profiles.count == 5)
-    #expect(catalog.models.count == 10)
+    #expect(catalog.tunings.count == 12)
+    #expect(catalog.profiles.count == 6)
+    #expect(catalog.models.count == 17)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
+    let catalog = StandardInstruments.catalog
+    let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })
+    let kontra = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kontrabasharpa" })
+    let silver = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:silverbasharpa" })
+    let octave = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:oktavharpa" })
+    let mora = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:moraharpa" })
+    let esse = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:esseharpa" })
+    let vefsen = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:vefsenharpa" })
+    let chromaticTuning = try #require(catalog.tunings.first { $0.id == chromatic.defaultTuning })
+    let octaveTuning = try #require(catalog.tunings.first { $0.id == octave.defaultTuning })
+
+    #expect(chromaticTuning.courses.map { $0.pitches[0].chromaticIndex } == [48, 55, 60, 69])
+    #expect(octaveTuning.courses.map { $0.pitches[0].chromaticIndex } == [36, 43, 50, 57])
+    #expect(kontra.geometry.first { $0.id == "keys" }?.properties["rows"] == .integer(1))
+    #expect(silver.geometry.first { $0.id == "keys" }?.properties["rows"] == .integer(2))
+    #expect(mora.geometry.first { $0.id == "sympatheticStrings" }?.properties["count"] == .integer(0))
+    #expect(esse.geometry.first { $0.id == "tonalSystem" }?.properties["pureOctave"] == .boolean(true))
+    #expect(vefsen.geometry.first { $0.id == "tonalSystem" }?.properties["pureOctave"] == .boolean(false))
+    #expect(mora.tunings.isEmpty && esse.tunings.isEmpty && vefsen.tunings.isEmpty)
 }
 
 @Test func remainingStandardInstrumentDefinitionsAreAuthoredInTextualStdlib() throws {

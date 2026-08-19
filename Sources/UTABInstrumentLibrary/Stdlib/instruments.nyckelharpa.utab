@@ -1,0 +1,91 @@
+module instruments.nyckelharpa
+import profiles.nyckelharpa
+
+model KromatiskNyckelharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:kromatisk"
+    name "Kromatisk nyckelharpa"
+    geometry bowedStrings { count 4; keyedCount 3; droneCount 1 }
+    geometry keys { rows 3; count 37; tangents true }
+    geometry sympatheticStrings { count 12; directlyActuated false; chromatic true }
+}
+
+extension KromatiskNyckelharpa {
+    tuning standard default {
+        id "tuning:nyckelharpa:kromatisk-standard"
+        name "Kromatisk nyckelharpa standard"
+        tags nyckelharpa, chromatic, standard, drone
+        course C3
+        course G3
+        course C4
+        course A4
+    }
+}
+
+model Kontrabasharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:kontrabasharpa"
+    name "Kontrabasharpa"
+    geometry bowedStrings { count 3; keyedCount 2; droneCount 1; droneBetweenMelodyStrings true }
+    geometry keys { rows 1; doubleTangents true }
+    geometry sympatheticStrings { count 10; directlyActuated false }
+    geometry body { archedTop true; soundholes "oxögon" }
+}
+
+model Silverbasharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:silverbasharpa"
+    name "Silverbasharpa"
+    geometry bowedStrings { count 4; keyedCount 2; bassCount 2 }
+    geometry keys { rows 2; coupledTangents true }
+    geometry sympatheticStrings { count 9; directlyActuated false }
+    geometry bassString { silverWound true }
+}
+
+model Oktavharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:oktavharpa"
+    name "Oktavharpa"
+    geometry bowedStrings { count 4; keyedCount 4 }
+    geometry keys { rows 4; tangents true }
+    geometry sympatheticStrings { count 12; directlyActuated false; chromatic true }
+    geometry register { octavesBelowSoprano 1 }
+}
+
+extension Oktavharpa {
+    tuning cello default {
+        id "tuning:nyckelharpa:oktavharpa-cello"
+        name "Oktavharpa cello tuning"
+        tags nyckelharpa, octave, cello
+        course C2
+        course G2
+        course D3
+        course A3
+    }
+}
+
+model Moraharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:moraharpa"
+    name "Moraharpa"
+    geometry bowedStrings { count 3; keyedCount 1; droneCount 2 }
+    geometry keys { rows 1; count 11; tangents true }
+    geometry sympatheticStrings { count 0 }
+    geometry body { shape hourglass; bridge straight }
+    geometry tonalSystem { openMelodyPitch A4; temperament historical; mode dorian }
+}
+
+model Esseharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:esseharpa"
+    name "Esseharpa"
+    geometry bowedStrings { keyedCount 1 }
+    geometry keys { rows 1; count 12; tangents true }
+    geometry sympatheticStrings { count 0 }
+    geometry tonalSystem { openMelodyPitch A4; temperament historicalNonEqual; pureOctave true }
+    geometry provenance { region Esse; country Finland }
+}
+
+model Vefsenharpa : KeyedBowedStrings {
+    id "instrument:nyckelharpa:vefsenharpa"
+    name "Vefsenharpa"
+    geometry bowedStrings { keyedCount 1 }
+    geometry keys { rows 1; count 11; tangents true }
+    geometry sympatheticStrings { count 0 }
+    geometry tonalSystem { openMelodyPitch A4; temperament historicalNonEqual; pureOctave false }
+    geometry provenance { region Vefsn; country Norway }
+}

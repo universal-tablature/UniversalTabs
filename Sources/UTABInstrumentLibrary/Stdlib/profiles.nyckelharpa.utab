@@ -1,0 +1,19 @@
+module profiles.nyckelharpa
+
+profile KeyedBowedStrings {
+    id "profile:keyed-bowed-strings"
+    version "1"
+    actuator bowedStrings {
+        minimumCount 1
+        maximumCount 4
+        control continuous
+        minimum 0.0
+        maximum 1.0
+    }
+    actuator keys
+    actuator sympatheticStrings
+    interaction setKeyState { targets keys }
+    interaction bow { targets bowedStrings; effectors bow }
+    technique doubleStop { target bowedStrings }
+    technique drone { target bowedStrings }
+}
