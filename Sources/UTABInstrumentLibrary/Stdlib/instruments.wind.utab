@@ -73,7 +73,7 @@ model BbClarinet : SingleReedWind {
     id "instrument:clarinet:b-flat"
     name "B-flat Clarinet"
     geometry bore { shape cylindrical; transposition "Bb"; writtenMiddleCSounds Bb3 }
-    geometry keys { typicalRange "E3-C7" }
+    geometry keys { system Boehm; keyCount 17; rings 6; registerInterval "twelfth"; typicalRange "E3-C7" }
 }
 
 model AltoSaxophone : SingleReedWind {
@@ -172,19 +172,40 @@ extension BbClarinet {
         actuators keys
         bitOrder register, thumb, lh1, lh2, lh3, rh1, rh2, rh3, gSharp, aKey, ebLever, lowE, lowFSharp, lowF, sideBb, sideC, sideCSharp, sideDSharp
 
-        G4 000000000000000000 preferred
-        A4 000000000100000000 preferred
-        B4 010000000000000000 preferred
-        C5 011000000000000000 preferred
-        D5 011100000000000000 preferred
-        E5 011110000000000000 preferred
-        F5 011111000000000000 preferred
-        G5 011111100000000000 preferred
-        A5 011111110000000000 preferred
-        B5 111111110000000000 register 2 preferred
-        C6 111111100000000000 register 2 preferred
-        Bb4 000000001000000000 preferred
-        Bb4 000000000000001000 alternate "side-key"
+        // Chalumeau and throat registers. The low E/F keys close the bell
+        // extension; the open fingering is written G4 on a B-flat clarinet.
+        E3 011111110001000000 register 1 preferred
+        F3 011111110000010000 register 1 preferred
+        F#3 011111110000100000 register 1 preferred
+        G3 011111110000000000 register 1 preferred
+        G#3 011111111000000000 register 1 preferred
+        A3 011111100000000000 register 1 preferred
+        B3 011111000000000000 register 1 preferred
+        C4 011110000000000000 register 1 preferred
+        D4 011100000000000000 register 1 preferred
+        E4 011000000000000000 register 1 preferred
+        F4 010000000000000000 register 1 preferred
+        G4 000000000000000000 register 1 preferred
+        G#4 000000001000000000 register 1 preferred
+        A4 000000000100000000 register 1 preferred
+        Bb4 100000000100000000 register 1 preferred
+        Bb4 001000000000001000 register 1 alternate "side-key"
+
+        // Opening the register key vents the third harmonic, a twelfth above
+        // the corresponding chalumeau fingering rather than an octave.
+        B4 111111110001000000 register 2 preferred
+        C5 111111110000010000 register 2 preferred
+        C#5 111111110000100000 register 2 preferred
+        D5 111111110000000000 register 2 preferred
+        D#5 111111111000000000 register 2 preferred
+        E5 111111100000000000 register 2 preferred
+        F5 111111000000000000 register 2 preferred
+        F#5 111110000000000000 register 2 preferred
+        G5 111100000000000000 register 2 preferred
+        A5 111000000000000000 register 2 preferred
+        B5 110000000000000000 register 2 preferred
+        C6 100000000000000000 register 2 preferred
+        D6 100000000000000001 register 3 alternate "side-D-sharp"
     }
 }
 

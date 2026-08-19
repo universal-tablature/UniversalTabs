@@ -1077,6 +1077,25 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.fingeringResult(for: "h1111100", in: altoBaroque) == .pitch(.init(.a, octave: 5)))
 }
 
+@Test func standardClarinetMapCoversChalumeauRegisterKeyAndAlternateFingerings() throws {
+    let catalog = StandardInstruments.catalog
+    let clarinet = try #require(catalog.models.first { $0.id.rawValue == "instrument:clarinet:b-flat" })
+    let boehm = try #require(clarinet.defaultFingering)
+    let keys = try #require(clarinet.geometry.first { $0.id == "keys" })
+
+    #expect(boehm == "fingering:clarinet:b-flat:boehm")
+    #expect(keys.properties["system"] == .text("Boehm"))
+    #expect(keys.properties["registerInterval"] == .text("twelfth"))
+    #expect(catalog.fingeringResult(for: "011111110001000000", in: boehm) == .pitch(.init(.e, octave: 3)))
+    #expect(catalog.fingeringResult(for: "111111110001000000", in: boehm) == .pitch(.init(.b, octave: 4)))
+    #expect(catalog.fingeringResult(for: "100000000100000000", in: boehm) == .pitch(.init(.bFlat, octave: 4)))
+
+    let bFlatAlternatives = catalog.fingerings(for: .init(.bFlat, octave: 4), in: boehm)
+    #expect(bFlatAlternatives.map(\.preference) == [.preferred, .alternate])
+    #expect(bFlatAlternatives.last?.label == "side-key")
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
     let catalog = StandardInstruments.catalog
     let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })
