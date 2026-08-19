@@ -1,0 +1,33 @@
+module profiles.wind
+
+profile AirColumnWind {
+    id "profile:wind:air-column"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator toneHoles { count 8; control orderedBitset; width 8 }
+    interaction blow { targets airColumn; effectors breath }
+    interaction cover { targets toneHoles; effectors finger }
+    technique overblow { target airColumn }
+    technique vibrato { target airColumn }
+}
+
+profile SingleReedWind {
+    id "profile:wind:single-reed"
+    version "1"
+    actuator reed { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator keys
+    interaction blow { targets reed; effectors breath }
+    interaction press { targets keys; effectors finger }
+    technique bend { target reed }
+    technique vibrato { target reed }
+}
+
+profile DoubleReedWind {
+    id "profile:wind:double-reed"
+    version "1"
+    actuator reed { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator keys
+    interaction blow { targets reed; effectors breath }
+    interaction press { targets keys; effectors finger }
+    technique vibrato { target reed }
+}

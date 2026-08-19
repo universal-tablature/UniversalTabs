@@ -788,9 +788,65 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.tunings.count == 12)
-    #expect(catalog.profiles.count == 6)
-    #expect(catalog.models.count == 17)
+    #expect(catalog.profiles.count == 12)
+    #expect(catalog.models.count == 37)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func standardLibraryIncludesWindAndPercussionFamilies() {
+    let catalog = StandardInstruments.catalog
+    let expectedModelIDs = [
+        "instrument:recorder:soprano",
+        "instrument:flute:concert-c",
+        "instrument:clarinet:b-flat",
+        "instrument:oboe:standard",
+        "instrument:percussion:drum-kit",
+        "instrument:percussion:marimba",
+        "instrument:percussion:timpani",
+    ]
+
+    for id in expectedModelIDs {
+        #expect(catalog.models.contains { $0.id.rawValue == id })
+    }
+}
+
+@Test func recorderFingeringMapsAreExplicitExtensibleAndUnknownByDefault() throws {
+    let standard = StandardInstruments.catalog
+    let recorder = try #require(standard.models.first { $0.id.rawValue == "instrument:recorder:soprano" })
+    let baroque = try #require(recorder.defaultFingering)
+
+    #expect(standard.fingeringResult(for: "11111111", in: baroque) == .pitch(.init(.c, octave: 5)))
+    #expect(standard.fingeringResult(for: "10101010", in: baroque) == nil)
+
+    let source = TextSource(
+        """
+        module composer.recorder
+        import instruments.wind
+
+        extension SopranoRecorder {
+            fingering experimental {
+                id "fingering:recorder:soprano:experimental"
+                name "Experimental soprano recorder"
+                actuators toneHoles
+                extends "fingering:recorder:soprano:baroque"
+                bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+                effect multiphonic "10101010" alternate "composer-defined"
+            }
+        }
+        """,
+        fileID: "experimental-recorder.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: .init(profiles: [], models: []))
+    let experimental = InstrumentID(rawValue: "fingering:recorder:soprano:experimental")
+
+    #expect(loaded.succeeded)
+    #expect(compiled.succeeded)
+    #expect(InstrumentCatalogValidator().validate(compiled.catalog).isEmpty)
+    #expect(compiled.catalog.fingeringResult(for: "10101010", in: experimental) == .effect("multiphonic"))
+    #expect(compiled.catalog.fingeringResult(for: "11111111", in: experimental) == .pitch(.init(.c, octave: 5)))
+    #expect(compiled.catalog.fingeringResult(for: "00000000", in: experimental) == nil)
 }
 
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {

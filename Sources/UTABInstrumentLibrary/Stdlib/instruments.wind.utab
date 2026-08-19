@@ -1,0 +1,86 @@
+module instruments.wind
+import profiles.wind
+
+model SopranoRecorder : AirColumnWind {
+    id "instrument:recorder:soprano"
+    name "Soprano Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch C5; typicalRange "C5-D7" }
+}
+
+model AltoRecorder : AirColumnWind {
+    id "instrument:recorder:alto"
+    name "Alto Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch F4; typicalRange "F4-G6" }
+}
+
+model TenorRecorder : AirColumnWind {
+    id "instrument:recorder:tenor"
+    name "Tenor Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch C4; typicalRange "C4-D6" }
+}
+
+model BassRecorder : AirColumnWind {
+    id "instrument:recorder:bass"
+    name "Bass Recorder"
+    geometry bore { shape foldedOrStraight; material woodOrPlastic }
+    geometry toneHoles { lowestPitch F3; typicalRange "F3-G5"; keyed true }
+}
+
+model ConcertFlute : AirColumnWind {
+    id "instrument:flute:concert-c"
+    name "Concert Flute"
+    geometry bore { shape cylindrical; material metal; edgeBlown true }
+    geometry toneHoles { keyed true; typicalRange "C4-D7" }
+}
+
+model BbClarinet : SingleReedWind {
+    id "instrument:clarinet:b-flat"
+    name "B-flat Clarinet"
+    geometry bore { shape cylindrical; transposition "Bb"; writtenMiddleCSounds Bb3 }
+    geometry keys { typicalRange "E3-C7" }
+}
+
+model AltoSaxophone : SingleReedWind {
+    id "instrument:saxophone:alto-e-flat"
+    name "E-flat Alto Saxophone"
+    geometry bore { shape conical; material brass; transposition "Eb" }
+    geometry keys { typicalWrittenRange "Bb3-F6" }
+}
+
+model TenorSaxophone : SingleReedWind {
+    id "instrument:saxophone:tenor-b-flat"
+    name "B-flat Tenor Saxophone"
+    geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true }
+    geometry keys { typicalWrittenRange "Bb3-F6" }
+}
+
+model Oboe : DoubleReedWind {
+    id "instrument:oboe:standard"
+    name "Oboe"
+    geometry bore { shape conical; transposition C }
+    geometry keys { typicalRange "Bb3-A6" }
+}
+
+model Bassoon : DoubleReedWind {
+    id "instrument:bassoon:standard"
+    name "Bassoon"
+    geometry bore { shape foldedConical; transposition C }
+    geometry keys { typicalRange "Bb1-Eb5" }
+}
+
+extension SopranoRecorder {
+    fingering baroque default {
+        id "fingering:recorder:soprano:baroque"
+        name "Soprano recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        C5 11111111 preferred
+        D5 11111110 preferred
+        E5 11111100 preferred
+        G5 11110000 preferred
+    }
+}

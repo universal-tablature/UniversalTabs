@@ -72,6 +72,57 @@ public struct InstrumentTuningDefinition: Sendable, Hashable {
     }
 }
 
+public enum FingeringResult: Sendable, Hashable {
+    case pitch(AbsolutePitch)
+    case effect(String)
+}
+
+public enum FingeringPreference: String, Sendable, Hashable {
+    case preferred
+    case alternate
+}
+
+/// One explicitly documented actuator configuration. A pattern contains `0`, `1`,
+/// and optionally `x` for an actuator whose state does not affect this result.
+public struct FingeringEntry: Sendable, Hashable {
+    public let pattern: String
+    public let result: FingeringResult
+    public let register: Int?
+    public let preference: FingeringPreference
+    public let label: String?
+
+    public init(pattern: String, result: FingeringResult, register: Int? = nil, preference: FingeringPreference = .preferred, label: String? = nil) {
+        self.pattern = pattern
+        self.result = result
+        self.register = register
+        self.preference = preference
+        self.label = label
+    }
+
+    public func matches(_ bitmap: String) -> Bool {
+        pattern.count == bitmap.count && zip(pattern, bitmap).allSatisfy { expected, actual in
+            expected == "x" || expected == actual
+        }
+    }
+
+    public var specificity: Int { pattern.reduce(0) { $1 == "x" ? $0 : $0 + 1 } }
+}
+
+public struct FingeringDefinition: Sendable, Hashable {
+    public let id: InstrumentID
+    public let name: String
+    public let model: InstrumentID
+    public let actuatorGroup: String
+    public let bitOrder: [String]
+    public let parent: InstrumentID?
+    public let entries: [FingeringEntry]
+
+    public init(id: InstrumentID, name: String, model: InstrumentID, actuatorGroup: String, bitOrder: [String], parent: InstrumentID? = nil, entries: [FingeringEntry]) {
+        self.id = id; self.name = name; self.model = model; self.actuatorGroup = actuatorGroup
+        self.bitOrder = bitOrder; self.parent = parent; self.entries = entries
+    }
+}
+
 public struct ActuatorMember: Sendable, Hashable {
     public let id: String
     public let pitch: AbsolutePitch?
@@ -125,11 +176,14 @@ public struct InstrumentModelDefinition: Sendable, Hashable {
     public let geometry: [InstrumentGeometry]
     public let tunings: [InstrumentID]
     public let defaultTuning: InstrumentID?
+    public let fingerings: [InstrumentID]
+    public let defaultFingering: InstrumentID?
     public let defaults: [String: InstrumentValue]
 
-    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], tunings: [InstrumentID] = [], defaultTuning: InstrumentID? = nil, defaults: [String: InstrumentValue] = [:]) {
+    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], tunings: [InstrumentID] = [], defaultTuning: InstrumentID? = nil, fingerings: [InstrumentID] = [], defaultFingering: InstrumentID? = nil, defaults: [String: InstrumentValue] = [:]) {
         self.id = id; self.name = name; self.profile = profile
-        self.geometry = geometry; self.tunings = tunings; self.defaultTuning = defaultTuning; self.defaults = defaults
+        self.geometry = geometry; self.tunings = tunings; self.defaultTuning = defaultTuning
+        self.fingerings = fingerings; self.defaultFingering = defaultFingering; self.defaults = defaults
     }
 }
 
@@ -147,9 +201,27 @@ public struct InstrumentInstanceDefinition: Sendable, Hashable {
 
 public struct InstrumentCatalog: Sendable, Hashable {
     public let tunings: [InstrumentTuningDefinition]
+    public let fingerings: [FingeringDefinition]
     public let profiles: [InstrumentProfileDefinition]
     public let models: [InstrumentModelDefinition]
-    public init(tunings: [InstrumentTuningDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
-        self.tunings = tunings; self.profiles = profiles; self.models = models
+    public init(tunings: [InstrumentTuningDefinition] = [], fingerings: [FingeringDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
+        self.tunings = tunings; self.fingerings = fingerings; self.profiles = profiles; self.models = models
+    }
+
+    /// Returns nil for combinations the selected map does not claim to understand.
+    public func fingeringResult(for bitmap: String, in fingeringID: InstrumentID) -> FingeringResult? {
+        func candidates(_ id: InstrumentID, depth: Int, visited: Set<InstrumentID>) -> [(FingeringEntry, Int)] {
+            guard !visited.contains(id), let map = fingerings.first(where: { $0.id == id }) else { return [] }
+            let nextVisited = visited.union([id])
+            let local = map.entries.filter { $0.matches(bitmap) }.map { ($0, depth) }
+            let inherited = map.parent.map { candidates($0, depth: depth - 1, visited: nextVisited) } ?? []
+            return local + inherited
+        }
+        let matches = candidates(fingeringID, depth: 0, visited: [])
+        guard let specificity = matches.map({ $0.0.specificity }).max() else { return nil }
+        let specific = matches.filter { $0.0.specificity == specificity }
+        guard let nearestDepth = specific.map(\.1).max() else { return nil }
+        let results = Set(specific.filter { $0.1 == nearestDepth }.map { $0.0.result })
+        return results.count == 1 ? results.first : nil
     }
 }

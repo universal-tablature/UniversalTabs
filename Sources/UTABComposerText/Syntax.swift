@@ -97,6 +97,26 @@ public struct TextInstrumentModelSyntax: Sendable, Hashable {
 public struct TextInstrumentExtensionSyntax: Sendable, Hashable {
     public let model: TextSymbolReferenceSyntax
     public let tunings: [TextTuningSyntax]
+    public let fingerings: [TextFingeringSyntax]
+    public let range: SourceRange
+}
+
+public struct TextFingeringSyntax: Sendable, Hashable {
+    public let symbol: TextToken
+    public let isDefault: Bool
+    public let properties: [TextPropertySyntax]
+    public let bitOrder: [TextToken]
+    public let entries: [TextFingeringEntrySyntax]
+    public let range: SourceRange
+}
+
+public struct TextFingeringEntrySyntax: Sendable, Hashable {
+    public let pitch: TextToken?
+    public let effect: TextToken?
+    public let pattern: TextToken
+    public let register: TextToken?
+    public let preference: TextToken?
+    public let label: TextToken?
     public let range: SourceRange
 }
 

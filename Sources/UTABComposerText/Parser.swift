@@ -222,14 +222,67 @@ public struct TextParser: Sendable {
             guard let model = parseSymbolReference("Expected instrument model name"),
                   let open = expect(.leftBrace, "Expected '{' after extension target") else { return nil }
             var tunings: [TextTuningSyntax] = []
+            var fingerings: [TextFingeringSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
-                guard takeKeyword("tuning") else { diagnose("Expected tuning declaration"); synchronizeBlockItem(); continue }
-                if let tuning = parseTuning() { tunings.append(tuning) }
+                if takeKeyword("tuning") {
+                    if let tuning = parseTuning() { tunings.append(tuning) }
+                } else if takeKeyword("fingering") {
+                    if let fingering = parseFingering() { fingerings.append(fingering) }
+                } else { diagnose("Expected tuning or fingering declaration"); synchronizeBlockItem(); continue }
                 _ = take(.semicolon)
             }
             let close = expect(.rightBrace, "Expected '}' after extension") ?? current
-            return .init(model: model, tunings: tunings, range: spanning(open, close))
+            return .init(model: model, tunings: tunings, fingerings: fingerings, range: spanning(open, close))
+        }
+
+        mutating func parseFingering() -> TextFingeringSyntax? {
+            guard let symbol = expect(.identifier, "Expected fingering name") else { return nil }
+            let isDefault = takeKeyword("default")
+            guard let open = expect(.leftBrace, "Expected '{' after fingering name") else { return nil }
+            var properties: [TextPropertySyntax] = []
+            var bitOrder: [TextToken] = []
+            var entries: [TextFingeringEntrySyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("bitOrder") {
+                    bitOrder = parseIdentifierList()
+                } else if takeKeyword("effect") {
+                    let effect = expect(.identifier, "Expected effect name")
+                    let pattern = expectFingeringPattern()
+                    if let effect, let pattern { entries.append(parseFingeringEntry(pitch: nil, effect: effect, pattern: pattern)) }
+                } else if current.kind == .identifier, parsePitchToken(current) {
+                    let pitch = advance()
+                    if let pattern = expectFingeringPattern() { entries.append(parseFingeringEntry(pitch: pitch, effect: nil, pattern: pattern)) }
+                } else if let property = parseProperty() { properties.append(property) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after fingering") ?? current
+            return .init(symbol: symbol, isDefault: isDefault, properties: properties, bitOrder: bitOrder, entries: entries, range: spanning(open, close))
+        }
+
+        mutating func expectFingeringPattern() -> TextToken? {
+            guard current.kind == .integerLiteral || current.kind == .stringLiteral else {
+                diagnose("Expected a fingering bitmap"); return nil
+            }
+            return advance()
+        }
+
+        mutating func parseFingeringEntry(pitch: TextToken?, effect: TextToken?, pattern: TextToken) -> TextFingeringEntrySyntax {
+            var register: TextToken?
+            var preference: TextToken?
+            var label: TextToken?
+            if takeKeyword("register") { register = expect(.integerLiteral, "Expected register number") }
+            if current.kind == .identifier, current.lexeme == "preferred" || current.lexeme == "alternate" { preference = advance() }
+            if current.kind == .stringLiteral { label = advance() }
+            let first = pitch ?? effect ?? pattern
+            return .init(pitch: pitch, effect: effect, pattern: pattern, register: register, preference: preference, label: label, range: spanning(first, label ?? preference ?? register ?? pattern))
+        }
+
+        func parsePitchToken(_ token: TextToken) -> Bool {
+            let text = String(token.lexeme)
+            guard text.count >= 2, let first = text.first, "ABCDEFGabcdefg".contains(first) else { return false }
+            return text.last?.isNumber == true
         }
 
         mutating func parseTuning() -> TextTuningSyntax? {

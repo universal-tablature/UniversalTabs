@@ -36,6 +36,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
     private struct Worker {
         var profiles: [InstrumentProfileDefinition]
         var tunings: [InstrumentTuningDefinition]
+        var fingerings: [FingeringDefinition]
         var models: [InstrumentModelDefinition]
         let modules: [TextLoadedModule]
         var modelSymbols: [String: InstrumentID]
@@ -45,13 +46,14 @@ public struct TextInstrumentCatalogCompiler: Sendable {
         init(base: InstrumentCatalog, modules: [TextLoadedModule]) {
             profiles = base.profiles
             tunings = base.tunings
+            fingerings = base.fingerings
             models = base.models
             self.modules = modules
             modelSymbols = [:]
             profileSymbols = [:]
         }
 
-        var catalog: InstrumentCatalog { .init(tunings: tunings, profiles: profiles, models: models) }
+        var catalog: InstrumentCatalog { .init(tunings: tunings, fingerings: fingerings, profiles: profiles, models: models) }
 
         mutating func addProfiles(from module: TextLoadedModule) {
             for syntax in module.syntax.profiles {
@@ -170,6 +172,8 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 var model = models[index]
                 var tuningIDs = model.tunings
                 var defaultTuning = model.defaultTuning
+                var fingeringIDs = model.fingerings
+                var defaultFingering = model.defaultFingering
                 for tuningSyntax in syntax.tunings {
                     let symbol = String(tuningSyntax.symbol.lexeme)
                     let idString = property("id", in: tuningSyntax.properties) ?? "tuning:\(module.name):\(symbol)"
@@ -193,7 +197,41 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     tuningIDs.append(tuningID)
                     if tuningSyntax.isDefault { defaultTuning = tuningID }
                 }
-                model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, defaults: model.defaults)
+                for fingeringSyntax in syntax.fingerings {
+                    let symbol = String(fingeringSyntax.symbol.lexeme)
+                    let idString = property("id", in: fingeringSyntax.properties) ?? "fingering:\(module.name):\(symbol)"
+                    guard !fingerings.contains(where: { $0.id.rawValue == idString }) else {
+                        error("Duplicate fingering ID '\(idString)'", at: fingeringSyntax.range); continue
+                    }
+                    guard let actuatorGroup = property("actuators", in: fingeringSyntax.properties),
+                          let profile = profiles.first(where: { $0.id == model.profile }),
+                          profile.actuators.contains(where: { $0.id == actuatorGroup }) else {
+                        error("A fingering requires a valid actuators group", at: fingeringSyntax.range); continue
+                    }
+                    let bitOrder = fingeringSyntax.bitOrder.map { String($0.lexeme) }
+                    guard !bitOrder.isEmpty else { error("A fingering requires a non-empty bitOrder", at: fingeringSyntax.range); continue }
+                    let entries = fingeringSyntax.entries.compactMap { entry -> FingeringEntry? in
+                        let pattern = entry.pattern.stringValue ?? String(entry.pattern.lexeme)
+                        guard pattern.count == bitOrder.count, pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "x" }) else {
+                            error("Fingering bitmap must contain exactly \(bitOrder.count) characters from 0, 1, or x", at: entry.pattern.range); return nil
+                        }
+                        let result: FingeringResult
+                        if let token = entry.pitch, let pitch = parsePitch(token) { result = .pitch(pitch) }
+                        else if let effect = entry.effect { result = .effect(String(effect.lexeme)) }
+                        else { error("Invalid fingering result", at: entry.range); return nil }
+                        let preference = entry.preference?.lexeme == "alternate" ? FingeringPreference.alternate : .preferred
+                        return .init(pattern: pattern, result: result, register: entry.register?.integerValue, preference: preference, label: entry.label?.stringValue)
+                    }
+                    let parent = property("extends", in: fingeringSyntax.properties).map(InstrumentID.init(rawValue:))
+                    let fingeringID = InstrumentID(rawValue: idString)
+                    if fingeringSyntax.isDefault, defaultFingering != nil, defaultFingering != fingeringID {
+                        error("Instrument '\(target)' already has a default fingering", at: fingeringSyntax.range); continue
+                    }
+                    fingerings.append(.init(id: fingeringID, name: property("name", in: fingeringSyntax.properties) ?? symbol, model: model.id, actuatorGroup: actuatorGroup, bitOrder: bitOrder, parent: parent, entries: entries))
+                    fingeringIDs.append(fingeringID)
+                    if fingeringSyntax.isDefault { defaultFingering = fingeringID }
+                }
+                model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, fingerings: fingeringIDs, defaultFingering: defaultFingering, defaults: model.defaults)
                 models[index] = model
             }
         }

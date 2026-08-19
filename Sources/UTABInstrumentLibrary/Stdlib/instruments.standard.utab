@@ -13,3 +13,5 @@ import instruments.oud.arabic
 import instruments.piano
 import instruments.voice
 import instruments.nyckelharpa
+import instruments.wind
+import instruments.percussion

@@ -1,0 +1,27 @@
+module profiles.percussion
+
+profile UnpitchedPercussion {
+    id "profile:percussion:unpitched"
+    version "1"
+    actuator playingSurfaces { minimumCount 1 }
+    interaction strike { targets playingSurfaces; effectors hand, stick, mallet }
+    technique roll { target playingSurfaces }
+}
+
+profile PitchedPercussion {
+    id "profile:percussion:pitched"
+    version "1"
+    actuator bars { minimumCount 1 }
+    interaction strike { targets bars; effectors mallet }
+    technique roll { target bars }
+}
+
+profile TunableDrums {
+    id "profile:percussion:tunable-drums"
+    version "1"
+    actuator membranes { minimumCount 1 }
+    actuator tuningControls
+    interaction strike { targets membranes; effectors mallet, hand }
+    interaction setPitch { targets tuningControls; effectors hand, foot }
+    technique roll { target membranes }
+}

@@ -50,6 +50,7 @@ public struct InstrumentCatalogValidator: Sendable {
         }
 
         var modelIDs = Set<InstrumentID>()
+        let fingeringIDs = Set(catalog.fingerings.map(\.id))
         for (index, model) in catalog.models.enumerated() {
             let path = "models[\(index)]"
             if !modelIDs.insert(model.id).inserted { result.append(.init(path: "\(path).id", message: "Duplicate model '\(model.id)'")) }
@@ -59,6 +60,12 @@ public struct InstrumentCatalogValidator: Sendable {
             }
             if let defaultTuning = model.defaultTuning, !model.tunings.contains(defaultTuning) {
                 result.append(.init(path: "\(path).defaultTuning", message: "Default tuning must be listed in model tunings"))
+            }
+            for fingering in model.fingerings where !fingeringIDs.contains(fingering) {
+                result.append(.init(path: "\(path).fingerings", message: "Unknown fingering '\(fingering)'"))
+            }
+            if let defaultFingering = model.defaultFingering, !model.fingerings.contains(defaultFingering) {
+                result.append(.init(path: "\(path).defaultFingering", message: "Default fingering must be listed in model fingerings"))
             }
             if let profile = catalog.profiles.first(where: { $0.id == model.profile }) {
                 for actuator in profile.actuators {
@@ -81,6 +88,31 @@ public struct InstrumentCatalogValidator: Sendable {
                         result.append(.init(path: "\(path).tunings", message: "Tuning '\(tuningID)' has \(tuning.courses.count) courses; expected \(courseCount)"))
                     }
                 }
+            }
+        }
+        var seenFingerings = Set<InstrumentID>()
+        for (index, fingering) in catalog.fingerings.enumerated() {
+            let path = "fingerings[\(index)]"
+            if !seenFingerings.insert(fingering.id).inserted { result.append(.init(path: "\(path).id", message: "Duplicate fingering '\(fingering.id)'")) }
+            guard let model = catalog.models.first(where: { $0.id == fingering.model }),
+                  let profile = catalog.profiles.first(where: { $0.id == model.profile }) else {
+                result.append(.init(path: "\(path).model", message: "Unknown fingering model '\(fingering.model)'")); continue
+            }
+            if !profile.actuators.contains(where: { $0.id == fingering.actuatorGroup }) {
+                result.append(.init(path: "\(path).actuatorGroup", message: "Unknown fingering actuator group '\(fingering.actuatorGroup)'"))
+            }
+            if fingering.bitOrder.isEmpty || Set(fingering.bitOrder).count != fingering.bitOrder.count {
+                result.append(.init(path: "\(path).bitOrder", message: "Fingering bitOrder must contain unique actuator names"))
+            }
+            if let parent = fingering.parent {
+                if parent == fingering.id { result.append(.init(path: "\(path).parent", message: "A fingering cannot extend itself")) }
+                else if let base = catalog.fingerings.first(where: { $0.id == parent }) {
+                    if base.model != fingering.model { result.append(.init(path: "\(path).parent", message: "A fingering can only extend a map for the same model")) }
+                    if base.bitOrder != fingering.bitOrder { result.append(.init(path: "\(path).bitOrder", message: "An extending fingering must preserve bitOrder")) }
+                } else { result.append(.init(path: "\(path).parent", message: "Unknown parent fingering '\(parent)'")) }
+            }
+            for entry in fingering.entries where entry.pattern.count != fingering.bitOrder.count || !entry.pattern.allSatisfy({ $0 == "0" || $0 == "1" || $0 == "x" }) {
+                result.append(.init(path: "\(path).entries", message: "Invalid fingering bitmap"))
             }
         }
         return result

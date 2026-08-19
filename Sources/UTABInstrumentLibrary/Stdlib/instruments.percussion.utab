@@ -1,0 +1,64 @@
+module instruments.percussion
+import profiles.percussion
+
+model SnareDrum : UnpitchedPercussion {
+    id "instrument:percussion:snare-drum"
+    name "Snare Drum"
+    geometry playingSurfaces { count 1; membrane true; snares true }
+}
+
+model BassDrum : UnpitchedPercussion {
+    id "instrument:percussion:bass-drum"
+    name "Bass Drum"
+    geometry playingSurfaces { count 2; membrane true }
+}
+
+model Tambourine : UnpitchedPercussion {
+    id "instrument:percussion:tambourine"
+    name "Tambourine"
+    geometry playingSurfaces { count 1; membrane true; jingles true }
+}
+
+model Triangle : UnpitchedPercussion {
+    id "instrument:percussion:triangle"
+    name "Triangle"
+    geometry playingSurfaces { count 1; material metal }
+}
+
+model DrumKit : UnpitchedPercussion {
+    id "instrument:percussion:drum-kit"
+    name "Drum Kit"
+    geometry playingSurfaces { minimumCount 5; collection true; drums true; cymbals true }
+}
+
+model Xylophone : PitchedPercussion {
+    id "instrument:percussion:xylophone"
+    name "Xylophone"
+    geometry bars { material wood; chromatic true; typicalRange "F3-C7" }
+}
+
+model Marimba : PitchedPercussion {
+    id "instrument:percussion:marimba"
+    name "Marimba"
+    geometry bars { material wood; chromatic true; resonators true; typicalRange "C2-C7" }
+}
+
+model Glockenspiel : PitchedPercussion {
+    id "instrument:percussion:glockenspiel"
+    name "Glockenspiel"
+    geometry bars { material metal; chromatic true; typicalRange "G5-C8" }
+}
+
+model Vibraphone : PitchedPercussion {
+    id "instrument:percussion:vibraphone"
+    name "Vibraphone"
+    geometry bars { material metal; chromatic true; motorizedResonators true; typicalRange "F3-F6" }
+    geometry pedal { damper true }
+}
+
+model Timpani : TunableDrums {
+    id "instrument:percussion:timpani"
+    name "Timpani"
+    geometry membranes { typicalCount 4; definitePitch true; typicalRange "D2-C4" }
+    geometry tuningControls { pedal true; continuous true }
+}
