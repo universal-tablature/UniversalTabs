@@ -1,6 +1,10 @@
 import UTABComposerCore
 
 public struct TextCompositionSyntax: Sendable, Hashable {
+    public let module: TextQualifiedNameSyntax?
+    public let imports: [TextImportSyntax]
+    public let models: [TextInstrumentModelSyntax]
+    public let extensions: [TextInstrumentExtensionSyntax]
     public let title: TextToken?
     public let meter: (numerator: TextToken, denominator: TextToken)?
     public let tempo: TextToken?
@@ -12,17 +16,66 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let range: SourceRange
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
+        lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.models == rhs.models && lhs.extensions == rhs.extensions
+            && lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
             && lhs.instruments == rhs.instruments && lhs.phrases == rhs.phrases && lhs.sections == rhs.sections && lhs.main == rhs.main && lhs.range == rhs.range
     }
 
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(module); hasher.combine(imports); hasher.combine(models); hasher.combine(extensions)
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
         hasher.combine(instruments); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
     }
+}
+
+public struct TextQualifiedNameSyntax: Sendable, Hashable {
+    public let components: [TextToken]
+    public let range: SourceRange
+
+    public var value: String { components.map { String($0.lexeme) }.joined(separator: ".") }
+}
+
+public struct TextImportSyntax: Sendable, Hashable {
+    public let name: TextQualifiedNameSyntax
+    public let range: SourceRange
+}
+
+public struct TextInstrumentModelSyntax: Sendable, Hashable {
+    public let symbol: TextToken
+    public let profile: TextToken
+    public let properties: [TextPropertySyntax]
+    public let geometries: [TextGeometrySyntax]
+    public let range: SourceRange
+}
+
+public struct TextInstrumentExtensionSyntax: Sendable, Hashable {
+    public let model: TextToken
+    public let tunings: [TextTuningSyntax]
+    public let range: SourceRange
+}
+
+public struct TextGeometrySyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let properties: [TextPropertySyntax]
+    public let range: SourceRange
+}
+
+public struct TextPropertySyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let value: TextToken
+    public let range: SourceRange
+}
+
+public struct TextTuningSyntax: Sendable, Hashable {
+    public let symbol: TextToken
+    public let isDefault: Bool
+    public let properties: [TextPropertySyntax]
+    public let tags: [TextToken]
+    public let courses: [[TextToken]]
+    public let range: SourceRange
 }
 
 public struct TextInstrumentInstanceSyntax: Sendable, Hashable {

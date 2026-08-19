@@ -28,7 +28,11 @@ let package = Package(
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
         .target(name: "UTABComposerText", dependencies: ["UTABComposerCore"]),
-        .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
+        .target(
+            name: "UTABInstrumentLibrary",
+            dependencies: ["UTABInstruments", "UTABComposerDSL", "UTABComposerText"],
+            resources: [.copy("Stdlib")]
+        ),
         .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstruments"]),
         .target(
             name: "UTABAudio",

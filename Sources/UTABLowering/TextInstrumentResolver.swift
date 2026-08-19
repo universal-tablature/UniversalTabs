@@ -14,7 +14,8 @@ public struct TextInstrumentResolver: Sendable {
 
     public func resolve(
         _ declarations: [TextInstrumentInstanceDeclaration],
-        in catalog: InstrumentCatalog
+        in catalog: InstrumentCatalog,
+        modelBindings: [String: InstrumentID] = [:]
     ) -> TextInstrumentResolutionResult {
         var bindings: [String: InstrumentInstanceDefinition] = [:]
         var diagnostics: [TextDiagnostic] = []
@@ -22,6 +23,7 @@ public struct TextInstrumentResolver: Sendable {
             let matches = catalog.models.filter {
                 $0.id.rawValue == declaration.model
                     || $0.name.caseInsensitiveCompare(declaration.model) == .orderedSame
+                    || modelBindings[declaration.model] == $0.id
             }
             guard matches.count == 1, let model = matches.first else {
                 let message = matches.isEmpty

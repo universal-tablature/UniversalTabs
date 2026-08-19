@@ -1,0 +1,22 @@
+module instruments.guitar
+
+model Guitar : "profile:fretted-strings" {
+    id "instrument:guitar:classical-six-string"
+    name "Six-string Classical Guitar"
+    geometry strings { count 6 }
+    geometry frets { count 19; movable false }
+}
+
+extension Guitar {
+    tuning standard default {
+        id "tuning:guitar:standard"
+        name "Guitar Standard"
+        tags guitar, standard
+        course E2
+        course A2
+        course D3
+        course G3
+        course B3
+        course E4
+    }
+}

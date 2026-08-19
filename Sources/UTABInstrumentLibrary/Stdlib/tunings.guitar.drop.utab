@@ -1,0 +1,16 @@
+module tunings.guitar.drop
+import instruments.guitar
+
+extension Guitar {
+    tuning dropD {
+        id "tuning:guitar:drop-d"
+        name "Guitar Drop D"
+        tags guitar, alternate
+        course D2
+        course A2
+        course D3
+        course G3
+        course B3
+        course E4
+    }
+}

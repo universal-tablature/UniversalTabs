@@ -1119,3 +1119,50 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(firstDocument.setup.instruments.map(\.id).sorted() == ["guitar_i", "guitar_ii", "piano_i", "voice_i"])
     #expect(stableFingerprint(firstData) == "7bcb96263646b992")
 }
+
+@Test func importedStandardLibraryModelsAndTuningExtensionsBuildCatalog() throws {
+    let root = TextSource(
+        """
+        module examples.catalogue
+        import tunings.guitar.drop
+        import instruments.guitar.twelve-string
+        instrument rhythm : Guitar as "Rhythm Guitar"
+        meter 4/4
+        tempo 100
+        """,
+        fileID: "catalogue.utab"
+    )
+    let loaded = TextModuleLoader().load(root: root, provider: StandardTextModuleProvider())
+    let profilesOnly = InstrumentCatalog(profiles: StandardInstruments.catalog.profiles, models: [])
+    let compiled = TextInstrumentCatalogCompiler().compile(loaded.modules, extending: profilesOnly)
+    let semantic = try #require(loaded.root.map { TextSemanticLowerer().lower($0.syntax) })
+    let resolved = TextInstrumentResolver().resolve(semantic.instruments, in: compiled.catalog, modelBindings: compiled.modelBindings)
+    let guitar = try #require(compiled.catalog.models.first { $0.id.rawValue == "instrument:guitar:classical-six-string" })
+    let twelveString = try #require(compiled.catalog.models.first { $0.id.rawValue == "instrument:guitar:twelve-string" })
+    let doubledCourse = try #require(compiled.catalog.tunings.first { $0.id.rawValue == "tuning:guitar-12:standard" }?.courses.first)
+
+    #expect(loaded.succeeded)
+    #expect(loaded.modules.map(\.name) == ["instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
+    #expect(compiled.succeeded)
+    #expect(guitar.tunings.map(\.rawValue) == ["tuning:guitar:standard", "tuning:guitar:drop-d"])
+    #expect(guitar.defaultTuning?.rawValue == "tuning:guitar:standard")
+    #expect(twelveString.defaultTuning?.rawValue == "tuning:guitar-12:standard")
+    #expect(doubledCourse.pitches.map(\.chromaticIndex) == [40, 52])
+    #expect(resolved.bindings["rhythm"]?.model == guitar.id)
+}
+
+@Test func moduleLoaderDiagnosesImportCyclesAtImportLocation() {
+    let provider = DictionaryTextModuleProvider([
+        "cycle.a": .init("module cycle.a\nimport cycle.b\n", fileID: "a.utab"),
+        "cycle.b": .init("module cycle.b\nimport cycle.a\n", fileID: "b.utab"),
+    ])
+    let result = TextModuleLoader().load(
+        root: .init("module root\nimport cycle.a\n", fileID: "root.utab"),
+        provider: provider
+    )
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains {
+        $0.range.fileID == "b.utab" && $0.message.contains("cycle.a -> cycle.b -> cycle.a")
+    })
+}

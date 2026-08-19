@@ -1,0 +1,23 @@
+module instruments.guitar.twelve-string
+
+model TwelveStringGuitar : "profile:plucked-courses" {
+    id "instrument:guitar:twelve-string"
+    name "12-string Guitar"
+    geometry courses { count 6; doubled true }
+    geometry strings { count 12 }
+    geometry frets { count 20; movable false }
+}
+
+extension TwelveStringGuitar {
+    tuning standard default {
+        id "tuning:guitar-12:standard"
+        name "12-string Guitar Standard"
+        tags guitar, standard, courses
+        course E2, E3
+        course A2, A3
+        course D3, D4
+        course G3, G4
+        course B3, B3
+        course E4, E4
+    }
+}

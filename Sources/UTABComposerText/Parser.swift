@@ -20,6 +20,10 @@ public struct TextParser: Sendable {
         mutating func parseDocument() -> TextCompositionSyntax {
             let start = current.range.start
             var title: TextToken?
+            var module: TextQualifiedNameSyntax?
+            var imports: [TextImportSyntax] = []
+            var models: [TextInstrumentModelSyntax] = []
+            var extensions: [TextInstrumentExtensionSyntax] = []
             var meter: (TextToken, TextToken)?
             var tempo: TextToken?
             var scale: (TextToken, TextToken)?
@@ -29,7 +33,14 @@ public struct TextParser: Sendable {
             var main: [TextToken] = []
 
             while current.kind != .endOfFile {
-                if takeKeyword("title") { title = expect(.stringLiteral, "Expected a quoted title") }
+                if takeKeyword("module") { module = parseQualifiedName() }
+                else if takeKeyword("import") {
+                    if let name = parseQualifiedName() { imports.append(.init(name: name, range: name.range)) }
+                } else if takeKeyword("model") {
+                    if let model = parseInstrumentModel() { models.append(model) }
+                } else if takeKeyword("extension") {
+                    if let value = parseInstrumentExtension() { extensions.append(value) }
+                } else if takeKeyword("title") { title = expect(.stringLiteral, "Expected a quoted title") }
                 else if takeKeyword("meter") {
                     let numerator = expect(.integerLiteral, "Expected meter numerator")
                     _ = expect(.slash, "Expected '/' in meter")
@@ -46,12 +57,16 @@ public struct TextParser: Sendable {
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
                 else {
-                    diagnose("Expected title, meter, tempo, scale, phrase, section, or main declaration")
+                    diagnose("Expected module, import, model, extension, title, meter, tempo, scale, instrument, phrase, section, or main declaration")
                     advance()
                 }
                 _ = take(.semicolon)
             }
             return .init(
+                module: module,
+                imports: imports,
+                models: models,
+                extensions: extensions,
                 title: title,
                 meter: meter,
                 tempo: tempo,
@@ -62,6 +77,101 @@ public struct TextParser: Sendable {
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseQualifiedName() -> TextQualifiedNameSyntax? {
+            guard let first = expect(.identifier, "Expected module name") else { return nil }
+            var components = [first]
+            while take(.dot) {
+                guard let component = expect(.identifier, "Expected module name component after '.'") else { break }
+                components.append(component)
+            }
+            return .init(components: components, range: spanning(first, components.last ?? first))
+        }
+
+        mutating func parseInstrumentModel() -> TextInstrumentModelSyntax? {
+            guard let symbol = expect(.identifier, "Expected instrument model name"),
+                  expect(.colon, "Expected ':' after instrument model name") != nil else { return nil }
+            guard current.kind == .identifier || current.kind == .stringLiteral else {
+                diagnose("Expected capability profile name"); return nil
+            }
+            let profile = advance()
+            guard let open = expect(.leftBrace, "Expected '{' after instrument model profile") else { return nil }
+            var properties: [TextPropertySyntax] = []
+            var geometries: [TextGeometrySyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("geometry") {
+                    if let geometry = parseGeometry() { geometries.append(geometry) }
+                } else if let property = parseProperty() { properties.append(property) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after instrument model") ?? current
+            return .init(symbol: symbol, profile: profile, properties: properties, geometries: geometries, range: spanning(open, close))
+        }
+
+        mutating func parseGeometry() -> TextGeometrySyntax? {
+            guard let name = expect(.identifier, "Expected geometry name"),
+                  let open = expect(.leftBrace, "Expected '{' after geometry name") else { return nil }
+            var properties: [TextPropertySyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if let property = parseProperty() { properties.append(property) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after geometry") ?? current
+            return .init(name: name, properties: properties, range: spanning(open, close))
+        }
+
+        mutating func parseProperty() -> TextPropertySyntax? {
+            guard let name = expect(.identifier, "Expected property name") else { return nil }
+            guard current.kind == .identifier || current.kind == .stringLiteral || current.kind == .integerLiteral || current.kind == .decimalLiteral else {
+                diagnose("Expected property value"); return nil
+            }
+            let value = advance()
+            return .init(name: name, value: value, range: spanning(name, value))
+        }
+
+        mutating func parseInstrumentExtension() -> TextInstrumentExtensionSyntax? {
+            guard let model = expect(.identifier, "Expected instrument model name"),
+                  let open = expect(.leftBrace, "Expected '{' after extension target") else { return nil }
+            var tunings: [TextTuningSyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                guard takeKeyword("tuning") else { diagnose("Expected tuning declaration"); synchronizeBlockItem(); continue }
+                if let tuning = parseTuning() { tunings.append(tuning) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after extension") ?? current
+            return .init(model: model, tunings: tunings, range: spanning(open, close))
+        }
+
+        mutating func parseTuning() -> TextTuningSyntax? {
+            guard let symbol = expect(.identifier, "Expected tuning name") else { return nil }
+            let isDefault = takeKeyword("default")
+            guard let open = expect(.leftBrace, "Expected '{' after tuning name") else { return nil }
+            var properties: [TextPropertySyntax] = []
+            var tags: [TextToken] = []
+            var courses: [[TextToken]] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("course") {
+                    var pitches: [TextToken] = []
+                    if let pitch = expect(.identifier, "Expected course pitch") { pitches.append(pitch) }
+                    while take(.comma) {
+                        if let pitch = expect(.identifier, "Expected course pitch after ','") { pitches.append(pitch) }
+                    }
+                    courses.append(pitches)
+                } else if takeKeyword("tags") {
+                    if let tag = expect(.identifier, "Expected tuning tag") { tags.append(tag) }
+                    while take(.comma) {
+                        if let tag = expect(.identifier, "Expected tuning tag after ','") { tags.append(tag) }
+                    }
+                } else if let property = parseProperty() { properties.append(property) }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after tuning") ?? current
+            return .init(symbol: symbol, isDefault: isDefault, properties: properties, tags: tags, courses: courses, range: spanning(open, close))
         }
 
         mutating func parseInstrumentInstance() -> TextInstrumentInstanceSyntax? {

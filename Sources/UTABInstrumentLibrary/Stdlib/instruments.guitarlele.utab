@@ -1,0 +1,22 @@
+module instruments.guitarlele
+
+model Guitarlele : "profile:fretted-strings" {
+    id "instrument:guitarlele:standard"
+    name "Six-string Guitarlele"
+    geometry strings { count 6 }
+    geometry frets { count 18; movable false }
+}
+
+extension Guitarlele {
+    tuning standard default {
+        id "tuning:guitarlele:standard"
+        name "Guitarlele Standard (A-A)"
+        tags guitarlele, standard
+        course A2
+        course D3
+        course G3
+        course C4
+        course E4
+        course A4
+    }
+}
