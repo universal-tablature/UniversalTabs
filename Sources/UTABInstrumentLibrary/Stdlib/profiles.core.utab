@@ -16,7 +16,9 @@ profile PluckedCourses {
     id "profile:plucked-courses"
     version "1"
     actuator courses
+    actuator fretPositions { control continuous; minimum 0.0; maximum 1.0 }
     interaction setPosition { targets courses }
+    interaction adjustFret { targets fretPositions; effectors hand }
     interaction pluck { targets courses; effectors finger, plectrum }
     interaction strum { targets courses; effectors finger, plectrum }
     technique tremolo { target courses }

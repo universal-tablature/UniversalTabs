@@ -10,6 +10,17 @@ public struct InstrumentCatalogValidator: Sendable {
 
     public func validate(_ catalog: InstrumentCatalog) -> [InstrumentDiagnostic] {
         var result: [InstrumentDiagnostic] = []
+        var scaleIDs = Set<InstrumentID>()
+        for (scaleIndex, scale) in catalog.scales.enumerated() {
+            let path = "scales[\(scaleIndex)]"
+            if !scaleIDs.insert(scale.id).inserted { result.append(.init(path: "\(path).id", message: "Duplicate scale '\(scale.id)'")) }
+            if scale.name.isEmpty { result.append(.init(path: "\(path).name", message: "A scale name must not be empty")) }
+            if scale.centIntervals.first != 0 ||
+                !scale.centIntervals.allSatisfy({ 0 <= $0 && $0 < 1_200 }) ||
+                !zip(scale.centIntervals, scale.centIntervals.dropFirst()).allSatisfy(<) {
+                result.append(.init(path: "\(path).centIntervals", message: "A scale must start at 0 cents and contain strictly increasing offsets below 1200 cents"))
+            }
+        }
         var tuningIDs = Set<InstrumentID>()
         for (tuningIndex, tuning) in catalog.tunings.enumerated() {
             let path = "tunings[\(tuningIndex)]"
@@ -55,6 +66,13 @@ public struct InstrumentCatalogValidator: Sendable {
             let path = "models[\(index)]"
             if !modelIDs.insert(model.id).inserted { result.append(.init(path: "\(path).id", message: "Duplicate model '\(model.id)'")) }
             if !profileIDs.contains(model.profile) { result.append(.init(path: "\(path).profile", message: "Unknown profile '\(model.profile)'")) }
+            for geometry in model.geometry {
+                for (property, value) in geometry.properties {
+                    if case .scale(let scaleID) = value, !scaleIDs.contains(scaleID) {
+                        result.append(.init(path: "\(path).geometry.\(geometry.id).\(property)", message: "Unknown scale '\(scaleID)'"))
+                    }
+                }
+            }
             for tuning in model.tunings where !tuningIDs.contains(tuning) {
                 result.append(.init(path: "\(path).tunings", message: "Unknown tuning '\(tuning)'"))
             }

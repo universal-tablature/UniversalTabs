@@ -722,6 +722,62 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(scale.resolve(degree: 2, octave: 4)?.spelling.tuningOffsetCents == 50)
 }
 
+@Test func lutePublishesNonEqualMovableFretReference() throws {
+    let source = TextSource(
+        """
+        import instruments.lute.renaissance
+        title "Lute fret setup"
+        meter 4/4
+        tempo 60
+        scale G LuteGQuarterCommaFretReference
+        """,
+        fileID: "lute-frets.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let lowered = TextSemanticLowerer().lower(loaded.modules)
+    let compiled = TextInstrumentCatalogCompiler().compile(
+        loaded.modules,
+        extending: .init(profiles: [], models: [])
+    )
+    let scale = try #require(lowered.composition?.scale)
+    let lute = try #require(compiled.catalog.models.first { $0.id == "instrument:lute:renaissance-six-course" })
+    let frets = try #require(lute.geometry.first { $0.id == "frets" })
+    guard case .scale(let scaleID) = frets.properties["scale"] else {
+        Issue.record("Lute fret geometry should contain a typed scale reference")
+        return
+    }
+    let catalogScale = try #require(compiled.catalog.scale(scaleID))
+
+    #expect(loaded.succeeded)
+    #expect(lowered.succeeded)
+    #expect(compiled.succeeded)
+    #expect(scale.kind.centIntervals == [0, 76, 193, 310, 386, 503, 579, 697, 814, 890, 1_007, 1_083])
+    #expect(scale.kind.centIntervals != ScaleKind.major.centIntervals)
+    #expect(catalogScale.name == "LuteGQuarterCommaFretReference")
+    #expect(catalogScale.centIntervals == scale.kind.centIntervals)
+    #expect(compiled.scaleBindings["LuteGQuarterCommaFretReference"] == scaleID)
+    #expect(InstrumentCatalogValidator().validate(compiled.catalog).isEmpty)
+}
+
+@Test func instrumentCatalogRejectsInvalidAndMissingScales() {
+    let catalog = InstrumentCatalog(
+        scales: [.init(id: "scale:broken", name: "Broken", centIntervals: [10, 5])],
+        profiles: [.init(id: "profile:test", version: "1", actuators: [], interactions: [])],
+        models: [
+            .init(
+                id: "instrument:test",
+                name: "Test",
+                profile: "profile:test",
+                geometry: [.init("frets", properties: ["scale": .scale("scale:missing")])]
+            ),
+        ]
+    )
+    let diagnostics = InstrumentCatalogValidator().validate(catalog)
+
+    #expect(diagnostics.contains { $0.path == "scales[0].centIntervals" })
+    #expect(diagnostics.contains { $0.path == "models[0].geometry.frets.scale" })
+}
+
 @Test func preservesEnharmonicSpellingWithoutForcingAcousticDistinction() {
     let fSharp = AbsolutePitch(.init(.f, accidental: 1), octave: 4)
     let gFlat = AbsolutePitch(.init(.g, accidental: -1), octave: 4)
@@ -828,8 +884,8 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.tunings.count == 12)
-    #expect(catalog.profiles.count == 12)
-    #expect(catalog.models.count == 37)
+    #expect(catalog.profiles.count == 17)
+    #expect(catalog.models.count == 42)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -1182,6 +1238,37 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(tempo.range.fileID == "score.utablang")
     #expect(tempo.range.start == SourcePosition(line: 2, column: 9))
     #expect(tempo.range.end == SourcePosition(line: 2, column: 14))
+}
+
+@Test func textLexerRecognizesSignedNumericProperties() throws {
+    let source = TextSource("actuator pitch { minimum -3.0; maximum +1 }", fileID: "signed.utablang")
+    let result = TextLexer().lex(source)
+    let minimum = try #require(result.tokens.first { $0.lexeme == "-3.0" })
+    let maximum = try #require(result.tokens.first { $0.lexeme == "+1" })
+
+    #expect(result.diagnostics.isEmpty)
+    #expect(minimum.kind == .decimalLiteral)
+    #expect(minimum.decimalValue == -3)
+    #expect(maximum.kind == .integerLiteral)
+    #expect(maximum.integerValue == 1)
+}
+
+@Test func textParserMakesProgressAfterMalformedProperty() {
+    let result = TextParser().parse(.init("profile Broken { actuator keys { minimum @ } }"))
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.count <= 3)
+}
+
+@Test func textParserAcceptsMultilineScaleClosingBrace() throws {
+    let result = TextParser().parse(.init("""
+        scale Unequal {
+            cents 0, 76, 193
+        }
+        """))
+
+    #expect(result.succeeded)
+    #expect(try #require(result.syntax).scaleDefinitions.count == 1)
 }
 
 @Test func textParserReportsFileLineAndColumnForInvalidInput() {

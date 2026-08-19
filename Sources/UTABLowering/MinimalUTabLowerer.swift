@@ -355,6 +355,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             case .pitches(let pitches): .array(pitches.map(pitchValue))
             case .list(let values): .array(values.map(instrumentJSONValue))
             case .object(let values): .object(values.mapValues(instrumentJSONValue))
+            case .scale(let id): .string(id.rawValue)
             }
         }
 

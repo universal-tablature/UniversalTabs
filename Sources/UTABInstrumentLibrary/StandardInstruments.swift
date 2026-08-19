@@ -14,7 +14,11 @@ public enum StandardInstruments {
             loaded.modules,
             extending: .init(profiles: [], models: [])
         )
-        precondition(loaded.succeeded && compiled.succeeded, "The bundled UTAB instrument standard library is invalid")
+        let diagnostics = loaded.diagnostics.map(\.description) + compiled.diagnostics.map(\.description)
+        precondition(
+            loaded.succeeded && compiled.succeeded,
+            "The bundled UTAB instrument standard library is invalid:\n\(diagnostics.joined(separator: "\n"))"
+        )
         return compiled.catalog
     }()
 

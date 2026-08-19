@@ -4,6 +4,7 @@ import UTABInstruments
 
 public struct TextInstrumentCatalogResult: Sendable {
     public let catalog: InstrumentCatalog
+    public let scaleBindings: [String: InstrumentID]
     public let profileBindings: [String: InstrumentID]
     /// Names visible to the root module, plus fully qualified names from loaded modules.
     public let modelBindings: [String: InstrumentID]
@@ -19,6 +20,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
 
     public func compile(_ modules: [TextLoadedModule], extending base: InstrumentCatalog) -> TextInstrumentCatalogResult {
         var worker = Worker(base: base, modules: modules)
+        for module in modules { worker.addScales(from: module) }
         for module in modules { worker.addProfiles(from: module) }
         for module in modules { worker.addModels(from: module) }
         for module in modules { worker.applyExtensions(from: module) }
@@ -27,6 +29,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
         }
         return .init(
             catalog: worker.catalog,
+            scaleBindings: worker.visibleBindings(worker.scaleSymbols),
             profileBindings: worker.visibleBindings(worker.profileSymbols),
             modelBindings: worker.visibleBindings(worker.modelSymbols),
             diagnostics: worker.diagnostics
@@ -34,6 +37,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
     }
 
     private struct Worker {
+        var scales: [InstrumentScaleDefinition]
         var profiles: [InstrumentProfileDefinition]
         var tunings: [InstrumentTuningDefinition]
         var fingerings: [FingeringDefinition]
@@ -41,9 +45,11 @@ public struct TextInstrumentCatalogCompiler: Sendable {
         let modules: [TextLoadedModule]
         var modelSymbols: [String: InstrumentID]
         var profileSymbols: [String: InstrumentID]
+        var scaleSymbols: [String: InstrumentID]
         var diagnostics: [TextDiagnostic] = []
 
         init(base: InstrumentCatalog, modules: [TextLoadedModule]) {
+            scales = base.scales
             profiles = base.profiles
             tunings = base.tunings
             fingerings = base.fingerings
@@ -51,9 +57,34 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             self.modules = modules
             modelSymbols = [:]
             profileSymbols = [:]
+            scaleSymbols = [:]
         }
 
-        var catalog: InstrumentCatalog { .init(tunings: tunings, fingerings: fingerings, profiles: profiles, models: models) }
+        var catalog: InstrumentCatalog { .init(scales: scales, tunings: tunings, fingerings: fingerings, profiles: profiles, models: models) }
+
+        mutating func addScales(from module: TextLoadedModule) {
+            for syntax in module.syntax.scaleDefinitions {
+                let symbol = String(syntax.symbol.lexeme)
+                let qualifiedSymbol = "\(module.name).\(symbol)"
+                guard scaleSymbols[qualifiedSymbol] == nil else {
+                    error("Duplicate scale definition '\(symbol)'", at: syntax.range); continue
+                }
+                let intervals = syntax.centIntervals.compactMap(\.integerValue)
+                guard intervals.count == syntax.centIntervals.count,
+                      intervals.first == 0,
+                      intervals.allSatisfy({ 0 <= $0 && $0 < 1_200 }),
+                      zip(intervals, intervals.dropFirst()).allSatisfy(<) else {
+                    error("Scale '\(symbol)' must start at 0 cents and contain strictly increasing offsets below 1200 cents", at: syntax.range)
+                    continue
+                }
+                let id = InstrumentID(rawValue: "scale:\(module.name):\(symbol)")
+                guard !scales.contains(where: { $0.id == id }) else {
+                    error("Duplicate scale ID '\(id)'", at: syntax.range); continue
+                }
+                scales.append(.init(id: id, name: symbol, centIntervals: intervals))
+                scaleSymbols[qualifiedSymbol] = id
+            }
+        }
 
         mutating func addProfiles(from module: TextLoadedModule) {
             for syntax in module.syntax.profiles {
@@ -151,15 +182,42 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     error("Duplicate instrument model ID '\(id)'", at: syntax.range); continue
                 }
                 let name = property("name", in: syntax.properties) ?? symbol
-                let geometry = syntax.geometries.map { geometry in
-                    InstrumentGeometry(String(geometry.name.lexeme), properties: Dictionary(uniqueKeysWithValues: geometry.properties.map {
-                        (String($0.name.lexeme), instrumentValue($0.value))
-                    }))
-                }
+                let geometry = syntax.geometries.map { lowerGeometry($0, from: module) }
                 let model = InstrumentModelDefinition(id: .init(rawValue: id), name: name, profile: profile.id, geometry: geometry)
                 models.append(model)
                 modelSymbols[qualifiedSymbol] = model.id
             }
+        }
+
+        mutating func lowerGeometry(_ syntax: TextGeometrySyntax, from module: TextLoadedModule) -> InstrumentGeometry {
+            var properties: [String: InstrumentValue] = [:]
+            for propertySyntax in syntax.properties {
+                let name = String(propertySyntax.name.lexeme)
+                if name == "scale" {
+                    if let id = resolveScale(propertySyntax.value, from: module) {
+                        properties[name] = .scale(id)
+                    }
+                } else {
+                    properties[name] = instrumentValue(propertySyntax.value)
+                }
+            }
+            return .init(String(syntax.name.lexeme), properties: properties)
+        }
+
+        mutating func resolveScale(_ token: TextToken, from module: TextLoadedModule) -> InstrumentID? {
+            let name = token.stringValue ?? String(token.lexeme)
+            if token.kind == .stringLiteral {
+                if let scale = scales.first(where: { $0.id.rawValue == name }) { return scale.id }
+                error("Unknown scale '\(name)'", at: token.range)
+                return nil
+            }
+            let localName = "\(module.name).\(name)"
+            if let id = scaleSymbols[localName] { return id }
+            let candidates = module.syntax.imports.compactMap { scaleSymbols["\($0.name.value).\(name)"] }
+            if candidates.count == 1 { return candidates[0] }
+            if candidates.count > 1 { error("Ambiguous scale '\(name)'", at: token.range); return nil }
+            error("Unknown scale '\(name)'", at: token.range)
+            return nil
         }
 
         mutating func applyExtensions(from module: TextLoadedModule) {

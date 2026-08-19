@@ -101,6 +101,7 @@ public struct TextParser: Sendable {
                 intervals.append(interval)
                 if !take(.comma) { break }
             }
+            _ = take(.semicolon)
             let close = expect(.rightBrace, "Expected '}' after scale definition") ?? current
             return .init(symbol: symbol, centIntervals: intervals, range: spanning(open, close))
         }
@@ -232,9 +233,16 @@ public struct TextParser: Sendable {
         }
 
         mutating func parseProperty() -> TextPropertySyntax? {
-            guard let name = expect(.identifier, "Expected property name") else { return nil }
+            guard current.kind == .identifier else {
+                diagnose("Expected property name")
+                advance()
+                return nil
+            }
+            let name = advance()
             guard current.kind == .identifier || current.kind == .stringLiteral || current.kind == .integerLiteral || current.kind == .decimalLiteral else {
-                diagnose("Expected property value"); return nil
+                diagnose("Expected property value")
+                advance()
+                return nil
             }
             let value = advance()
             return .init(name: name, value: value, range: spanning(name, value))

@@ -137,7 +137,9 @@ public struct TextLexer: Sendable {
                     advance()
                     append(.newline, from: start, position: position)
                 } else if isIdentifierStart(character) { scanIdentifier(from: start, position: position) }
-                else if character.isNumber { scanNumber(from: start, position: position) }
+                else if character.isNumber || isSignBeforeNumber(character) {
+                    scanNumber(from: start, position: position)
+                }
                 else if character == "\"" { scanString(from: start, position: position) }
                 else if let kind = punctuation(character) {
                     advance()
@@ -172,6 +174,7 @@ public struct TextLexer: Sendable {
         }
 
         mutating func scanNumber(from start: String.Index, position: SourcePosition) {
+            if source.text[index] == "-" || source.text[index] == "+" { advance() }
             while index < source.text.endIndex, source.text[index].isNumber { advance() }
             var kind = TextTokenKind.integerLiteral
             if index < source.text.endIndex, source.text[index] == "." {
@@ -183,6 +186,12 @@ public struct TextLexer: Sendable {
                 }
             }
             append(kind, from: start, position: position)
+        }
+
+        func isSignBeforeNumber(_ character: Character) -> Bool {
+            guard character == "-" || character == "+" else { return false }
+            let next = source.text.index(after: index)
+            return next < source.text.endIndex && source.text[next].isNumber
         }
 
         mutating func scanString(from start: String.Index, position: SourcePosition) {

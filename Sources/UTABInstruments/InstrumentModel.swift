@@ -16,6 +16,23 @@ public enum InstrumentValue: Sendable, Hashable {
     case pitches([AbsolutePitch])
     case list([InstrumentValue])
     case object([String: InstrumentValue])
+    case scale(InstrumentID)
+}
+
+/// A named octave-repeating pitch collection published by an instrument catalogue.
+/// Intervals are measured in cents above the tonic and exclude the repeated octave.
+public struct InstrumentScaleDefinition: Sendable, Hashable {
+    public let id: InstrumentID
+    public let name: String
+    public let centIntervals: [Int]
+
+    public init(id: InstrumentID, name: String, centIntervals: [Int]) {
+        self.id = id
+        self.name = name
+        self.centIntervals = centIntervals
+    }
+
+    public var kind: ScaleKind { .custom(name: name, centIntervals: centIntervals) }
 }
 
 public enum ActuatorControl: Sendable, Hashable {
@@ -207,12 +224,17 @@ public struct InstrumentInstanceDefinition: Sendable, Hashable {
 }
 
 public struct InstrumentCatalog: Sendable, Hashable {
+    public let scales: [InstrumentScaleDefinition]
     public let tunings: [InstrumentTuningDefinition]
     public let fingerings: [FingeringDefinition]
     public let profiles: [InstrumentProfileDefinition]
     public let models: [InstrumentModelDefinition]
-    public init(tunings: [InstrumentTuningDefinition] = [], fingerings: [FingeringDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
-        self.tunings = tunings; self.fingerings = fingerings; self.profiles = profiles; self.models = models
+    public init(scales: [InstrumentScaleDefinition] = [], tunings: [InstrumentTuningDefinition] = [], fingerings: [FingeringDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
+        self.scales = scales; self.tunings = tunings; self.fingerings = fingerings; self.profiles = profiles; self.models = models
+    }
+
+    public func scale(_ id: InstrumentID) -> InstrumentScaleDefinition? {
+        scales.first { $0.id == id }
     }
 
     /// Returns nil for combinations the selected map does not claim to understand.

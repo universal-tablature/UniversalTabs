@@ -1,11 +1,23 @@
 module instruments.lute.renaissance
 import profiles.core
 
+// A G-based quarter-comma meantone reference for movable fret placement.
+// Straight tied frets remain a physical compromise across differently tuned courses.
+scale LuteGQuarterCommaFretReference {
+    cents 0, 76, 193, 310, 386, 503, 579, 697, 814, 890, 1007, 1083
+}
+
 model RenaissanceLute : PluckedCourses {
     id "instrument:lute:renaissance-six-course"
     name "Six-course Renaissance Lute"
     geometry courses { count 6; doubled true }
-    geometry frets { movable true }
+    geometry frets {
+        count 8
+        movable true
+        scale LuteGQuarterCommaFretReference
+        referencePitchClass G
+        splitFretsSupported true
+    }
 }
 
 extension RenaissanceLute {
