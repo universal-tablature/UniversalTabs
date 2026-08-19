@@ -1,3 +1,4 @@
+import Foundation
 import UTABComposerCore
 
 public struct InstrumentID: RawRepresentable, Sendable, Hashable, ExpressibleByStringLiteral, CustomStringConvertible {
@@ -17,6 +18,21 @@ public enum InstrumentValue: Sendable, Hashable {
     case list([InstrumentValue])
     case object([String: InstrumentValue])
     case scale(InstrumentID)
+}
+
+private extension InstrumentValue {
+    var numericValue: Double? {
+        switch self {
+        case .integer(let value): Double(value)
+        case .decimal(let value): value
+        default: nil
+        }
+    }
+
+    var integerValue: Int? {
+        guard case .integer(let value) = self else { return nil }
+        return value
+    }
 }
 
 /// A named octave-repeating pitch collection published by an instrument catalogue.
@@ -146,6 +162,18 @@ public struct FingeringDefinition: Sendable, Hashable {
     }
 }
 
+/// A pitch resolved from a continuous slide coordinate and a selected harmonic.
+/// `namedPosition` is present only while the slide is within the authored tolerance
+/// of one of the conventional position landmarks.
+public struct SlidePitchResolution: Sendable, Hashable {
+    public let pitch: AbsolutePitch
+    public let frequency: Double
+    public let harmonicPartial: Int
+    public let slidePosition: Double
+    public let namedPosition: String?
+    public let positionDeviation: Double?
+}
+
 public struct ActuatorMember: Sendable, Hashable {
     public let id: String
     public let pitch: AbsolutePitch?
@@ -235,6 +263,78 @@ public struct InstrumentCatalog: Sendable, Hashable {
 
     public func scale(_ id: InstrumentID) -> InstrumentScaleDefinition? {
         scales.first { $0.id == id }
+    }
+
+    /// Resolves a continuously adjustable slide against named position landmarks.
+    /// Position values and harmonic bounds are catalog data, so this works without
+    /// hard-coding a seven-position or equal-tempered trombone into the runtime.
+    public func slidePitch(
+        for modelID: InstrumentID,
+        position: Double,
+        harmonicPartial: Int,
+        adjustmentCents: Double = 0
+    ) -> SlidePitchResolution? {
+        guard let model = models.first(where: { $0.id == modelID }),
+              let slide = model.geometry.first(where: { $0.id == "slide" }),
+              let fundamental = model.geometry.lazy.compactMap({ geometry -> AbsolutePitch? in
+                  guard case .pitch(let pitch)? = geometry.properties["fundamental"] else { return nil }
+                  return pitch
+              }).first,
+              let minimum = slide.properties["minimum"]?.numericValue,
+              let maximum = slide.properties["maximum"]?.numericValue,
+              position >= minimum,
+              position <= maximum else { return nil }
+
+        let harmonics = model.geometry.first { $0.id == "harmonics" }
+        let lowestPartial = harmonics?.properties["lowestPartial"]?.integerValue ?? 1
+        let highestPartial = harmonics?.properties["highestPartial"]?.integerValue ?? Int.max
+        guard harmonicPartial >= lowestPartial, harmonicPartial <= highestPartial else { return nil }
+
+        let landmarks = model.geometry.compactMap { geometry -> (value: Double, semitones: Double, name: String)? in
+            guard geometry.id.hasPrefix("slidePosition"),
+                  let value = geometry.properties["value"]?.numericValue,
+                  let semitones = geometry.properties["semitoneOffset"]?.numericValue else { return nil }
+            let name: String
+            if case .text(let authoredName)? = geometry.properties["name"] {
+                name = authoredName
+            } else {
+                name = geometry.id
+            }
+            return (value, semitones, name)
+        }.sorted { $0.value < $1.value }
+        guard !landmarks.isEmpty else { return nil }
+
+        let semitoneOffset: Double
+        if position <= landmarks[0].value {
+            semitoneOffset = landmarks[0].semitones
+        } else if position >= landmarks[landmarks.count - 1].value {
+            semitoneOffset = landmarks[landmarks.count - 1].semitones
+        } else {
+            guard let upperIndex = landmarks.indices.dropFirst().first(where: { landmarks[$0].value >= position }) else { return nil }
+            let lower = landmarks[upperIndex - 1]
+            let upper = landmarks[upperIndex]
+            let progress = (position - lower.value) / (upper.value - lower.value)
+            semitoneOffset = lower.semitones + progress * (upper.semitones - lower.semitones)
+        }
+
+        let tolerance = slide.properties["positionTolerance"]?.numericValue ?? 0
+        let nearest = landmarks.min { abs($0.value - position) < abs($1.value - position) }
+        let deviation = nearest.map { position - $0.value }
+        let namedPosition = deviation.flatMap { abs($0) <= tolerance ? nearest?.name : nil }
+        let acousticCents = Double(fundamental.acousticCents)
+            - semitoneOffset * 100
+            + 1_200 * log2(Double(harmonicPartial))
+            + adjustmentCents
+        let pitch = AbsolutePitch(acousticCents: Int(acousticCents.rounded()))
+
+        return SlidePitchResolution(
+            pitch: pitch,
+            frequency: fundamental.frequency() * pow(2, (-semitoneOffset * 100 + adjustmentCents) / 1_200) * Double(harmonicPartial),
+            harmonicPartial: harmonicPartial,
+            slidePosition: position,
+            namedPosition: namedPosition,
+            positionDeviation: namedPosition == nil ? nil : deviation
+        )
     }
 
     /// Returns nil for combinations the selected map does not claim to understand.

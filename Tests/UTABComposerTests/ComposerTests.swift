@@ -1161,6 +1161,38 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
+@Test func tromboneSlideResolvesNamedAdjustablePositionsAndHarmonicPartials() throws {
+    let catalog = StandardInstruments.catalog
+    let tromboneID = InstrumentID(rawValue: "instrument:trombone:tenor-b-flat")
+    let trombone = try #require(catalog.models.first { $0.id == tromboneID })
+    let slide = try #require(trombone.geometry.first { $0.id == "slide" })
+
+    let firstPosition = try #require(catalog.slidePitch(for: tromboneID, position: 1, harmonicPartial: 2))
+    #expect(firstPosition.pitch == .init(.bFlat, octave: 2))
+    #expect(firstPosition.namedPosition == "First")
+    #expect(firstPosition.positionDeviation == 0)
+
+    let seventhPosition = try #require(catalog.slidePitch(for: tromboneID, position: 7, harmonicPartial: 2))
+    #expect(seventhPosition.pitch == .init(.e, octave: 2))
+    #expect(seventhPosition.namedPosition == "Seventh")
+
+    let thirdPartial = try #require(catalog.slidePitch(for: tromboneID, position: 1, harmonicPartial: 3))
+    #expect(thirdPartial.pitch.pitchClass == .f)
+    #expect(thirdPartial.pitch.octave == 3)
+    #expect(thirdPartial.pitch.spelling.tuningOffsetCents == 2)
+
+    let betweenPositions = try #require(catalog.slidePitch(for: tromboneID, position: 2.5, harmonicPartial: 2))
+    #expect(betweenPositions.namedPosition == nil)
+    #expect(betweenPositions.pitch.cents(relativeTo: .init(.bFlat, octave: 2)) == -150)
+
+    let adjusted = try #require(catalog.slidePitch(for: tromboneID, position: 1, harmonicPartial: 2, adjustmentCents: -12))
+    #expect(adjusted.pitch.cents(relativeTo: .init(.bFlat, octave: 2)) == -12)
+    #expect(catalog.slidePitch(for: tromboneID, position: 7.1, harmonicPartial: 2) == nil)
+    #expect(catalog.slidePitch(for: tromboneID, position: 1, harmonicPartial: 13) == nil)
+    #expect(slide.properties["positionTolerance"] == .decimal(0.18))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {
     let catalog = StandardInstruments.catalog
     let chromatic = try #require(catalog.models.first { $0.id.rawValue == "instrument:nyckelharpa:kromatisk" })

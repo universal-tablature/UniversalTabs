@@ -49,7 +49,15 @@ model TenorTrombone : SlideBrass {
     id "instrument:trombone:tenor-b-flat"
     name "Tenor Trombone"
     geometry bore { shape cylindricalThenConical; material brass; fundamental Bb1 }
-    geometry slide { positions 7; adjustable true; typicalRange "E2-F5" }
+    geometry slide { positions 7; adjustable true; minimum 1.0; maximum 7.0; positionTolerance 0.18; typicalRange "E2-F5" }
+    geometry slidePosition1 { name "First"; value 1.0; semitoneOffset 0.0 }
+    geometry slidePosition2 { name "Second"; value 2.0; semitoneOffset 1.0 }
+    geometry slidePosition3 { name "Third"; value 3.0; semitoneOffset 2.0 }
+    geometry slidePosition4 { name "Fourth"; value 4.0; semitoneOffset 3.0 }
+    geometry slidePosition5 { name "Fifth"; value 5.0; semitoneOffset 4.0 }
+    geometry slidePosition6 { name "Sixth"; value 6.0; semitoneOffset 5.0 }
+    geometry slidePosition7 { name "Seventh"; value 7.0; semitoneOffset 6.0 }
+    geometry harmonics { lowestPartial 1; highestPartial 12; conventionalLowestPartial 2; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68 }
 }
 
 model C10DiatonicHarmonica : MouthOrgan {
