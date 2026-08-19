@@ -151,11 +151,21 @@ public struct TemporalResolutionStage: CompilerStage {
 public struct ResolvedTimelinePitch: Sendable, Hashable {
     public let authored: MusicalPitch
     public let absolute: AbsolutePitch
+
+    public init(authored: MusicalPitch, absolute: AbsolutePitch) {
+        self.authored = authored
+        self.absolute = absolute
+    }
 }
 
 public struct ResolvedTimelineChord: Sendable, Hashable {
     public let authored: ChordSymbol
     public let rootPitchClass: PitchClass
+
+    public init(authored: ChordSymbol, rootPitchClass: PitchClass) {
+        self.authored = authored
+        self.rootPitchClass = rootPitchClass
+    }
 }
 
 public struct PitchResolvedTechniqueApplication: Sendable, Hashable {

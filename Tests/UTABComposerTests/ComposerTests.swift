@@ -401,12 +401,12 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         }
     }
 
-    guard let pitched = compileToPitchResolved(composition) else {
+    guard let realized = compileToRealized(composition, bindings: ["piano": StandardInstruments.piano.id]) else {
         Issue.record("Expected the semantic pipeline to succeed")
         return
     }
-    let first = MinimalUTabLoweringStage().run(pitched)
-    let second = MinimalUTabLoweringStage().run(pitched)
+    let first = MinimalUTabLoweringStage().run(realized)
+    let second = MinimalUTabLoweringStage().run(realized)
     guard let document = first.output, let secondDocument = second.output else {
         Issue.record("Expected minimal UTAB lowering to succeed: \(first.diagnostics)")
         return
@@ -448,8 +448,8 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         ]
     )
 
-    guard let pitched = compileToPitchResolved(composition),
-          let document = MinimalUTabLoweringStage().run(pitched).output,
+    guard let realized = compileToRealized(composition, bindings: ["guitar": StandardInstruments.guitar.id]),
+          let document = MinimalUTabLoweringStage().run(realized).output,
           let event = document.tracks.first?.parts?.first?.events.first else {
         Issue.record("Expected exact actuator lowering to succeed")
         return
@@ -461,7 +461,39 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     #expect(UTabValidator().validate(document).isEmpty)
 }
 
-@Test func minimalLowererRejectsAbstractChordsUntilRealizationExists() {
+@Test func realizationRejectsPhysicalPositionWithMismatchedPitch() {
+    let impossible = Actuate(
+        "pluck",
+        group: "strings",
+        member: "2",
+        position: 5,
+        duration: .quarter,
+        soundingPitch: .absolute(.init(.f, octave: 4))
+    )
+    let composition = Composition(
+        title: "Mismatched position",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init("verse", duration: .quarter, parts: [
+            .init(instrument: "guitar", voices: [.init("part", content: [.expression(impossible)])]),
+        ])]
+    )
+    guard let pitched = compileToPitchResolved(composition) else {
+        Issue.record("Expected pitch resolution to succeed")
+        return
+    }
+    let result = InstrumentRealizationStage().run(.init(
+        composition: pitched,
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: ["guitar": StandardInstruments.guitar.id]
+    ))
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("produces chromatic pitch") })
+}
+
+@Test func frettedStringRealizationLowersAbstractChordToDistinctStrings() {
     let composition = Composition(
         title: "Needs voicing",
         meter: .init(4, 4),
@@ -476,15 +508,71 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         ]
     )
 
-    guard let pitched = compileToPitchResolved(composition) else {
-        Issue.record("Expected compilation before realization to succeed")
+    guard let realized = compileToRealized(composition, bindings: ["guitar": StandardInstruments.guitar.id]),
+          let document = MinimalUTabLoweringStage().run(realized).output,
+          let events = document.tracks.first?.parts?.first?.events else {
+        Issue.record("Expected guitar chord realization and lowering to succeed")
         return
     }
-    let result = MinimalUTabLoweringStage().run(pitched)
+
+    #expect(events.count == 3)
+    #expect(Set(events.compactMap(\.target)).count == 3)
+    #expect(events.allSatisfy { $0.action == "pluck" })
+    #expect(UTabValidator().validate(document).isEmpty)
+}
+
+@Test func keyboardRealizationUsesConcurrentKeysForChords() {
+    let composition = Composition(
+        title: "Keyboard chord",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [
+            .init("verse", duration: .whole, parts: [
+                .init(instrument: "piano", voices: [
+                    .init("left hand", content: [
+                        .expression(Chord(.c, .major, .whole, constraints: [.group("left hand")])),
+                    ]),
+                ]),
+            ]),
+        ]
+    )
+
+    guard let realized = compileToRealized(composition, bindings: ["piano": StandardInstruments.piano.id]),
+          let document = MinimalUTabLoweringStage().run(realized).output,
+          let events = document.tracks.first?.parts?.first?.events else {
+        Issue.record("Expected keyboard chord realization to succeed")
+        return
+    }
+
+    #expect(events.count == 3)
+    #expect(events.allSatisfy { $0.action == "press" })
+    #expect(events.allSatisfy { $0.at.musical?.measure == 1 && $0.at.musical?.beat == 1 })
+    #expect(Set(events.compactMap(\.target)).count == 3)
+}
+
+@Test func realizationRequiresExplicitInstrumentBindings() {
+    let composition = Composition(
+        title: "Unbound",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init("verse", duration: .quarter, parts: [
+            .init(instrument: "mystery", voices: [.init("voice", content: [.expression(C4(.quarter))])]),
+        ])]
+    )
+    guard let pitched = compileToPitchResolved(composition) else {
+        Issue.record("Expected pitch resolution to succeed")
+        return
+    }
+    let result = InstrumentRealizationStage().run(.init(
+        composition: pitched,
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: [:]
+    ))
 
     #expect(!result.succeeded)
-    #expect(result.output == nil)
-    #expect(result.diagnostics.contains { $0.message.contains("requires a voicing/realization pass") })
+    #expect(result.diagnostics.contains { $0.message.contains("No instrument binding") })
 }
 
 private func compileToPitchResolved(_ composition: Composition) -> PitchResolvedComposition? {
@@ -492,6 +580,18 @@ private func compileToPitchResolved(_ composition: Composition) -> PitchResolved
           let expanded = ReferenceExpansionStage().run(named).output,
           let timed = TemporalResolutionStage().run(expanded).output else { return nil }
     return PitchResolutionStage().run(timed).output
+}
+
+private func compileToRealized(
+    _ composition: Composition,
+    bindings: [String: InstrumentID]
+) -> RealizedComposition? {
+    guard let pitched = compileToPitchResolved(composition) else { return nil }
+    return InstrumentRealizationStage().run(.init(
+        composition: pitched,
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: bindings
+    )).output
 }
 
 @Test func resolvesScaleRelativePitch() {

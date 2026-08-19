@@ -1,11 +1,12 @@
 import Foundation
 import UTABComposerCore
+import UTABInstruments
 import UniversalTabs
 
 public struct MinimalUTabLoweringStage: CompilerStage {
     public init() {}
 
-    public func run(_ input: PitchResolvedComposition) -> CompilerStageResult<UTabDocument> {
+    public func run(_ input: RealizedComposition) -> CompilerStageResult<UTabDocument> {
         var lowerer = Lowerer(input: input)
         return lowerer.lower()
     }
@@ -29,12 +30,12 @@ public struct MinimalUTabLoweringStage: CompilerStage {
     }
 
     private struct Lowerer {
-        let input: PitchResolvedComposition
+        let input: RealizedComposition
         var diagnostics: [ComposerDiagnostic] = []
         var capabilities: [String: Capability] = [:]
         var tracks: [String: TrackAccumulator] = [:]
 
-        var composition: Composition { input.source.source.source.source }
+        var composition: Composition { input.source.source.source.source.source }
 
         mutating func lower() -> CompilerStageResult<UTabDocument> {
             let sectionDefinitions = input.sections.map(makeSectionDefinition)
@@ -101,7 +102,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             return .init(output: document, diagnostics: diagnostics)
         }
 
-        mutating func lower(_ section: PitchResolvedSection) {
+        mutating func lower(_ section: RealizedSection) {
             let meter = section.source.meter ?? composition.meter
             for part in section.parts {
                 for voice in part.voices {
@@ -132,7 +133,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         mutating func lower(
-            _ expression: PitchResolvedExpression,
+            _ expression: RealizedExpression,
             instrument: String,
             meter: TimeSignature,
             inheritedTechniques: [String],
@@ -151,12 +152,6 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 }
             case .rest:
                 break
-            case .chord:
-                diagnostics.append(.init(
-                    .error,
-                    path: expression.provenance.expansionPath.joined(separator: "."),
-                    message: "Abstract chord '\(expression.provenance.originID)' requires a voicing/realization pass before UTAB lowering"
-                ))
             case .note(let pitch, _):
                 capabilities[instrument, default: .init()].actions.insert("play")
                 if capabilities[instrument, default: .init()].groups["notes"] == nil {
@@ -208,7 +203,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         func makeEvent(
-            _ expression: PitchResolvedExpression,
+            _ expression: RealizedExpression,
             meter: TimeSignature,
             action: String,
             target: String,
@@ -232,7 +227,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             )
         }
 
-        func makeSectionDefinition(_ section: PitchResolvedSection) -> SectionDefinition {
+        func makeSectionDefinition(_ section: RealizedSection) -> SectionDefinition {
             let meter = section.source.meter ?? composition.meter
             let measures = max(1, ceilingRatio(section.duration, meter.duration))
             return .init(

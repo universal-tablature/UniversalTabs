@@ -27,7 +27,7 @@ let package = Package(
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
         .target(name: "UTABInstrumentLibrary", dependencies: ["UTABInstruments", "UTABComposerDSL"]),
-        .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore"]),
+        .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABInstruments"]),
         .target(
             name: "UTABAudio",
             linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.macOS]))]
