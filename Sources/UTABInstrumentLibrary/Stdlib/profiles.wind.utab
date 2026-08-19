@@ -22,6 +22,18 @@ profile SingleReedWind {
     technique vibrato { target reed }
 }
 
+profile Saxophone {
+    id "profile:wind:saxophone"
+    version "1"
+    actuator reed { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator keys { control orderedBitset; width 22 }
+    interaction blow { targets reed; effectors breath }
+    interaction press { targets keys; effectors finger }
+    technique bend { target reed }
+    technique vibrato { target reed }
+    technique overblow { target reed }
+}
+
 profile KeyedAirColumnWind {
     id "profile:wind:keyed-air-column"
     version "1"

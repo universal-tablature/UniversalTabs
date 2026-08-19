@@ -76,18 +76,18 @@ model BbClarinet : SingleReedWind {
     geometry keys { system Boehm; keyCount 17; rings 6; registerInterval "twelfth"; typicalRange "E3-C7" }
 }
 
-model AltoSaxophone : SingleReedWind {
+model AltoSaxophone : Saxophone {
     id "instrument:saxophone:alto-e-flat"
     name "E-flat Alto Saxophone"
     geometry bore { shape conical; material brass; transposition "Eb" }
-    geometry keys { typicalWrittenRange "Bb3-F6" }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
 
-model TenorSaxophone : SingleReedWind {
+model TenorSaxophone : Saxophone {
     id "instrument:saxophone:tenor-b-flat"
     name "B-flat Tenor Saxophone"
     geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true }
-    geometry keys { typicalWrittenRange "Bb3-F6" }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
 
 model Oboe : DoubleReedWind {
@@ -272,20 +272,47 @@ extension AltoSaxophone {
         id "fingering:saxophone:alto:boehm"
         name "Alto saxophone Boehm fingering"
         actuators keys
-        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, bisBb, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
 
-        B4 010000000000000000 preferred
-        A4 011000000000000000 preferred
-        G4 011100000000000000 preferred
-        F4 011110000000000000 preferred
-        E4 011111000000000000 preferred
-        D4 011111100000000000 preferred
-        C5 000000000100000000 preferred
-        Bb4 010000010000000000 preferred
-        Bb4 010000001000000000 alternate "side-key"
-        D5 111111100000000000 register 2 preferred
-        E5 111111000000000000 register 2 preferred
-        F5 111110000000000000 register 2 preferred
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        C#4 0111111000000000000100 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        D#4 0111111000000000000010 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        F#4 0111010000000000000000 register 1 preferred
+        F#4 0111000000001000000000 register 1 alternate "side-F-sharp"
+        G4 0111000000000000000000 register 1 preferred
+        G#4 0111000001000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        Bb4 0100000010000000000000 register 1 preferred
+        Bb4 0100000000100000000000 register 1 alternate "side-B-flat"
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        C#5 0000000000000000000000 register 1 preferred
+
+        D5 1111111000000000000000 register 2 preferred
+        D#5 1111111000000000000010 register 2 preferred
+        E5 1111110000000000000000 register 2 preferred
+        F5 1111100000000000000000 register 2 preferred
+        F#5 1111010000000000000000 register 2 preferred
+        F#5 1111000000001000000000 register 2 alternate "side-F-sharp"
+        G5 1111000000000000000000 register 2 preferred
+        G#5 1111000001000000000000 register 2 preferred
+        A5 1110000000000000000000 register 2 preferred
+        Bb5 1100000010000000000000 register 2 preferred
+        Bb5 1100000000100000000000 register 2 alternate "side-B-flat"
+        B5 1100000000000000000000 register 2 preferred
+        C6 1010000000000000000000 register 2 preferred
+        C#6 1000000000000000000000 register 2 preferred
+
+        D6 1000000000000100000000 register 3 preferred
+        D#6 1000000000000110000000 register 3 preferred
+        E6 1000000000000111000000 register 3 preferred
+        F6 1000000100000111000000 register 3 preferred
+        F#6 1000000100000000000001 register 3 alternate "high-F-sharp"
     }
 }
 
@@ -294,17 +321,47 @@ extension TenorSaxophone {
         id "fingering:saxophone:tenor:boehm"
         name "Tenor saxophone Boehm fingering"
         actuators keys
-        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, bisBb, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
 
-        B4 010000000000000000 preferred
-        A4 011000000000000000 preferred
-        G4 011100000000000000 preferred
-        F4 011110000000000000 preferred
-        E4 011111000000000000 preferred
-        D4 011111100000000000 preferred
-        Bb4 010000010000000000 preferred
-        Bb4 010000001000000000 alternate "side-key"
-        D5 111111100000000000 register 2 preferred
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        C#4 0111111000000000000100 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        D#4 0111111000000000000010 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        F#4 0111010000000000000000 register 1 preferred
+        F#4 0111000000001000000000 register 1 alternate "side-F-sharp"
+        G4 0111000000000000000000 register 1 preferred
+        G#4 0111000001000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        Bb4 0100000010000000000000 register 1 preferred
+        Bb4 0100000000100000000000 register 1 alternate "side-B-flat"
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        C#5 0000000000000000000000 register 1 preferred
+
+        D5 1111111000000000000000 register 2 preferred
+        D#5 1111111000000000000010 register 2 preferred
+        E5 1111110000000000000000 register 2 preferred
+        F5 1111100000000000000000 register 2 preferred
+        F#5 1111010000000000000000 register 2 preferred
+        F#5 1111000000001000000000 register 2 alternate "side-F-sharp"
+        G5 1111000000000000000000 register 2 preferred
+        G#5 1111000001000000000000 register 2 preferred
+        A5 1110000000000000000000 register 2 preferred
+        Bb5 1100000010000000000000 register 2 preferred
+        Bb5 1100000000100000000000 register 2 alternate "side-B-flat"
+        B5 1100000000000000000000 register 2 preferred
+        C6 1010000000000000000000 register 2 preferred
+        C#6 1000000000000000000000 register 2 preferred
+
+        D6 1000000000000100000000 register 3 preferred
+        D#6 1000000000000110000000 register 3 preferred
+        E6 1000000000000111000000 register 3 preferred
+        F6 1000000100000111000000 register 3 preferred
+        F#6 1000000100000000000001 register 3 alternate "high-F-sharp"
     }
 }
 

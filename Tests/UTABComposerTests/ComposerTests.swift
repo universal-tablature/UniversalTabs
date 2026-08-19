@@ -931,7 +931,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 19)
-    #expect(catalog.profiles.count == 17)
+    #expect(catalog.profiles.count == 18)
     #expect(catalog.models.count == 49)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1114,6 +1114,27 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(fSharpAlternatives.map(\.preference) == [.preferred, .alternate])
     #expect(catalog.fingeringResult(for: "xh0000000000000000", in: open) == .effect("pitchShade"))
     #expect(catalog.fingeringResult(for: "xh0000000000000000", in: closed) == nil)
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func standardSaxophonesShareCompleteWrittenFingeringsAcrossTranspositions() throws {
+    let catalog = StandardInstruments.catalog
+    let alto = try #require(catalog.models.first { $0.id.rawValue == "instrument:saxophone:alto-e-flat" })
+    let tenor = try #require(catalog.models.first { $0.id.rawValue == "instrument:saxophone:tenor-b-flat" })
+    let altoMap = try #require(alto.defaultFingering)
+    let tenorMap = try #require(tenor.defaultFingering)
+
+    #expect(alto.profile == "profile:wind:saxophone")
+    #expect(tenor.profile == "profile:wind:saxophone")
+    #expect(catalog.fingeringResult(for: "0111111000000000010000", register: 1, in: altoMap) == .pitch(.init(.bFlat, octave: 3)))
+    #expect(catalog.fingeringResult(for: "1111111000000000000000", register: 2, in: altoMap) == .pitch(.init(.d, octave: 5)))
+    #expect(catalog.fingeringResult(for: "1000000000000100000000", register: 3, in: altoMap) == .pitch(.init(.d, octave: 6)))
+    #expect(catalog.fingeringResult(for: "1111111000000000000000", register: 2, in: tenorMap) == .pitch(.init(.d, octave: 5)))
+
+    let altoBFlat = catalog.fingerings(for: .init(.bFlat, octave: 4), in: altoMap)
+    let tenorBFlat = catalog.fingerings(for: .init(.bFlat, octave: 4), in: tenorMap)
+    #expect(altoBFlat.map(\.label) == [nil, "side-B-flat"])
+    #expect(tenorBFlat.map(\.pattern) == altoBFlat.map(\.pattern))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
