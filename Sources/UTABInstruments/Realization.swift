@@ -3,12 +3,12 @@ import UTABComposerCore
 public struct RealizationRequest: Sendable {
     public let composition: PitchResolvedComposition
     public let catalog: InstrumentCatalog
-    public let instrumentBindings: [String: InstrumentID]
+    public let instrumentBindings: [String: InstrumentInstanceDefinition]
 
     public init(
         composition: PitchResolvedComposition,
         catalog: InstrumentCatalog,
-        instrumentBindings: [String: InstrumentID]
+        instrumentBindings: [String: InstrumentInstanceDefinition]
     ) {
         self.composition = composition
         self.catalog = catalog
@@ -49,6 +49,7 @@ public struct RealizedVoice: Sendable, Hashable {
 
 public struct RealizedPart: Sendable, Hashable {
     public let source: Part
+    public let instrumentInstance: InstrumentInstanceDefinition
     public let instrumentModel: InstrumentID
     public let voices: [RealizedVoice]
 }
@@ -94,7 +95,12 @@ public struct InstrumentRealizationStage: CompilerStage {
                             )
                         )
                     }
-                    parts.append(.init(source: part.source, instrumentModel: context.model.id, voices: voices))
+                    parts.append(.init(
+                        source: part.source,
+                        instrumentInstance: context.instance,
+                        instrumentModel: context.model.id,
+                        voices: voices
+                    ))
                 }
                 sections.append(.init(source: section.source, duration: section.duration, parts: parts))
             }
@@ -108,6 +114,7 @@ public struct InstrumentRealizationStage: CompilerStage {
         }
 
         struct Context {
+            let instance: InstrumentInstanceDefinition
             let model: InstrumentModelDefinition
             let profile: InstrumentProfileDefinition
             let tuning: InstrumentTuningDefinition?
@@ -118,10 +125,11 @@ public struct InstrumentRealizationStage: CompilerStage {
         }
 
         mutating func context(for alias: String, path: String) -> Context? {
-            guard let modelID = request.instrumentBindings[alias] else {
+            guard let instance = request.instrumentBindings[alias] else {
                 diagnostics.append(.init(.error, path: "\(path).instrument", message: "No instrument binding for '\(alias)'"))
                 return nil
             }
+            let modelID = instance.model
             guard let model = request.catalog.models.first(where: { $0.id == modelID }) else {
                 diagnostics.append(.init(.error, path: "\(path).instrument", message: "Bound model '\(modelID)' is not present in the catalog"))
                 return nil
@@ -140,7 +148,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 guard case .integer(let value) = geometry.properties["count"] else { return nil }
                 return value
             }
-            return .init(model: model, profile: profile, tuning: tuning, fretCount: fretCount)
+            return .init(instance: instance, model: model, profile: profile, tuning: tuning, fretCount: fretCount)
         }
 
         mutating func realize(

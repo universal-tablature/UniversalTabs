@@ -34,6 +34,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var diagnostics: [ComposerDiagnostic] = []
         var capabilities: [String: Capability] = [:]
         var tracks: [String: TrackAccumulator] = [:]
+        var instances: [String: InstrumentInstanceDefinition] = [:]
 
         var composition: Composition { input.source.source.source.source.source }
 
@@ -48,14 +49,15 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 return .init(output: nil, diagnostics: diagnostics)
             }
 
-            let instrumentNames = capabilities.keys.sorted()
-            let profiles = instrumentNames.map(makeProfile)
-            let instruments = instrumentNames.map { name in
-                InstrumentInstance(
-                    id: instrumentID(name),
-                    name: name,
-                    profile: profileID(name),
-                    configuration: nil
+            let instrumentIDs = capabilities.keys.sorted()
+            let profiles = instrumentIDs.map(makeProfile)
+            let instruments = instrumentIDs.compactMap { id -> InstrumentInstance? in
+                guard let instance = instances[id] else { return nil }
+                return InstrumentInstance(
+                    id: instance.id.rawValue,
+                    name: instance.name,
+                    profile: profileID(id),
+                    configuration: instance.configuration.isEmpty ? nil : instance.configuration.mapValues(instrumentJSONValue)
                 )
             }
             let tuning = TuningDefinition(
@@ -105,11 +107,13 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         mutating func lower(_ section: RealizedSection) {
             let meter = section.source.meter ?? composition.meter
             for part in section.parts {
+                let instanceID = part.instrumentInstance.id.rawValue
+                instances[instanceID] = part.instrumentInstance
                 for voice in part.voices {
                     var events: [PerformanceEvent] = []
                     lower(
                         voice.expression,
-                        instrument: part.source.instrument,
+                        instrument: instanceID,
                         meter: meter,
                         inheritedTechniques: [],
                         into: &events
@@ -118,12 +122,13 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                         if timeKey($0.at) != timeKey($1.at) { return timeKey($0.at) < timeKey($1.at) }
                         return ($0.id ?? "") < ($1.id ?? "")
                     }
-                    let key = "\(part.source.instrument)\u{1f}\(voice.source.id.rawValue)"
-                    let trackID = "track:\(part.source.instrument):\(voice.source.id.rawValue)"
+                    let key = "\(instanceID)\u{1f}\(voice.source.id.rawValue)"
+                    let trackID = "track:\(instanceID):\(voice.source.id.rawValue)"
+                    let displayName = part.instrumentInstance.name ?? part.source.instrument
                     var track = tracks[key] ?? .init(
                         id: trackID,
-                        name: "\(part.source.instrument) — \(voice.source.name)",
-                        instrumentID: instrumentID(part.source.instrument),
+                        name: "\(displayName) — \(voice.source.name)",
+                        instrumentID: instanceID,
                         parts: []
                     )
                     track.parts.append(.init(section: section.source.id.rawValue, events: events))
@@ -264,8 +269,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
-        func makeProfile(_ name: String) -> InstrumentProfile {
-            let capability = capabilities[name] ?? .init()
+        func makeProfile(_ instanceID: String) -> InstrumentProfile {
+            let capability = capabilities[instanceID] ?? .init()
+            let displayName = instances[instanceID]?.name ?? instanceID
             let actuators = capability.groups.mapValues { group -> ActuatorDefinition in
                 let members = group.namedMembers.sorted().map { ActuatorMember(id: $0) }
                 return .init(
@@ -275,8 +281,8 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 )
             }
             return .init(
-                id: profileID(name),
-                name: "Generated \(name) profile",
+                id: profileID(instanceID),
+                name: "Generated \(displayName) profile",
                 profileVersion: "0.1-draft",
                 actuators: actuators,
                 interactions: Dictionary(uniqueKeysWithValues: capability.actions.sorted().map { ($0, .object([:])) }),
@@ -284,8 +290,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             )
         }
 
-        func profileID(_ name: String) -> String { "profile:generated:\(name)" }
-        func instrumentID(_ name: String) -> String { "instrument:generated:\(name)" }
+        func profileID(_ instanceID: String) -> String { "profile:generated:\(instanceID)" }
 
         func target(_ address: ActuatorAddress) -> String {
             guard let member = address.member else { return address.group }
@@ -320,6 +325,19 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             case .list(let values): .array(values.map(jsonValue))
             case .object(let values): .object(values.mapValues(jsonValue))
             case .reference(let id): .string(id.rawValue)
+            }
+        }
+
+        func instrumentJSONValue(_ value: InstrumentValue) -> JSONValue {
+            switch value {
+            case .integer(let value): .number(Double(value))
+            case .decimal(let value): .number(value)
+            case .boolean(let value): .boolean(value)
+            case .text(let value): .string(value)
+            case .pitch(let pitch): pitchValue(pitch)
+            case .pitches(let pitches): .array(pitches.map(pitchValue))
+            case .list(let values): .array(values.map(instrumentJSONValue))
+            case .object(let values): .object(values.mapValues(instrumentJSONValue))
             }
         }
 

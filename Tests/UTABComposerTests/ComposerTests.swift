@@ -401,7 +401,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         }
     }
 
-    guard let realized = compileToRealized(composition, bindings: ["piano": StandardInstruments.piano.id]) else {
+    guard let realized = compileToRealized(composition, bindings: ["piano": testInstance("piano", model: StandardInstruments.piano.id)]) else {
         Issue.record("Expected the semantic pipeline to succeed")
         return
     }
@@ -448,7 +448,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         ]
     )
 
-    guard let realized = compileToRealized(composition, bindings: ["guitar": StandardInstruments.guitar.id]),
+    guard let realized = compileToRealized(composition, bindings: ["guitar": testInstance("guitar", model: StandardInstruments.guitar.id)]),
           let document = MinimalUTabLoweringStage().run(realized).output,
           let event = document.tracks.first?.parts?.first?.events.first else {
         Issue.record("Expected exact actuator lowering to succeed")
@@ -486,7 +486,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     let result = InstrumentRealizationStage().run(.init(
         composition: pitched,
         catalog: StandardInstruments.catalog,
-        instrumentBindings: ["guitar": StandardInstruments.guitar.id]
+        instrumentBindings: ["guitar": testInstance("guitar", model: StandardInstruments.guitar.id)]
     ))
 
     #expect(!result.succeeded)
@@ -508,7 +508,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         ]
     )
 
-    guard let realized = compileToRealized(composition, bindings: ["guitar": StandardInstruments.guitar.id]),
+    guard let realized = compileToRealized(composition, bindings: ["guitar": testInstance("guitar", model: StandardInstruments.guitar.id)]),
           let document = MinimalUTabLoweringStage().run(realized).output,
           let events = document.tracks.first?.parts?.first?.events else {
         Issue.record("Expected guitar chord realization and lowering to succeed")
@@ -538,7 +538,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
         ]
     )
 
-    guard let realized = compileToRealized(composition, bindings: ["piano": StandardInstruments.piano.id]),
+    guard let realized = compileToRealized(composition, bindings: ["piano": testInstance("piano", model: StandardInstruments.piano.id)]),
           let document = MinimalUTabLoweringStage().run(realized).output,
           let events = document.tracks.first?.parts?.first?.events else {
         Issue.record("Expected keyboard chord realization to succeed")
@@ -584,7 +584,7 @@ private func compileToPitchResolved(_ composition: Composition) -> PitchResolved
 
 private func compileToRealized(
     _ composition: Composition,
-    bindings: [String: InstrumentID]
+    bindings: [String: InstrumentInstanceDefinition]
 ) -> RealizedComposition? {
     guard let pitched = compileToPitchResolved(composition) else { return nil }
     return InstrumentRealizationStage().run(.init(
@@ -592,6 +592,86 @@ private func compileToRealized(
         catalog: StandardInstruments.catalog,
         instrumentBindings: bindings
     )).output
+}
+
+private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String? = nil) -> InstrumentInstanceDefinition {
+    .init(id: id, name: name, model: model)
+}
+
+@Test func compilerFacadeLowersFullTwinkleWithDistinctGuitarInstances() throws {
+    let melody = Phrase("melodyA") {
+        Bar {
+            Degree(1, octave: 4, .quarter)
+            Degree(1, octave: 4, .quarter)
+            Degree(5, octave: 4, .quarter)
+            Degree(5, octave: 4, .quarter)
+        }
+    }
+    let tonic = Chord(.c, .major, .whole)
+    let twinkle = Song(
+        "Twinkle End to End",
+        meter: .init(4, 4),
+        tempo: 100,
+        scale: .init(.c, .major)
+    ) {
+        melody
+        Section("verse", duration: .whole) {
+            Instrument("piano") {
+                Voice("right hand") { Play("melodyA") }
+                Voice("left hand", constraints: [.group("left hand")]) { tonic }
+            }
+            Instrument("Rhythm Guitar") {
+                Voice("rhythm") { tonic }
+            }
+            Instrument("Lead Guitar") {
+                Voice("lead") { Play("melodyA") }
+            }
+            Instrument("voice") {
+                Voice("melody") { Play("melodyA") }
+            }
+        }
+    }
+    let compiler = UTABCompositionCompiler(
+        catalog: StandardInstruments.catalog,
+        instrumentBindings: [
+            "piano": testInstance("piano_i", model: StandardInstruments.piano.id, name: "Piano"),
+            "Rhythm Guitar": testInstance("guitar_i", model: StandardInstruments.guitar.id, name: "Rhythm Guitar"),
+            "Lead Guitar": testInstance("guitar_ii", model: StandardInstruments.guitar.id, name: "Lead Guitar"),
+            "voice": testInstance("voice_i", model: StandardInstruments.voice.id, name: "Vocals"),
+        ]
+    )
+
+    let first = compiler.compile(twinkle)
+    let second = compiler.compile(twinkle)
+    guard let document = first.output, let repeatedDocument = second.output else {
+        Issue.record("Expected full Twinkle compilation to succeed: \(first.diagnostics)")
+        return
+    }
+
+    #expect(first.succeeded)
+    #expect(UTabValidator().validate(document).isEmpty)
+    #expect(Set(document.setup.instruments.map(\.id)) == Set(["piano_i", "guitar_i", "guitar_ii", "voice_i"]))
+    #expect(document.setup.instruments.first { $0.id == "guitar_i" }?.name == "Rhythm Guitar")
+    #expect(document.setup.instruments.first { $0.id == "guitar_ii" }?.name == "Lead Guitar")
+    #expect(document.tracks.contains { $0.instrument == "guitar_i" })
+    #expect(document.tracks.contains { $0.instrument == "guitar_ii" })
+    #expect(document.tracks.count == 5)
+
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let canonical = try encoder.encode(document)
+    let repeatedCanonical = try encoder.encode(repeatedDocument)
+    #expect(canonical == repeatedCanonical)
+    #expect(stableFingerprint(canonical) == "7618fbcda188d20b")
+}
+
+private func stableFingerprint(_ data: Data) -> String {
+    var hash: UInt64 = 14_695_981_039_346_656_037
+    for byte in data {
+        hash ^= UInt64(byte)
+        hash &*= 1_099_511_628_211
+    }
+    return String(hash, radix: 16)
 }
 
 @Test func resolvesScaleRelativePitch() {
