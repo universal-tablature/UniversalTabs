@@ -55,7 +55,7 @@ struct UTabCompilerCommand {
             let inputURL = URL(fileURLWithPath: inputPath).standardizedFileURL
             let source = TextSource(
                 try String(contentsOf: inputURL, encoding: .utf8),
-                fileID: inputURL.path
+                fileID: stableFileID(for: inputURL)
             )
             let roots = [inputURL.deletingLastPathComponent()] + options.includePaths.map {
                 URL(fileURLWithPath: $0).standardizedFileURL
@@ -146,6 +146,22 @@ struct UTabCompilerCommand {
 
     static func writeError(_ message: String) {
         FileHandle.standardError.write(Data((message + "\n").utf8))
+    }
+
+    /// Produces a portable source identity for diagnostics and generated semantic IDs.
+    /// Files beneath the working directory retain their relative path; external files
+    /// fall back to their name instead of leaking a machine-specific absolute path.
+    static func stableFileID(for url: URL) -> String {
+        let filePath = url.standardizedFileURL.path
+        let workingDirectory = URL(
+            fileURLWithPath: FileManager.default.currentDirectoryPath,
+            isDirectory: true
+        ).standardizedFileURL.path
+        let prefix = workingDirectory.hasSuffix("/") ? workingDirectory : workingDirectory + "/"
+        if filePath.hasPrefix(prefix) {
+            return String(filePath.dropFirst(prefix.count))
+        }
+        return url.lastPathComponent
     }
 
     static let usage = """

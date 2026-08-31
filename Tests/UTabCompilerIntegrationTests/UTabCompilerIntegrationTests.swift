@@ -24,6 +24,13 @@ import Testing
     #expect(try Data(contentsOf: firstJSON) == Data(contentsOf: secondJSON))
     #expect(try Data(contentsOf: firstMIDI) == Data(contentsOf: secondMIDI))
     #expect(try Data(contentsOf: firstMIDI).prefix(4) == Data("MThd".utf8))
+    let json = try String(contentsOf: firstJSON, encoding: .utf8)
+    let escapedRepositoryPath = fixturesDirectory
+        .deletingLastPathComponent()
+        .path
+        .replacingOccurrences(of: "/", with: "\\/")
+    #expect(!json.contains(escapedRepositoryPath))
+    #expect(json.contains("Tests\\/LanguageFixtures\\/twinkle.utab") || json.contains("twinkle.utab"))
 }
 
 @Test func looseDiagnosticFixtureSelfVerifiesThroughCLI() throws {

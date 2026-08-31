@@ -16,7 +16,7 @@ public struct FileSystemTextModuleProvider: TextModuleProvider {
             for relativePath in [nestedPath, flatPath] {
                 let url = root.appendingPathComponent(relativePath)
                 guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
-                return .init(text, fileID: url.standardizedFileURL.path)
+                return .init(text, fileID: relativePath)
             }
         }
         return nil

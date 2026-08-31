@@ -19,6 +19,9 @@ let package = Package(
         .library(name: "UTABLowering", targets: ["UTABLowering"]),
         .library(name: "UTABAudio", targets: ["UTABAudio"]),
         .library(name: "UTABPitchDetection", targets: ["UTABPitchDetection"]),
+        .library(name: "UTABNotation", targets: ["UTABNotation"]),
+        .library(name: "UTABEngraving", targets: ["UTABEngraving"]),
+        .library(name: "UTABScoreUI", targets: ["UTABScoreUI"]),
         .executable(name: "utabc", targets: ["UTabCompiler"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
@@ -45,6 +48,9 @@ let package = Package(
             linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.iOS, .macOS]))]
         ),
         .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
+        .target(name: "UTABNotation", dependencies: ["UniversalTabs"]),
+        .target(name: "UTABEngraving", dependencies: ["UTABNotation"]),
+        .target(name: "UTABScoreUI", dependencies: ["UniversalTabs", "UTABNotation", "UTABEngraving"]),
         .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
@@ -57,6 +63,7 @@ let package = Package(
             .product(name: "ZIPFoundation", package: "ZIPFoundation")
         ]),
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
+        .testTarget(name: "UTABScoreUITests", dependencies: ["UTABScoreUI", "UTABNotation", "UTABEngraving", "UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",
             dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
