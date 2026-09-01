@@ -1,6 +1,6 @@
-[submodule "Vendor/sfizz-ui"]
-	path = Vendor/sfizz-ui
-	url = https://github.com/sfztools/sfizz-ui
 [submodule "Vendor/NeuralAmpModelerPlugin"]
 	path = Vendor/NeuralAmpModelerPlugin
 	url = https://github.com/sdatkinson/NeuralAmpModelerPlugin.git
+[submodule "Vendor/SfizzKit"]
+	path = Vendor/SfizzKit
+	url = https://github.com/universal-tabulature/SfizzKit.git
