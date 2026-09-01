@@ -34,7 +34,11 @@ let package = Package(
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0"))
     ],
     targets: [
-        .target(name: "UniversalTabs"),
+        .target(
+            name: "UniversalTabs",
+            dependencies: [.product(name: "ZIPFoundation", package: "ZIPFoundation")],
+            resources: [.copy("Resources/SFZ")]
+        ),
         .target(name: "UTABComposerCore"),
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
