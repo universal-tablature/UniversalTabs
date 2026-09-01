@@ -110,6 +110,30 @@ public struct InstrumentTuningDefinition: Sendable, Hashable {
     }
 }
 
+public struct ChordShapeString: Sendable, Hashable {
+    public let stringNumber: Int
+    public let fret: Int
+
+    public init(stringNumber: Int, fret: Int) {
+        self.stringNumber = stringNumber
+        self.fret = fret
+    }
+}
+
+/// A named, instrument-specific physical realization of one chord.
+public struct ChordShapeDefinition: Sendable, Hashable {
+    public let id: InstrumentID
+    public let name: String
+    public let model: InstrumentID
+    public let root: PitchClass
+    public let quality: ChordQuality
+    public let strings: [ChordShapeString]
+
+    public init(id: InstrumentID, name: String, model: InstrumentID, root: PitchClass, quality: ChordQuality, strings: [ChordShapeString]) {
+        self.id = id; self.name = name; self.model = model; self.root = root; self.quality = quality; self.strings = strings
+    }
+}
+
 public enum FingeringResult: Sendable, Hashable {
     case pitch(AbsolutePitch)
     case effect(String)
@@ -233,11 +257,39 @@ public struct InstrumentGeometry: Sendable, Hashable {
 }
 
 public struct Interaction: Sendable, Hashable {
+    public struct Argument: Sendable, Hashable {
+        public let id: String
+        public let values: [String]
+        public let isRequired: Bool
+        public init(_ id: String, values: [String], isRequired: Bool = false) {
+            self.id = id; self.values = values; self.isRequired = isRequired
+        }
+    }
+
+    public struct Parameter: Sendable, Hashable {
+        public let id: String
+        public let properties: [String: InstrumentValue]
+        public init(_ id: String, properties: [String: InstrumentValue] = [:]) {
+            self.id = id; self.properties = properties
+        }
+    }
+
     public let id: String
     public let targets: [String]
     public let effectors: [String]
-    public init(_ id: String, targets: [String], effectors: [String] = []) {
+    public let arguments: [Argument]
+    public let modifiers: [String]
+    public let parameters: [Parameter]
+    public init(
+        _ id: String,
+        targets: [String],
+        effectors: [String] = [],
+        arguments: [Argument] = [],
+        modifiers: [String] = [],
+        parameters: [Parameter] = []
+    ) {
         self.id = id; self.targets = targets; self.effectors = effectors
+        self.arguments = arguments; self.modifiers = modifiers; self.parameters = parameters
     }
 }
 
@@ -324,10 +376,15 @@ public struct InstrumentCatalog: Sendable, Hashable {
     public let scales: [InstrumentScaleDefinition]
     public let tunings: [InstrumentTuningDefinition]
     public let fingerings: [FingeringDefinition]
+    public let chordShapes: [ChordShapeDefinition]
     public let profiles: [InstrumentProfileDefinition]
     public let models: [InstrumentModelDefinition]
     public init(scales: [InstrumentScaleDefinition] = [], tunings: [InstrumentTuningDefinition] = [], fingerings: [FingeringDefinition] = [], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
-        self.scales = scales; self.tunings = tunings; self.fingerings = fingerings; self.profiles = profiles; self.models = models
+        self.init(scales: scales, tunings: tunings, fingerings: fingerings, chordShapes: [], profiles: profiles, models: models)
+    }
+
+    public init(scales: [InstrumentScaleDefinition] = [], tunings: [InstrumentTuningDefinition] = [], fingerings: [FingeringDefinition] = [], chordShapes: [ChordShapeDefinition], profiles: [InstrumentProfileDefinition], models: [InstrumentModelDefinition]) {
+        self.scales = scales; self.tunings = tunings; self.fingerings = fingerings; self.chordShapes = chordShapes; self.profiles = profiles; self.models = models
     }
 
     public func scale(_ id: InstrumentID) -> InstrumentScaleDefinition? {

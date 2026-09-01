@@ -218,4 +218,5 @@ public enum PerformanceConstraint: Sendable, Hashable {
     case group(String)
     case actuator(group: String, position: Int)
     case fingering(Int)
+    case chordShape(String)
 }

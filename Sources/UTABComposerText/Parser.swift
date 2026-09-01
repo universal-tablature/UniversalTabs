@@ -31,6 +31,7 @@ public struct TextParser: Sendable {
             var tempo: TextToken?
             var scale: (TextToken, TextToken)?
             var instruments: [TextInstrumentInstanceSyntax] = []
+            var performancePatterns: [TextPerformancePatternSyntax] = []
             var phrases: [TextPhraseSyntax] = []
             var sections: [TextSectionSyntax] = []
             var main: [TextToken] = []
@@ -69,11 +70,13 @@ public struct TextParser: Sendable {
                     }
                 } else if takeKeyword("instrument") {
                     if let instrument = parseInstrumentInstance() { instruments.append(instrument) }
+                } else if takeKeyword("performancePattern") {
+                    if let pattern = parsePerformancePattern() { performancePatterns.append(pattern) }
                 } else if takeKeyword("phrase") { if let value = parsePhrase() { phrases.append(value) } }
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
                 else {
-                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, phrase, section, or main declaration")
+                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, performancePattern, phrase, section, or main declaration")
                     advance()
                 }
                 _ = take(.semicolon)
@@ -91,6 +94,7 @@ public struct TextParser: Sendable {
                 tempo: tempo,
                 scale: scale,
                 instruments: instruments,
+                performancePatterns: performancePatterns,
                 phrases: phrases,
                 sections: sections,
                 main: main,
@@ -151,15 +155,48 @@ public struct TextParser: Sendable {
                   let open = expect(.leftBrace, "Expected '{' after interaction name") else { return nil }
             var targets: [TextToken] = []
             var effectors: [TextToken] = []
+            var arguments: [TextInteractionArgumentSyntax] = []
+            var modifiers: [TextToken] = []
+            var parameters: [TextInteractionParameterSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
                 if takeKeyword("targets") { targets.append(contentsOf: parseIdentifierList()) }
                 else if takeKeyword("effectors") { effectors.append(contentsOf: parseIdentifierList()) }
-                else { diagnose("Expected targets or effectors in interaction"); synchronizeBlockItem() }
+                else if takeKeyword("argument") {
+                    if let argument = parseInteractionArgument() { arguments.append(argument) }
+                } else if takeKeyword("modifier") {
+                    if let modifier = expect(.identifier, "Expected modifier name") { modifiers.append(modifier) }
+                } else if takeKeyword("parameter") {
+                    if let parameter = parseInteractionParameter() { parameters.append(parameter) }
+                } else { diagnose("Expected targets, effectors, argument, modifier, or parameter in interaction"); synchronizeBlockItem() }
                 _ = take(.semicolon)
             }
             let close = expect(.rightBrace, "Expected '}' after interaction") ?? current
-            return .init(name: name, targets: targets, effectors: effectors, range: spanning(open, close))
+            return .init(name: name, targets: targets, effectors: effectors, arguments: arguments, modifiers: modifiers, parameters: parameters, range: spanning(open, close))
+        }
+
+        mutating func parseInteractionArgument() -> TextInteractionArgumentSyntax? {
+            guard let name = expect(.identifier, "Expected interaction argument name"),
+                  let open = expect(.leftBrace, "Expected '{' after interaction argument") else { return nil }
+            var values: [TextToken] = []
+            var required = false
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("values") { values.append(contentsOf: parseIdentifierList()) }
+                else if takeKeyword("required") { required = true }
+                else { diagnose("Expected values or required in interaction argument"); synchronizeBlockItem() }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after interaction argument") ?? current
+            return .init(name: name, values: values, isRequired: required, range: spanning(open, close))
+        }
+
+        mutating func parseInteractionParameter() -> TextInteractionParameterSyntax? {
+            guard let name = expect(.identifier, "Expected interaction parameter name"),
+                  let open = expect(.leftBrace, "Expected '{' after interaction parameter") else { return nil }
+            let properties = parseProperties(until: .rightBrace)
+            let close = expect(.rightBrace, "Expected '}' after interaction parameter") ?? current
+            return .init(name: name, properties: properties, range: spanning(open, close))
         }
 
         mutating func parseTechnique() -> TextTechniqueSyntax? {
@@ -274,17 +311,43 @@ public struct TextParser: Sendable {
                   let open = expect(.leftBrace, "Expected '{' after extension target") else { return nil }
             var tunings: [TextTuningSyntax] = []
             var fingerings: [TextFingeringSyntax] = []
+            var chordShapes: [TextChordShapeSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
                 if takeKeyword("tuning") {
                     if let tuning = parseTuning() { tunings.append(tuning) }
                 } else if takeKeyword("fingering") {
                     if let fingering = parseFingering() { fingerings.append(fingering) }
-                } else { diagnose("Expected tuning or fingering declaration"); synchronizeBlockItem(); continue }
+                } else if takeKeyword("chordShape") {
+                    if let shape = parseChordShape() { chordShapes.append(shape) }
+                } else { diagnose("Expected tuning, fingering, or chordShape declaration"); synchronizeBlockItem(); continue }
                 _ = take(.semicolon)
             }
             let close = expect(.rightBrace, "Expected '}' after extension") ?? current
-            return .init(model: model, tunings: tunings, fingerings: fingerings, range: spanning(open, close))
+            return .init(model: model, tunings: tunings, fingerings: fingerings, chordShapes: chordShapes, range: spanning(open, close))
+        }
+
+        mutating func parseChordShape() -> TextChordShapeSyntax? {
+            guard let symbol = expect(.identifier, "Expected chord shape name"),
+                  expect(.colon, "Expected ':' after chord shape name") != nil,
+                  let root = expect(.identifier, "Expected chord root"),
+                  let quality = expect(.identifier, "Expected chord quality"),
+                  let open = expect(.leftBrace, "Expected '{' after chord shape") else { return nil }
+            var strings: [TextChordShapeStringSyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                guard takeKeyword("string"),
+                      let number = expect(.integerLiteral, "Expected string number"),
+                      expectKeyword("fret", "Expected 'fret' after string number") != nil,
+                      let fret = expect(.integerLiteral, "Expected fret number") else {
+                    synchronizeBlockItem()
+                    continue
+                }
+                strings.append(.init(number: number, fret: fret, range: spanning(number, fret)))
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after chord shape") ?? current
+            return .init(symbol: symbol, root: root, quality: quality, strings: strings, range: spanning(open, close))
         }
 
         mutating func parseFingering() -> TextFingeringSyntax? {
@@ -376,6 +439,61 @@ public struct TextParser: Sendable {
             }
             let end = displayName?.range.end ?? fingering?.range.end ?? model.range.end
             return .init(name: name, model: model, fingering: fingering, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
+        }
+
+        mutating func parsePerformancePattern() -> TextPerformancePatternSyntax? {
+            guard let name = expect(.identifier, "Expected performance pattern name"),
+                  let open = expect(.leftBrace, "Expected '{' after performance pattern name") else { return nil }
+            var subdivision: TextToken?
+            var steps: [TextPerformanceStepSyntax] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                if takeKeyword("subdivision") {
+                    subdivision = expect(.identifier, "Expected pattern subdivision")
+                    _ = take(.semicolon)
+                } else if takeKeyword("steps") {
+                    guard expect(.leftBrace, "Expected '{' after steps") != nil else { continue }
+                    steps = parsePerformanceSteps(until: .rightBrace)
+                    _ = expect(.rightBrace, "Expected '}' after performance pattern steps")
+                    _ = take(.semicolon)
+                } else {
+                    diagnose("Expected subdivision or steps in performance pattern")
+                    synchronizeBlockItem()
+                }
+            }
+            let close = expect(.rightBrace, "Expected '}' after performance pattern") ?? current
+            guard let subdivision else {
+                diagnose("Performance pattern requires a subdivision")
+                return nil
+            }
+            return .init(name: name, subdivision: subdivision, steps: steps, range: spanning(open, close))
+        }
+
+        mutating func parsePerformanceSteps(until end: TextTokenKind) -> [TextPerformanceStepSyntax] {
+            var result: [TextPerformanceStepSyntax] = []
+            while current.kind != end && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                guard let first = parsePerformanceStep() else { synchronizeBlockItem(); continue }
+                var concurrent = [first]
+                while take(.comma) {
+                    guard let next = parsePerformanceStep() else { diagnose("Expected interaction after ','"); break }
+                    concurrent.append(next)
+                }
+                if concurrent.count == 1 {
+                    result.append(first)
+                } else if let last = concurrent.last {
+                    result.append(.init(kind: .parallel(concurrent), range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end)))
+                }
+                requireSequenceSeparator(unlessAt: end)
+            }
+            return result
+        }
+
+        mutating func parsePerformanceStep() -> TextPerformanceStepSyntax? {
+            guard current.kind == .identifier else { diagnose("Expected performance interaction"); return nil }
+            var words = [advance()]
+            while current.kind == .identifier { words.append(advance()) }
+            return .init(kind: .interaction(words), range: spanning(words[0], words.last!))
         }
 
         mutating func parsePhrase() -> TextPhraseSyntax? {
@@ -489,7 +607,17 @@ public struct TextParser: Sendable {
                 guard let root = expect(.identifier, "Expected chord root"),
                       let quality = expect(.identifier, "Expected chord quality"),
                       let duration = expect(.identifier, "Expected chord duration") else { return nil }
-                return .init(kind: .chord(root: root, quality: quality, duration: duration), range: spanning(start, duration))
+                var shape: TextToken?
+                if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
+                return .init(kind: .chord(root: root, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? duration))
+            }
+            if takeKeyword("perform") {
+                let start = tokens[index - 1]
+                guard let pattern = expect(.identifier, "Expected performance pattern name"),
+                      expect(.leftBrace, "Expected '{' after performance pattern name") != nil else { return nil }
+                let chords = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after performed chord progression") ?? current
+                return .init(kind: .performed(pattern: pattern, chords: chords), range: spanning(start, close))
             }
             if takeKeyword("repeat") {
                 let keyword = tokens[index - 1]

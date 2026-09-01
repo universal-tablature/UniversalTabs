@@ -663,7 +663,7 @@ private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String?
     let canonical = try encoder.encode(document)
     let repeatedCanonical = try encoder.encode(repeatedDocument)
     #expect(canonical == repeatedCanonical)
-    #expect(stableFingerprint(canonical) == "bbb0b67c9496391")
+    #expect(stableFingerprint(canonical) == "92fe9cf17db9d97e")
 }
 
 private func stableFingerprint(_ data: Data) -> String {
@@ -957,6 +957,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.tunings.count == 20)
     #expect(catalog.profiles.count == 19)
     #expect(catalog.models.count == 50)
+    #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -1840,7 +1841,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let bowedStrings = try #require(bowedProfile.actuators.first { $0.id == "strings" })
 
     #expect(loaded.succeeded)
-    #expect(loaded.modules.map(\.name) == ["profiles.core", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
+    #expect(loaded.modules.map(\.name) == ["profiles.core", "std.midi", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
     #expect(compiled.catalog.profiles.count == 6)
     #expect(compiled.profileBindings["profiles.core.FrettedStrings"]?.rawValue == "profile:fretted-strings")
@@ -2015,12 +2016,78 @@ private func stableFingerprint(_ data: Data) -> String {
     let decoded = try JSONDecoder().decode(UTabDocument.self, from: json.data)
 
     #expect(result.succeeded)
-    #expect(result.modules.map(\.name) == ["profiles.core", "instruments.guitar", "examples.single-note"])
+    #expect(result.modules.map(\.name) == ["profiles.core", "std.midi", "instruments.guitar", "examples.single-note"])
     #expect(result.instrumentBindings["guitar_i"]?.model.rawValue == "instrument:guitar:classical-six-string")
     #expect(decoded.utab.documentId == document.utab.documentId)
     #expect(json.suggestedFileExtension == "utab.json")
     #expect(midi.suggestedFileExtension == "mid")
     #expect(String(decoding: midi.data.prefix(4), as: UTF8.self) == "MThd")
+}
+
+@Test func textualPerformancePatternLowersStrumsAndParallelFingerstyleToUTab() throws {
+    let source = TextSource(
+        """
+        module examples.performance-pattern
+        import instruments.guitar
+
+        title "Performance Pattern"
+        instrument guitar : Guitar
+        meter 4/4
+        tempo 100
+
+        performancePattern folk {
+            subdivision e
+            steps {
+                strum down accent
+                hold
+                pluck bass with thumb,
+                pluck highest with middle
+                strum up
+            }
+        }
+
+        section verse : 1 bars {
+            guitar {
+                voice chords {
+                    perform folk {
+                        chord G major w using cowboyG
+                    }
+                }
+            }
+        }
+        main { verse }
+        """,
+        fileID: "performance-pattern.utab"
+    )
+
+    let result = UTabTextCompiler().compile(source, modules: StandardTextModuleProvider())
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let strums = events.filter { $0.action == "strum" }
+    let plucks = events.filter { $0.action == "pluck" }
+
+    #expect(result.succeeded)
+    #expect(result.diagnostics.isEmpty)
+    #expect(strums.count == 4)
+    #expect(plucks.count == 4)
+    #expect(strums.first?.parameters?["direction"] == .string("down"))
+    #expect(strums.first?.parameters?["accent"] == .boolean(true))
+    #expect(strums.first?.parameters?["chordShape"] == .string("cowboyG"))
+    if case .array(let members)? = strums.first?.parameters?["members"] {
+        let positions = members.compactMap { member -> (Int, Int)? in
+            guard case .object(let fields) = member,
+                  case .number(let string)? = fields["string"],
+                  case .number(let fret)? = fields["position"] else { return nil }
+            return (Int(string), Int(fret))
+        }
+        #expect(positions.map(\.0) == [6, 5, 4, 3, 2, 1])
+        #expect(positions.map(\.1) == [3, 2, 0, 0, 0, 3])
+    } else {
+        Issue.record("Expected explicit cowboyG strum members")
+    }
+    #expect(plucks[0].at.musical?.measure == plucks[1].at.musical?.measure)
+    #expect(plucks[0].at.musical?.beat == plucks[1].at.musical?.beat)
+    #expect(plucks[0].at.musical?.offset == plucks[1].at.musical?.offset)
+    #expect(plucks[0].target != plucks[1].target)
 }
 
 @Test func filesystemModuleProviderSupportsNestedFlatAndLayeredLookup() throws {

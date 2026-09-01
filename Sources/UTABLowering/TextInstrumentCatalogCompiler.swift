@@ -42,6 +42,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
         var profiles: [InstrumentProfileDefinition]
         var tunings: [InstrumentTuningDefinition]
         var fingerings: [FingeringDefinition]
+        var chordShapes: [ChordShapeDefinition]
         var models: [InstrumentModelDefinition]
         let modules: [TextLoadedModule]
         var modelSymbols: [String: InstrumentID]
@@ -55,6 +56,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             profiles = base.profiles
             tunings = base.tunings
             fingerings = base.fingerings
+            chordShapes = base.chordShapes
             models = base.models
             self.modules = modules
             modelSymbols = [:]
@@ -63,7 +65,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             integerConstants = [:]
         }
 
-        var catalog: InstrumentCatalog { .init(scales: scales, tunings: tunings, fingerings: fingerings, profiles: profiles, models: models) }
+        var catalog: InstrumentCatalog { .init(scales: scales, tunings: tunings, fingerings: fingerings, chordShapes: chordShapes, profiles: profiles, models: models) }
 
         mutating func addConstants() {
             for module in modules {
@@ -125,7 +127,23 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     return .init(
                         String(interaction.name.lexeme),
                         targets: targets,
-                        effectors: interaction.effectors.map { String($0.lexeme) }
+                        effectors: interaction.effectors.map { String($0.lexeme) },
+                        arguments: interaction.arguments.map {
+                            .init(
+                                String($0.name.lexeme),
+                                values: $0.values.map { String($0.lexeme) },
+                                isRequired: $0.isRequired
+                            )
+                        },
+                        modifiers: interaction.modifiers.map { String($0.lexeme) },
+                        parameters: interaction.parameters.map { parameter in
+                            .init(
+                                String(parameter.name.lexeme),
+                                properties: Dictionary(uniqueKeysWithValues: parameter.properties.map {
+                                    (String($0.name.lexeme), instrumentValue($0.value))
+                                })
+                            )
+                        }
                     )
                 }
                 let techniques = syntax.techniques.compactMap { technique -> InstrumentTechnique? in
@@ -320,6 +338,31 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     fingeringIDs.append(fingeringID)
                     if fingeringSyntax.isDefault { defaultFingering = fingeringID }
                 }
+                for shapeSyntax in syntax.chordShapes {
+                    let symbol = String(shapeSyntax.symbol.lexeme)
+                    let id = InstrumentID(rawValue: "chord-shape:\(module.name):\(model.id.rawValue):\(symbol)")
+                    guard !chordShapes.contains(where: { $0.id == id || ($0.model == model.id && $0.name == symbol) }) else {
+                        error("Duplicate chord shape '\(symbol)' for instrument '\(target)'", at: shapeSyntax.range)
+                        continue
+                    }
+                    guard let root = parsePitchClass(String(shapeSyntax.root.lexeme)),
+                          let quality = parseChordQuality(String(shapeSyntax.quality.lexeme)) else {
+                        error("Chord shape '\(symbol)' has an unsupported chord", at: shapeSyntax.range)
+                        continue
+                    }
+                    let positions = shapeSyntax.strings.compactMap { item -> ChordShapeString? in
+                        guard let number = item.number.integerValue, let fret = item.fret.integerValue, number > 0, fret >= 0 else {
+                            error("Chord shape string and fret numbers must be non-negative", at: item.range)
+                            return nil
+                        }
+                        return .init(stringNumber: number, fret: fret)
+                    }
+                    guard !positions.isEmpty, Set(positions.map(\.stringNumber)).count == positions.count else {
+                        error("Chord shape '\(symbol)' requires unique string positions", at: shapeSyntax.range)
+                        continue
+                    }
+                    chordShapes.append(.init(id: id, name: symbol, model: model.id, root: root, quality: quality, strings: positions))
+                }
                 model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, fingerings: fingeringIDs, defaultFingering: defaultFingering, defaults: model.defaults, realization: model.realization)
                 models[index] = model
             }
@@ -443,6 +486,23 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             }
             guard let octave = Int(text[index...]) else { return nil }
             return .init(.init(letter, accidental: accidental), octave: octave)
+        }
+
+        func parsePitchClass(_ text: String) -> PitchClass? {
+            let names = ["C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
+                         "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
+                         "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11]
+            return names[text].flatMap(PitchClass.init(rawValue:))
+        }
+
+        func parseChordQuality(_ text: String) -> ChordQuality? {
+            switch text {
+            case "major": .major
+            case "minor": .minor
+            case "diminished": .diminished
+            case "sus4", "suspendedFourth": .suspendedFourth
+            default: nil
+            }
         }
 
         mutating func error(_ message: String, at range: SourceRange) {

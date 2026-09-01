@@ -180,6 +180,10 @@ public struct InstrumentRealizationStage: CompilerStage {
                     realize(child, context: context, path: "\(path).parallel[\(index)]")
                 })
             case .technique(let application):
+                if application.technique == "__performancePattern" {
+                    kind = realizePerformancePattern(application, context: context, expression: expression, path: path)
+                    break
+                }
                 if !context.profile.techniques.contains(where: { $0.id == application.technique }) {
                     diagnostics.append(.init(.error, path: path, message: "Instrument '\(context.model.name)' does not support technique '\(application.technique)'"))
                 }
@@ -199,6 +203,243 @@ public struct InstrumentRealizationStage: CompilerStage {
                 kind: kind,
                 annotations: expression.annotations
             )
+        }
+
+        struct PatternStep {
+            let interactions: [[String]]
+        }
+
+        mutating func realizePerformancePattern(
+            _ application: PitchResolvedTechniqueApplication,
+            context: Context,
+            expression: PitchResolvedExpression,
+            path: String
+        ) -> RealizedExpression.Kind {
+            guard let subdivisionName = metadataString(application.parameters["subdivision"]),
+                  let subdivision = patternDuration(subdivisionName),
+                  case .list(let encodedSteps)? = application.parameters["steps"],
+                  let chordContainer = application.operands.first else {
+                diagnostics.append(.init(.error, path: path, message: "Malformed performance pattern"))
+                return .parallel([])
+            }
+            let steps = encodedSteps.compactMap(decodePatternStep)
+            guard !steps.isEmpty else {
+                diagnostics.append(.init(.error, path: path, message: "Performance pattern has no steps"))
+                return .parallel([])
+            }
+            let chords: [PitchResolvedExpression]
+            if case .sequence(let children) = chordContainer.kind { chords = children } else { chords = [chordContainer] }
+            var result: [RealizedExpression] = []
+            for chordExpression in chords {
+                guard case .chord(let chord, let constraints) = chordExpression.kind,
+                      let assignments = chordStringAssignments(chord, constraints: constraints, context: context, path: path) else {
+                    diagnostics.append(.init(.error, path: path, message: "Performance patterns require chords playable by the bound string instrument"))
+                    continue
+                }
+                var cursor = MusicalDuration.zero
+                var stepIndex = 0
+                while cursor < chordExpression.duration {
+                    let step = steps[stepIndex % steps.count]
+                    let offset = chordExpression.offset + cursor
+                    let duration = minDuration(subdivision, subtract(chordExpression.duration, cursor))
+                    let children = step.interactions.compactMap { words in
+                        realizePatternInteraction(
+                            words,
+                            assignments: assignments,
+                            offset: offset,
+                            duration: duration,
+                            parent: chordExpression,
+                            context: context,
+                            path: "\(path).step[\(stepIndex)]"
+                        )
+                    }
+                    if children.count == 1 { result.append(children[0]) }
+                    else if !children.isEmpty {
+                        result.append(realizedContainer(from: chordExpression, discriminator: "pattern-step:\(stepIndex)", offset: offset, duration: duration, kind: .parallel(children)))
+                    }
+                    cursor = cursor + subdivision
+                    stepIndex += 1
+                }
+            }
+            return .sequence(result)
+        }
+
+        mutating func realizePatternInteraction(
+            _ words: [String],
+            assignments: [StringAssignment],
+            offset: MusicalDuration,
+            duration: MusicalDuration,
+            parent: PitchResolvedExpression,
+            context: Context,
+            path: String
+        ) -> RealizedExpression? {
+            guard let action = words.first else { return nil }
+            if action == "hold" { return nil }
+            guard let interaction = context.profile.interactions.first(where: { $0.id == action }) else {
+                diagnostics.append(.init(.error, path: path, message: "Instrument '\(context.model.name)' does not support interaction '\(action)'"))
+                return nil
+            }
+            var parameters: [String: MetadataValue] = [:]
+            var consumed = Set<Int>()
+            consumed.insert(0)
+            for argument in interaction.arguments {
+                if let match = words.indices.dropFirst().first(where: { !consumed.contains($0) && argument.values.contains(words[$0]) }) {
+                    parameters[argument.id] = .string(words[match])
+                    consumed.insert(match)
+                } else if argument.isRequired {
+                    diagnostics.append(.init(.error, path: path, message: "Interaction '\(action)' requires argument '\(argument.id)'"))
+                }
+            }
+            for (index, word) in words.enumerated() where interaction.modifiers.contains(word) {
+                parameters[word] = .boolean(true)
+                consumed.insert(index)
+            }
+            if let withIndex = words.firstIndex(of: "with"), words.indices.contains(withIndex + 1) {
+                let effector = words[withIndex + 1]
+                if !supports(effector: effector, interaction: interaction) {
+                    diagnostics.append(.init(.error, path: path, message: "Interaction '\(action)' does not support effector '\(effector)'"))
+                }
+                parameters["effector"] = .string(effector)
+                consumed.insert(withIndex); consumed.insert(withIndex + 1)
+            }
+
+            if action == "strum" {
+                let direction = metadataString(parameters["direction"]) ?? "down"
+                let ordered = direction == "up" ? Array(assignments.reversed()) : assignments
+                parameters["members"] = .list(ordered.map { assignment in
+                    .object([
+                        "string": .integer(assignment.stringNumber),
+                        "position": .integer(assignment.fret),
+                        "pitch": .object([
+                            "tuning": .string("12edo"),
+                            "degree": .integer(assignment.pitch.pitchClass.rawValue),
+                            "period": .integer(assignment.pitch.octave),
+                        ]),
+                    ])
+                })
+                parameters["spread"] = .string("24ms")
+                if let shape = assignments.first?.chordShape { parameters["chordShape"] = .string(shape) }
+                return realizedContainer(
+                    from: parent,
+                    discriminator: "strum:\(offset)",
+                    offset: offset,
+                    duration: duration,
+                    kind: .actuator(.init(action: action, target: .init(group: "strings"), duration: duration, parameters: parameters))
+                )
+            }
+
+            if action == "damp" {
+                return realizedContainer(
+                    from: parent,
+                    discriminator: "damp:\(offset)",
+                    offset: offset,
+                    duration: duration,
+                    kind: .actuator(.init(action: action, target: .init(group: "strings"), duration: duration, parameters: parameters))
+                )
+            }
+
+            guard action == "pluck" else {
+                let target = interaction.targets.first ?? "strings"
+                return realizedContainer(
+                    from: parent,
+                    discriminator: "\(action):\(offset)",
+                    offset: offset,
+                    duration: duration,
+                    kind: .actuator(.init(action: action, target: .init(group: target), duration: duration, parameters: parameters))
+                )
+            }
+            let selectors = words.indices.filter { !consumed.contains($0) }.map { words[$0] }
+            let assignment = selectAssignment(selectors.first ?? "highest", from: assignments)
+            guard let assignment else { return nil }
+            if let shape = assignment.chordShape { parameters["chordShape"] = .string(shape) }
+            return realizedContainer(
+                from: parent,
+                discriminator: "pluck:\(assignment.stringNumber):\(offset)",
+                offset: offset,
+                duration: duration,
+                kind: .actuator(.init(
+                    action: "pluck",
+                    target: .init(group: "strings", member: String(assignment.stringNumber), position: assignment.fret),
+                    duration: duration,
+                    soundingPitch: .absolute(assignment.pitch),
+                    parameters: parameters
+                ))
+            )
+        }
+
+        func decodePatternStep(_ value: MetadataValue) -> PatternStep? {
+            guard case .object(let object) = value else { return nil }
+            if case .list(let words)? = object["words"] {
+                return .init(interactions: [words.compactMap(metadataString)])
+            }
+            if case .list(let children)? = object["parallel"] {
+                return .init(interactions: children.compactMap(decodePatternStep).flatMap(\.interactions))
+            }
+            return nil
+        }
+
+        func patternDuration(_ name: String) -> MusicalDuration? {
+            switch name {
+            case "w": .whole
+            case "h": .half
+            case "q": .quarter
+            case "e": .eighth
+            case "s": .init(1, 16)
+            default: nil
+            }
+        }
+
+        func supports(effector: String, interaction: Interaction) -> Bool {
+            interaction.effectors.contains(effector)
+                || (["thumb", "index", "middle", "ring", "little"].contains(effector) && interaction.effectors.contains("finger"))
+        }
+
+        func selectAssignment(_ selector: String, from assignments: [StringAssignment]) -> StringAssignment? {
+            let ordered = assignments.sorted { $0.pitch.chromaticIndex < $1.pitch.chromaticIndex }
+            switch selector {
+            case "bass", "lowest": return ordered.first
+            case "alternateBass": return ordered.dropFirst().first ?? ordered.first
+            case "innerLow": return ordered.count > 2 ? ordered[1] : ordered.first
+            case "inner", "innerHigh": return ordered.count > 2 ? ordered[ordered.count - 2] : ordered.last
+            case "highest": return ordered.last
+            default:
+                if selector == "root" { return ordered.first }
+                if selector.hasPrefix("string"), let number = Int(selector.dropFirst("string".count)) {
+                    return assignments.first { $0.stringNumber == number }
+                }
+                return ordered.last
+            }
+        }
+
+        func realizedContainer(
+            from parent: PitchResolvedExpression,
+            discriminator: String,
+            offset: MusicalDuration,
+            duration: MusicalDuration,
+            kind: RealizedExpression.Kind
+        ) -> RealizedExpression {
+            let provenance = ExpressionProvenance(
+                originID: parent.provenance.originID,
+                ancestry: parent.provenance.ancestry + [parent.provenance.occurrenceID],
+                expansionPath: parent.provenance.expansionPath + [discriminator]
+            )
+            return .init(provenance: provenance, offset: offset, duration: duration, kind: kind, annotations: parent.annotations)
+        }
+
+        func minDuration(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> MusicalDuration {
+            lhs < rhs ? lhs : rhs
+        }
+
+        func subtract(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> MusicalDuration {
+            .init(
+                lhs.wholeNotes.numerator * rhs.wholeNotes.denominator - rhs.wholeNotes.numerator * lhs.wholeNotes.denominator,
+                lhs.wholeNotes.denominator * rhs.wholeNotes.denominator
+            )
+        }
+
+        func metadataString(_ value: MetadataValue?) -> String? {
+            guard case .string(let string)? = value else { return nil }
+            return string
         }
 
         mutating func realizeNote(
@@ -265,7 +506,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 return .parallel(children)
             }
             if context.isFrettedStrings {
-                guard let assignments = chordStringAssignments(chord, context: context) else {
+                guard let assignments = chordStringAssignments(chord, constraints: constraints, context: context, path: path) else {
                     diagnostics.append(.init(.error, path: path, message: "No deterministic string/fret realization for chord on '\(context.model.name)'"))
                     return .parallel([])
                 }
@@ -277,7 +518,8 @@ public struct InstrumentRealizationStage: CompilerStage {
                             action: "pluck",
                             target: .init(group: "strings", member: String(assignment.stringNumber), position: assignment.fret),
                             duration: duration,
-                            soundingPitch: .absolute(assignment.pitch)
+                            soundingPitch: .absolute(assignment.pitch),
+                            parameters: assignment.chordShape.map { ["chordShape": .string($0)] } ?? [:]
                         ))
                     )
                 })
@@ -317,9 +559,53 @@ public struct InstrumentRealizationStage: CompilerStage {
             let stringNumber: Int
             let fret: Int
             let pitch: AbsolutePitch
+            let chordShape: String?
         }
 
-        func chordStringAssignments(_ chord: ResolvedTimelineChord, context: Context) -> [StringAssignment]? {
+        mutating func chordStringAssignments(_ chord: ResolvedTimelineChord, constraints: [PerformanceConstraint], context: Context, path: String) -> [StringAssignment]? {
+            if let shapeName = constraints.compactMap({ constraint -> String? in
+                guard case .chordShape(let name) = constraint else { return nil }
+                return name
+            }).first {
+                return explicitChordShapeAssignments(named: shapeName, chord: chord, context: context, path: path)
+            }
+            return automaticChordStringAssignments(chord, context: context)
+        }
+
+        mutating func explicitChordShapeAssignments(named name: String, chord: ResolvedTimelineChord, context: Context, path: String) -> [StringAssignment]? {
+            guard let shape = request.catalog.chordShapes.first(where: { $0.model == context.model.id && ($0.name == name || $0.id.rawValue == name) }) else {
+                diagnostics.append(.init(.error, path: path, message: "Unknown chord shape '\(name)' for '\(context.model.name)'"))
+                return nil
+            }
+            guard shape.root == chord.rootPitchClass, shape.quality == chord.authored.quality else {
+                diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' does not realize the requested chord"))
+                return nil
+            }
+            guard let tuning = context.tuning, let fretCount = context.fretCount else { return nil }
+            let chordTones = Set(shape.quality.intervals.map { (shape.root.rawValue + $0) % 12 })
+            var assignments: [StringAssignment] = []
+            for position in shape.strings {
+                let course = tuning.courses.count - position.stringNumber
+                guard tuning.courses.indices.contains(course), position.fret <= fretCount,
+                      let open = tuning.courses[course].pitches.first else {
+                    diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' is outside the configured strings or fret range"))
+                    return nil
+                }
+                let pitch = open.transposed(cents: position.fret * 100)
+                guard chordTones.contains(pitch.pitchClass.rawValue) else {
+                    diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' contains a pitch outside the requested chord"))
+                    return nil
+                }
+                assignments.append(.init(course: course, stringNumber: position.stringNumber, fret: position.fret, pitch: pitch, chordShape: shape.name))
+            }
+            guard Set(assignments.map { $0.pitch.pitchClass.rawValue }).isSuperset(of: chordTones) else {
+                diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' does not contain every chord tone"))
+                return nil
+            }
+            return assignments.sorted { $0.stringNumber > $1.stringNumber }
+        }
+
+        func automaticChordStringAssignments(_ chord: ResolvedTimelineChord, context: Context) -> [StringAssignment]? {
             guard let tuning = context.tuning, let fretCount = context.fretCount else { return nil }
             let tones = chord.authored.quality.intervals.map { (chord.rootPitchClass.rawValue + $0) % 12 }
             var best: (cost: Int, values: [StringAssignment])?
@@ -339,7 +625,8 @@ public struct InstrumentRealizationStage: CompilerStage {
                             course: course,
                             stringNumber: tuning.courses.count - course,
                             fret: fret,
-                            pitch: pitch
+                            pitch: pitch,
+                            chordShape: nil
                         )
                         search(toneIndex + 1, used: used.union([course]), values: values + [assignment], cost: cost + fret)
                     }

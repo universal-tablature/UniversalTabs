@@ -6,7 +6,15 @@ profile FrettedStrings {
     actuator strings
     interaction setPosition { targets strings }
     interaction pluck { targets strings; effectors finger, pick }
-    interaction strum { targets strings; effectors finger, pick }
+    interaction damp { targets strings; effectors palm, finger }
+    interaction strum {
+        targets strings
+        effectors finger, pick
+        argument direction { values down, up; required }
+        modifier accent
+        modifier soft
+        parameter spread { type duration; default "24ms" }
+    }
     technique slide { target strings }
     technique bend { target strings }
     technique vibrato { target strings }
@@ -20,7 +28,12 @@ profile PluckedCourses {
     interaction setPosition { targets courses }
     interaction adjustFret { targets fretPositions; effectors hand }
     interaction pluck { targets courses; effectors finger, plectrum }
-    interaction strum { targets courses; effectors finger, plectrum }
+    interaction strum {
+        targets courses
+        effectors finger, plectrum
+        argument direction { values down, up; required }
+        modifier accent
+    }
     technique tremolo { target courses }
 }
 
@@ -29,7 +42,12 @@ profile PluckedOpenStrings {
     version "1"
     actuator strings { minimumCount 1; maximumCount 32 }
     interaction pluck { targets strings; effectors finger, plectrum }
-    interaction strum { targets strings; effectors finger, plectrum }
+    interaction strum {
+        targets strings
+        effectors finger, plectrum
+        argument direction { values down, up; required }
+        modifier accent
+    }
     technique damp { target strings }
 }
 
@@ -44,7 +62,15 @@ profile FretlessBowedStrings {
         maximum 1.0
     }
     interaction setPosition { targets strings }
-    interaction bow { targets strings; effectors bow }
+    interaction bow {
+        targets strings
+        effectors bow
+        argument direction { values down, up; required }
+        modifier accent
+        modifier legato
+        parameter pressure { type decimal; minimum 0; maximum 1 }
+        parameter contactPoint { type decimal; minimum 0; maximum 1 }
+    }
     interaction pluck { targets strings; effectors finger }
     technique vibrato { target strings }
     technique pizzicato { target strings }

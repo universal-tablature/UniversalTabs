@@ -218,7 +218,28 @@ public final class UTabMIDIConverter {
             }
 
             guard let action, !eventTargets.isEmpty else { continue }
-            if action == "pluck" || action == "bow" {
+            if action == "strum", case .array(let members)? = parameters["members"] {
+                let spreadMilliseconds = string(parameters["spread"]).flatMap { value -> Double? in
+                    guard value.hasSuffix("ms") else { return nil }
+                    return Double(value.dropLast(2))
+                } ?? 24
+                let totalSpreadTicks = max(1, Int((spreadMilliseconds / 1_000 * Double(division) * bpm / 60).rounded()))
+                let interval = members.count > 1 ? max(1, totalSpreadTicks / (members.count - 1)) : 0
+                let accentedVelocity = min(127, velocity(parameters) + (bool(parameters["accent"]) == true ? 12 : 0))
+                for (index, value) in members.enumerated() {
+                    guard let member = object(value),
+                          let pitch = pitchValue(member["pitch"]),
+                          let note = midiNote(pitch) else { continue }
+                    addNote(
+                        &output,
+                        tick: tick + index * interval,
+                        duration: durationTicks(event),
+                        channel: midiChannel,
+                        note: note,
+                        velocity: accentedVelocity
+                    )
+                }
+            } else if action == "pluck" || action == "bow" {
                 for target in eventTargets {
                     let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
                     let stringIndex = targetIndex(target, group: group)

@@ -205,7 +205,7 @@ public struct TextSemanticLowerer: Sendable {
                     kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0), duration: duration(durationToken), constraints: []),
                     annotations: .init(source: expression.range)
                 )
-            case .chord(let root, let quality, let durationToken):
+            case .chord(let root, let quality, let durationToken, let shape):
                 guard let spelling = parsePitchClass(String(root.lexeme)) else {
                     error("Invalid chord root '\(root.lexeme)'", at: root.range)
                     return .rest(.zero, id: id("invalid", expression.range))
@@ -216,7 +216,7 @@ public struct TextSemanticLowerer: Sendable {
                 }
                 return .init(
                     id: id("chord", expression.range),
-                    kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: []),
+                    kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []),
                     annotations: .init(source: expression.range)
                 )
             case .rest(let token):
@@ -229,6 +229,35 @@ public struct TextSemanticLowerer: Sendable {
                 return expressionSequence(expressions, range: expression.range)
             case .parallel(let expressions):
                 return .parallel(expressions.map { lowerExpression($0) }, id: id("parallel", expression.range))
+            case .performed(let patternToken, let chords):
+                let patternName = String(patternToken.lexeme)
+                guard let pattern = syntax.performancePatterns.first(where: { $0.name.lexeme == patternToken.lexeme }) else {
+                    error("Unknown performance pattern '\(patternName)'", at: patternToken.range)
+                    return expressionSequence(chords, range: expression.range)
+                }
+                let operands = chords.map { lowerExpression($0) }
+                if !chords.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
+                    error("A performance pattern currently requires a chord progression", at: expression.range)
+                }
+                return .technique(.init(
+                    "__performancePattern",
+                    form: .scoped,
+                    operands: [.sequence(operands, id: id("performed-chords", expression.range))],
+                    parameters: [
+                        "name": .string(patternName),
+                        "subdivision": .string(String(pattern.subdivision.lexeme)),
+                        "steps": .list(pattern.steps.map(performanceStep)),
+                    ]
+                ), id: id("performance", expression.range))
+            }
+        }
+
+        func performanceStep(_ step: TextPerformanceStepSyntax) -> MetadataValue {
+            switch step.kind {
+            case .interaction(let words):
+                return .object(["words": .list(words.map { .string(String($0.lexeme)) })])
+            case .parallel(let children):
+                return .object(["parallel": .list(children.map(performanceStep))])
             }
         }
 
