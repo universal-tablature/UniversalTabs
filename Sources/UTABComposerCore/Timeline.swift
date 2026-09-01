@@ -43,6 +43,7 @@ public struct TimedPart: Sendable, Hashable {
 public struct TimedSection: Sendable, Hashable {
     public let source: Section
     public let duration: MusicalDuration
+    public let harmony: TimedExpression?
     public let parts: [TimedPart]
 }
 
@@ -58,6 +59,14 @@ public struct TemporalResolutionStage: CompilerStage {
     public func run(_ input: ExpandedComposition) -> CompilerStageResult<TemporalComposition> {
         var diagnostics: [ComposerDiagnostic] = []
         let sections = input.sections.enumerated().map { sectionIndex, section in
+            let harmony = section.harmony.map { schedule($0, at: .zero, diagnostics: &diagnostics) }
+            if let expected = section.source.expectedDuration, let harmony, harmony.duration != expected {
+                diagnostics.append(.init(
+                    .error,
+                    path: "sections[\(sectionIndex)].harmony",
+                    message: "Harmony duration is \(harmony.duration); expected section duration \(expected)"
+                ))
+            }
             let parts = section.parts.enumerated().map { partIndex, part in
                 let voices = part.voices.enumerated().map { voiceIndex, voice in
                     let expression = schedule(voice.expression, at: .zero, diagnostics: &diagnostics)
@@ -72,10 +81,11 @@ public struct TemporalResolutionStage: CompilerStage {
                 }
                 return TimedPart(source: part.source, voices: voices)
             }
-            let inferred = parts.flatMap(\.voices).map(\.expression.duration).max() ?? .zero
+            let inferred = ([harmony?.duration].compactMap { $0 } + parts.flatMap(\.voices).map(\.expression.duration)).max() ?? .zero
             return TimedSection(
                 source: section.source,
                 duration: section.source.expectedDuration ?? inferred,
+                harmony: harmony,
                 parts: parts
             )
         }
@@ -220,6 +230,7 @@ public struct PitchResolvedPart: Sendable, Hashable {
 public struct PitchResolvedSection: Sendable, Hashable {
     public let source: Section
     public let duration: MusicalDuration
+    public let harmony: PitchResolvedExpression?
     public let parts: [PitchResolvedPart]
 }
 
@@ -236,27 +247,101 @@ public struct PitchResolutionStage: CompilerStage {
         var diagnostics: [ComposerDiagnostic] = []
         let scale = input.source.source.source.scale
         let sections = input.sections.map { section in
-            PitchResolvedSection(
+            let harmony = section.harmony.map { resolve($0, scale: scale, diagnostics: &diagnostics) }
+            let parts = section.parts.map { part in
+                PitchResolvedPart(
+                    source: part.source,
+                    voices: part.voices.map { voice in
+                        PitchResolvedVoice(
+                            source: voice.source,
+                            expression: resolve(voice.expression, scale: scale, diagnostics: &diagnostics),
+                            lyrics: voice.lyrics
+                        )
+                    }
+                )
+            }
+            if let harmony {
+                diagnoseHarmonyConflicts(harmony: harmony, parts: parts, diagnostics: &diagnostics)
+            }
+            return PitchResolvedSection(
                 source: section.source,
                 duration: section.duration,
-                parts: section.parts.map { part in
-                    PitchResolvedPart(
-                        source: part.source,
-                        voices: part.voices.map { voice in
-                            PitchResolvedVoice(
-                                source: voice.source,
-                                expression: resolve(voice.expression, scale: scale, diagnostics: &diagnostics),
-                                lyrics: voice.lyrics
-                            )
-                        }
-                    )
-                }
+                harmony: harmony,
+                parts: parts
             )
         }
         guard !diagnostics.contains(where: { $0.severity == .error }) else {
             return .init(output: nil, diagnostics: diagnostics)
         }
         return .init(output: .init(source: input, sections: sections, main: input.main), diagnostics: diagnostics)
+    }
+
+    private struct HarmonicSpan {
+        let start: MusicalDuration
+        let end: MusicalDuration
+        let chord: ResolvedTimelineChord
+        let path: String
+    }
+
+    private func diagnoseHarmonyConflicts(
+        harmony: PitchResolvedExpression,
+        parts: [PitchResolvedPart],
+        diagnostics: inout [ComposerDiagnostic]
+    ) {
+        let spans = harmonicSpans(in: harmony)
+        guard !spans.isEmpty else { return }
+        let notes = parts.flatMap(\.voices).flatMap { noteAttacks(in: $0.expression) }
+        for span in spans {
+            let chordTones = Set(span.chord.authored.quality.intervals.map {
+                (span.chord.rootPitchClass.rawValue + $0) % 12
+            })
+            let activeNotes = notes.filter { span.start <= $0.offset && $0.offset < span.end }
+            guard !activeNotes.isEmpty else { continue }
+            let matchingCount = activeNotes.reduce(into: 0) { count, note in
+                guard case .note(let pitch, _) = note.kind else { return }
+                if chordTones.contains(pitch.absolute.pitchClass.rawValue) { count += 1 }
+            }
+            let shouldWarn = activeNotes.count <= 2
+                ? matchingCount == 0
+                : matchingCount * 2 < activeNotes.count
+            guard shouldWarn else { continue }
+            diagnostics.append(.init(
+                .warning,
+                path: span.path,
+                message: "Only \(matchingCount) of \(activeNotes.count) note attacks use tones from the active \(span.chord.authored.quality) chord; this may be intentional"
+            ))
+        }
+    }
+
+    private func harmonicSpans(in expression: PitchResolvedExpression) -> [HarmonicSpan] {
+        switch expression.kind {
+        case .chord(let chord, _):
+            return [.init(
+                start: expression.offset,
+                end: expression.offset + expression.duration,
+                chord: chord,
+                path: expression.provenance.expansionPath.joined(separator: ".")
+            )]
+        case .sequence(let children), .parallel(let children):
+            return children.flatMap(harmonicSpans)
+        case .technique(let application):
+            return application.operands.flatMap(harmonicSpans)
+        case .note, .rest, .actuator:
+            return []
+        }
+    }
+
+    private func noteAttacks(in expression: PitchResolvedExpression) -> [PitchResolvedExpression] {
+        switch expression.kind {
+        case .note:
+            return [expression]
+        case .sequence(let children), .parallel(let children):
+            return children.flatMap(noteAttacks)
+        case .technique(let application):
+            return application.operands.flatMap(noteAttacks)
+        case .rest, .chord, .actuator:
+            return []
+        }
     }
 
     private func resolve(

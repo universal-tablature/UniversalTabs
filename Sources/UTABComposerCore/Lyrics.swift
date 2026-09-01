@@ -124,6 +124,7 @@ public struct LyricAlignmentStage: CompilerStage {
             TimedSection(
                 source: section.source,
                 duration: section.duration,
+                harmony: section.harmony,
                 parts: section.parts.enumerated().map { partIndex, part in
                     TimedPart(
                         source: part.source,

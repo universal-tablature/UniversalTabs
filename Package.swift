@@ -22,7 +22,9 @@ let package = Package(
         .library(name: "UTABNotation", targets: ["UTABNotation"]),
         .library(name: "UTABEngraving", targets: ["UTABEngraving"]),
         .library(name: "UTABScoreUI", targets: ["UTABScoreUI"]),
+        .library(name: "UTABLanguageServer", targets: ["UTABLanguageServer"]),
         .executable(name: "utabc", targets: ["UTabCompiler"]),
+        .executable(name: "utab-lsp", targets: ["UTabLanguageServerCommand"]),
         .executable(name: "utab-midi", targets: ["UTabMIDI"]),
         .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
         .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
@@ -51,7 +53,12 @@ let package = Package(
         .target(name: "UTABNotation", dependencies: ["UniversalTabs"]),
         .target(name: "UTABEngraving", dependencies: ["UTABNotation"]),
         .target(name: "UTABScoreUI", dependencies: ["UniversalTabs", "UTABNotation", "UTABEngraving"]),
+        .target(
+            name: "UTABLanguageServer",
+            dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]
+        ),
         .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
+        .executableTarget(name: "UTabLanguageServerCommand", dependencies: ["UTABLanguageServer"]),
         .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
         .executableTarget(name: "UTabPDMXIndex", dependencies: [
@@ -69,6 +76,7 @@ let package = Package(
             dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
         ),
         .testTarget(name: "UTabCompilerIntegrationTests", dependencies: ["UTabCompiler"]),
+        .testTarget(name: "UTABLanguageServerTests", dependencies: ["UTABLanguageServer"]),
         .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]
 )

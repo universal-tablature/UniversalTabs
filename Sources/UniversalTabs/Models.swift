@@ -35,6 +35,23 @@ public struct UTabDocument: Codable, Sendable {
     public let utab: UTabMetadata
     public let setup: PerformanceSetup
     public let tracks: [EventTrack]
+    public let harmony: [HarmonyEvent]?
+}
+
+public struct HarmonyEvent: Codable, Sendable {
+    public let id: String?
+    public let section: String?
+    public let at: EventTime
+    public let duration: EventDuration?
+    public let value: HarmonyValue
+    public let source: [String: JSONValue]?
+}
+
+public struct HarmonyValue: Codable, Sendable {
+    public let symbol: String
+    public let root: String?
+    public let quality: String?
+    public let bass: String?
 }
 
 public struct UTabMetadata: Codable, Sendable {

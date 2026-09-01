@@ -183,7 +183,7 @@ public struct UTabTextCompiler: Sendable {
             severity: value.severity == .error ? .error : .warning,
             stage: .pipeline,
             message: value.message,
-            range: nil,
+            range: value.range,
             path: value.path
         )
     }

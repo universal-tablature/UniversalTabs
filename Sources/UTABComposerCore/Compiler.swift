@@ -160,6 +160,9 @@ public struct NameResolutionStage: CompilerStage {
 
         mutating func resolveSections() -> [NameResolvedSection] {
             composition.sections.enumerated().map { sectionIndex, section in
+                if let harmony = section.harmony {
+                    resolveExpression(harmony, path: "sections[\(sectionIndex)].harmony", allowedKinds: [.phrase], ownerPhrase: nil)
+                }
                 let parts = section.parts.enumerated().map { partIndex, part in
                     let voices = part.voices.enumerated().map { voiceIndex, voice in
                         let basePath = "sections[\(sectionIndex)].parts[\(partIndex)].voices[\(voiceIndex)]"

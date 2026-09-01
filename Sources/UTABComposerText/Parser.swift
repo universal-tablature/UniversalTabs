@@ -379,13 +379,22 @@ public struct TextParser: Sendable {
                 _ = expectKeyword("bars", "Expected 'bars' after section length")
             }
             guard let open = expect(.leftBrace, "Expected '{' after section name") else { return nil }
+            var harmony: [TextExpressionSyntax] = []
             var instruments: [TextInstrumentSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
-                if let instrument = parseInstrument() { instruments.append(instrument) } else { synchronizeBlockItem() }
+                if takeKeyword("harmony") {
+                    guard expect(.leftBrace, "Expected '{' after harmony") != nil else { continue }
+                    harmony.append(contentsOf: parseExpressions(until: .rightBrace))
+                    _ = expect(.rightBrace, "Expected '}' after harmony")
+                } else if let instrument = parseInstrument() {
+                    instruments.append(instrument)
+                } else {
+                    synchronizeBlockItem()
+                }
             }
             let close = expect(.rightBrace, "Expected '}' after section") ?? current
-            return .init(name: name, barCount: bars, instruments: instruments, range: spanning(open, close))
+            return .init(name: name, barCount: bars, harmony: harmony, instruments: instruments, range: spanning(open, close))
         }
 
         mutating func parseInstrument() -> TextInstrumentSyntax? {

@@ -147,6 +147,7 @@ public struct TextSemanticLowerer: Sendable {
                 String(section.name.lexeme),
                 id: .named("section", String(section.name.lexeme)),
                 duration: duration,
+                harmony: section.harmony.isEmpty ? nil : expressionSequence(section.harmony, range: section.range),
                 parts: section.instruments.map { lowerInstrument($0) },
                 source: section.range
             )

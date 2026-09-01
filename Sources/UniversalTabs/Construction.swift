@@ -1,6 +1,49 @@
 public extension UTabDocument {
-    init(publicly _: Void = (), utab: UTabMetadata, setup: PerformanceSetup, tracks: [EventTrack]) {
-        self.utab = utab; self.setup = setup; self.tracks = tracks
+    init(
+        publicly _: Void = (),
+        utab: UTabMetadata,
+        setup: PerformanceSetup,
+        tracks: [EventTrack],
+        harmony: [HarmonyEvent]? = nil
+    ) {
+        self.utab = utab
+        self.setup = setup
+        self.tracks = tracks
+        self.harmony = harmony
+    }
+}
+
+public extension HarmonyEvent {
+    init(
+        publicly _: Void = (),
+        id: String? = nil,
+        section: String? = nil,
+        at: EventTime,
+        duration: EventDuration? = nil,
+        value: HarmonyValue,
+        source: [String: JSONValue]? = nil
+    ) {
+        self.id = id
+        self.section = section
+        self.at = at
+        self.duration = duration
+        self.value = value
+        self.source = source
+    }
+}
+
+public extension HarmonyValue {
+    init(
+        publicly _: Void = (),
+        symbol: String,
+        root: String? = nil,
+        quality: String? = nil,
+        bass: String? = nil
+    ) {
+        self.symbol = symbol
+        self.root = root
+        self.quality = quality
+        self.bass = bass
     }
 }
 

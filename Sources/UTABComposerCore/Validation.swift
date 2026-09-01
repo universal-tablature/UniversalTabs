@@ -3,9 +3,13 @@ public struct ComposerDiagnostic: Sendable, Hashable, CustomStringConvertible {
     public let severity: Severity
     public let path: String
     public let message: String
+    public let range: SourceRange?
 
-    public init(_ severity: Severity, path: String, message: String) {
-        self.severity = severity; self.path = path; self.message = message
+    public init(_ severity: Severity, path: String, message: String, range: SourceRange? = nil) {
+        self.severity = severity
+        self.path = path
+        self.message = message
+        self.range = range
     }
 
     public var description: String { "\(severity.rawValue): \(path): \(message)" }
@@ -31,7 +35,8 @@ public struct CompositionValidator: Sendable {
                     diagnostics.append(.init(
                         .error,
                         path: "phrases[\(index)].bars[\(barIndex)]",
-                        message: "Bar duration cannot be determined before reference resolution"
+                        message: "Bar duration cannot be determined before reference resolution",
+                        range: bar.annotations.source
                     ))
                     continue
                 }
@@ -39,7 +44,8 @@ public struct CompositionValidator: Sendable {
                 diagnostics.append(.init(
                     .error,
                     path: "phrases[\(index)].bars[\(barIndex)]",
-                    message: "Bar duration is \(actualDuration); expected \(expectedDuration)"
+                    message: "Bar duration is \(actualDuration); expected \(expectedDuration)",
+                    range: bar.annotations.source
                 ))
             }
         }
@@ -82,11 +88,21 @@ public struct CompositionValidator: Sendable {
                     }
                     guard let expectedDuration = section.expectedDuration else { continue }
                     guard let duration else {
-                        diagnostics.append(.init(.error, path: path, message: "Voice duration cannot be determined before reference resolution"))
+                        diagnostics.append(.init(
+                            .error,
+                            path: path,
+                            message: "Voice duration cannot be determined before reference resolution",
+                            range: voice.annotations.source
+                        ))
                         continue
                     }
                     if duration != expectedDuration {
-                        diagnostics.append(.init(.error, path: path, message: "Voice duration is \(duration); expected section duration \(expectedDuration)"))
+                        diagnostics.append(.init(
+                            .error,
+                            path: path,
+                            message: "Voice duration is \(duration); expected section duration \(expectedDuration)",
+                            range: voice.annotations.source
+                        ))
                     }
                 }
             }

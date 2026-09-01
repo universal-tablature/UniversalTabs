@@ -1614,6 +1614,103 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(result.succeeded)
 }
 
+@Test func sectionHarmonyLowersIndependentlyOfInstrumentTracks() throws {
+    let source = TextSource(
+        """
+        title "Harmony Timeline"
+        meter 4/4
+        tempo 100
+
+        section verse : 2 bars {
+            harmony {
+                chord C major w
+                chord F major h
+                chord G major h
+            }
+            piano {
+                voice melody {
+                    C4 w
+                    E4 w
+                }
+            }
+        }
+
+        main { verse }
+        """,
+        fileID: "harmony.utab"
+    )
+    let frontend = TextCompositionFrontend().compile(source)
+    let composition = try #require(frontend.composition)
+    let harmony = try #require(composition.sections.first?.harmony)
+
+    #expect(harmony.duration == MusicalDuration(2, 1))
+    let realized = try #require(compileToRealized(
+        composition,
+        bindings: ["piano": testInstance("piano_i", model: StandardInstruments.piano.id)]
+    ))
+    let document = try #require(MinimalUTabLoweringStage().run(realized).output)
+    let events = try #require(document.harmony)
+
+    #expect(events.map(\.value.symbol) == ["C", "F", "G"])
+    #expect(events.allSatisfy { $0.section == composition.sections[0].id.rawValue })
+    #expect(events.allSatisfy { $0.source?["origin"] != nil })
+    #expect(document.tracks.count == 1)
+}
+
+@Test func sectionHarmonyMustMatchExplicitSectionLength() throws {
+    let composition = Composition(
+        title: "Short harmony",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init(
+            "verse",
+            duration: .whole,
+            harmony: .chord(.init(.c, .major), duration: .half),
+            parts: []
+        )]
+    )
+    let named = try #require(NameResolutionStage().run(composition).output)
+    let expanded = try #require(ReferenceExpansionStage().run(named).output)
+    let result = TemporalResolutionStage().run(expanded)
+
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains {
+        $0.severity == .error && $0.path == "sections[0].harmony" && $0.message.contains("expected section duration")
+    })
+}
+
+@Test func predominantlyDeviatingNotesProduceOneHarmonyHeuristicWarning() throws {
+    let melody = MusicalExpression.sequence([
+        .note(.absolute(.init(.cSharp, octave: 4)), duration: .quarter),
+        .note(.absolute(.init(.d, octave: 4)), duration: .quarter),
+        .note(.absolute(.init(.e, octave: 4)), duration: .quarter),
+        .note(.absolute(.init(.f, octave: 4)), duration: .quarter),
+    ])
+    let composition = Composition(
+        title: "Harmony warning",
+        meter: .init(4, 4),
+        tempo: 100,
+        phrases: [],
+        sections: [.init(
+            "verse",
+            duration: .whole,
+            harmony: .chord(.init(.c, .major), duration: .whole),
+            parts: [.init(instrument: "piano", voices: [.init("melody", content: [.expression(melody)])])]
+        )]
+    )
+    let named = try #require(NameResolutionStage().run(composition).output)
+    let expanded = try #require(ReferenceExpansionStage().run(named).output)
+    let timed = try #require(TemporalResolutionStage().run(expanded).output)
+    let result = PitchResolutionStage().run(timed)
+
+    #expect(result.succeeded)
+    let warnings = result.diagnostics.filter { $0.severity == .warning }
+    #expect(warnings.count == 1)
+    #expect(warnings[0].message.contains("1 of 4 note attacks"))
+    #expect(warnings[0].message.contains("may be intentional"))
+}
+
 @Test func plainUTabSourceFileSelfValidatesExpectedDiagnostics() throws {
     let testFile = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()

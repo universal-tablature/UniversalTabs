@@ -317,20 +317,22 @@ public struct Section: Sendable, Hashable {
     public let id: SemanticID
     public let name: String
     public let expectedDuration: MusicalDuration?
+    public let harmony: MusicalExpression?
     public let parts: [Part]
     public let meter: TimeSignature?
     public let annotations: SemanticAnnotations
 
     public var duration: MusicalDuration? { expectedDuration }
 
-    public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, parts: [Part], metadata: [String: MetadataValue] = [:]) {
-        self.init(name, id: id, duration: duration, meter: meter, parts: parts, metadata: metadata, source: nil)
+    public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, harmony: MusicalExpression? = nil, parts: [Part], metadata: [String: MetadataValue] = [:]) {
+        self.init(name, id: id, duration: duration, meter: meter, harmony: harmony, parts: parts, metadata: metadata, source: nil)
     }
 
-    public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, parts: [Part], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
+    public init(_ name: String, id: SemanticID? = nil, duration: MusicalDuration? = nil, meter: TimeSignature? = nil, harmony: MusicalExpression? = nil, parts: [Part], metadata: [String: MetadataValue] = [:], source: SourceRange?) {
         self.id = id ?? .named("section", name)
         self.name = name
         self.expectedDuration = duration
+        self.harmony = harmony
         self.parts = parts
         self.meter = meter
         self.annotations = .init(metadata: metadata, source: source)

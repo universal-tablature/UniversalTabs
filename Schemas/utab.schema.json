@@ -11,6 +11,10 @@
     "tracks": {
       "type": "array",
       "items": { "$ref": "#/$defs/track" }
+    },
+    "harmony": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/harmonyEvent" }
     }
   },
   "additionalProperties": true,
@@ -316,6 +320,29 @@
         { "required": ["target", "parameter", "curve"] }
       ],
       "not": { "required": ["target", "targets"] }
+    },
+    "harmonyEvent": {
+      "type": "object",
+      "required": ["at", "value"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "section": { "$ref": "#/$defs/identifier" },
+        "at": { "$ref": "#/$defs/timePosition" },
+        "duration": { "$ref": "#/$defs/duration" },
+        "value": {
+          "type": "object",
+          "required": ["symbol"],
+          "properties": {
+            "symbol": { "type": "string", "minLength": 1 },
+            "root": { "type": "string", "minLength": 1 },
+            "quality": { "type": "string", "minLength": 1 },
+            "bass": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": true
+        },
+        "source": { "type": "object" }
+      },
+      "additionalProperties": true
     },
     "stateChange": {
       "type": "object",

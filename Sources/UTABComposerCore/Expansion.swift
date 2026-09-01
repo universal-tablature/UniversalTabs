@@ -78,6 +78,7 @@ public struct ExpandedPart: Sendable, Hashable {
 
 public struct ExpandedSection: Sendable, Hashable {
     public let source: Section
+    public let harmony: ExpandedExpression?
     public let parts: [ExpandedPart]
 }
 
@@ -146,6 +147,9 @@ public struct ReferenceExpansionStage: CompilerStage {
                 validateRepetitionCounts(in: phrase.expression, path: "phrases[\(index)].expression")
             }
             for (sectionIndex, section) in input.source.sections.enumerated() {
+                if let harmony = section.harmony {
+                    validateRepetitionCounts(in: harmony, path: "sections[\(sectionIndex)].harmony")
+                }
                 for (partIndex, part) in section.parts.enumerated() {
                     for (voiceIndex, voice) in part.voices.enumerated() {
                         for (contentIndex, content) in voice.content.enumerated() {
@@ -184,6 +188,13 @@ public struct ReferenceExpansionStage: CompilerStage {
         }
 
         mutating func expandSection(_ section: NameResolvedSection, sectionIndex: Int) -> ExpandedSection {
+            let harmony = section.source.harmony.flatMap {
+                expandExpression(
+                    $0,
+                    path: ["section:\(section.source.id.rawValue)", "harmony"],
+                    ancestry: []
+                )
+            }
             let parts = section.parts.enumerated().map { partIndex, part in
                 let voices = part.voices.enumerated().map { voiceIndex, voice in
                     let voicePath = [
@@ -210,7 +221,7 @@ public struct ReferenceExpansionStage: CompilerStage {
                 }
                 return ExpandedPart(source: part.source, voices: voices)
             }
-            return ExpandedSection(source: section.source, parts: parts)
+            return ExpandedSection(source: section.source, harmony: harmony, parts: parts)
         }
 
         mutating func expandPhrase(

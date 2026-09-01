@@ -167,6 +167,7 @@ public struct TextPhraseSyntax: Sendable, Hashable {
 public struct TextSectionSyntax: Sendable, Hashable {
     public let name: TextToken
     public let barCount: TextToken?
+    public let harmony: [TextExpressionSyntax]
     public let instruments: [TextInstrumentSyntax]
     public let range: SourceRange
 }

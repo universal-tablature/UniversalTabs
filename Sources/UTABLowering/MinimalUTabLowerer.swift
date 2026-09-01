@@ -45,6 +45,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 lower(section)
             }
             let arrangement = lowerArrangement()
+            let harmony = lowerHarmony()
 
             guard !diagnostics.contains(where: { $0.severity == .error }) else {
                 return .init(output: nil, diagnostics: diagnostics)
@@ -100,9 +101,92 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 setup: setup,
                 tracks: tracks.values.sorted { $0.id < $1.id }.map {
                     EventTrack(id: $0.id, name: $0.name, instrument: $0.instrumentID, parts: $0.parts)
-                }
+                },
+                harmony: harmony.isEmpty ? nil : harmony
             )
             return .init(output: document, diagnostics: diagnostics)
+        }
+
+        func lowerHarmony() -> [HarmonyEvent] {
+            input.source.sections.flatMap { section in
+                let meter = section.source.meter ?? composition.meter
+                if let harmony = section.harmony {
+                    return harmonyEvents(
+                        in: harmony,
+                        sectionID: section.source.id.rawValue,
+                        meter: meter
+                    )
+                }
+                return section.parts.flatMap { part in
+                    part.voices.flatMap { voice in
+                        harmonyEvents(
+                            in: voice.expression,
+                            sectionID: section.source.id.rawValue,
+                            meter: meter
+                        )
+                    }
+                }
+            }
+        }
+
+        func harmonyEvents(
+            in expression: PitchResolvedExpression,
+            sectionID: String,
+            meter: TimeSignature
+        ) -> [HarmonyEvent] {
+            switch expression.kind {
+            case .chord(let chord, _):
+                let root = pitchClassName(chord.rootPitchClass)
+                let quality = qualityName(chord.authored.quality)
+                return [.init(
+                    id: expression.provenance.occurrenceID.rawValue,
+                    section: sectionID,
+                    at: eventTime(expression.offset, meter: meter),
+                    duration: .init(quarterNotes: .string((expression.duration * 4).description)),
+                    value: .init(
+                        symbol: root + qualitySuffix(chord.authored.quality),
+                        root: root,
+                        quality: quality
+                    ),
+                    source: [
+                        "origin": .string(expression.provenance.originID.rawValue),
+                        "ancestry": .array(expression.provenance.ancestry.map { .string($0.rawValue) }),
+                        "path": .array(expression.provenance.expansionPath.map(JSONValue.string)),
+                    ]
+                )]
+            case .sequence(let children), .parallel(let children):
+                return children.flatMap {
+                    harmonyEvents(in: $0, sectionID: sectionID, meter: meter)
+                }
+            case .technique(let application):
+                return application.operands.flatMap {
+                    harmonyEvents(in: $0, sectionID: sectionID, meter: meter)
+                }
+            case .note, .rest, .actuator:
+                return []
+            }
+        }
+
+        func pitchClassName(_ pitchClass: PitchClass) -> String {
+            ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"][pitchClass.rawValue]
+        }
+
+        func qualityName(_ quality: ChordQuality) -> String {
+            switch quality {
+            case .major: "major"
+            case .minor: "minor"
+            case .diminished: "diminished"
+            case .suspendedFourth: "suspendedFourth"
+            }
+        }
+
+        func qualitySuffix(_ quality: ChordQuality) -> String {
+            switch quality {
+            case .major: ""
+            case .minor: "m"
+            case .diminished: "dim"
+            case .suspendedFourth: "sus4"
+            }
         }
 
         mutating func lower(_ section: RealizedSection) {

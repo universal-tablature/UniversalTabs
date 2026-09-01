@@ -1,0 +1,224 @@
+import Foundation
+import Testing
+@testable import UTABLanguageServer
+
+@Suite("UTAB language server")
+struct UTABLanguageServerTests {
+    @Test("Initialize advertises full document synchronization")
+    func initialize() async throws {
+        let server = UTABLanguageServer()
+        let responses = await server.handle(message(method: "initialize", id: 1, params: [:]))
+
+        #expect(responses.count == 1)
+        let response = try decode(responses[0])
+        let capabilities = response.objectValue?["result"]?.objectValue?["capabilities"]?.objectValue
+        #expect(capabilities?["textDocumentSync"]?.objectValue?["change"]?.intValue == 1)
+    }
+
+    @Test("Opening native UTAB publishes compiler diagnostics")
+    func nativeDiagnostics() async throws {
+        let server = UTABLanguageServer()
+        let uri = "file:///main.utab"
+        let responses = await server.handle(message(
+            method: "textDocument/didOpen",
+            params: [
+                "textDocument": .object([
+                    "uri": .string(uri),
+                    "languageId": .string("utab"),
+                    "version": .number(1),
+                    "text": .string("title \"😀\" !"),
+                ]),
+            ]
+        ))
+
+        #expect(responses.count == 1)
+        let notification = try decode(responses[0]).objectValue
+        #expect(notification?["method"]?.stringValue == "textDocument/publishDiagnostics")
+        let diagnostics = notification?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
+        let unexpectedCharacter = diagnostics.first {
+            $0.objectValue?["message"]?.stringValue?.contains("Unexpected character") == true
+        }
+        #expect(unexpectedCharacter != nil)
+
+        // LSP columns are UTF-16 based; the emoji occupies two code units.
+        let start = unexpectedCharacter?.objectValue?["range"]?.objectValue?["start"]?.objectValue
+        #expect(start?["line"]?.intValue == 0)
+        #expect(start?["character"]?.intValue == 11)
+    }
+
+    @Test("Full document changes replace diagnostics")
+    func documentChanges() async throws {
+        let server = UTABLanguageServer()
+        let uri = "file:///main.utab"
+        _ = await server.handle(message(
+            method: "textDocument/didOpen",
+            params: [
+                "textDocument": .object([
+                    "uri": .string(uri),
+                    "languageId": .string("utab"),
+                    "version": .number(1),
+                    "text": .string("!"),
+                ]),
+            ]
+        ))
+
+        let responses = await server.handle(message(
+            method: "textDocument/didChange",
+            params: [
+                "textDocument": .object([
+                    "uri": .string(uri),
+                    "version": .number(2),
+                ]),
+                "contentChanges": .array([
+                    .object(["text": .string("")]),
+                ]),
+            ]
+        ))
+
+        let diagnostics = try decode(responses[0])
+            .objectValue?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
+        #expect(!diagnostics.contains {
+            $0.objectValue?["message"]?.stringValue?.contains("Unexpected character") == true
+        })
+    }
+
+    @Test("JSON documents remain owned by Monaco's JSON worker")
+    func jsonDocuments() async throws {
+        let server = UTABLanguageServer()
+        let responses = await server.handle(message(
+            method: "textDocument/didOpen",
+            params: [
+                "textDocument": .object([
+                    "uri": .string("file:///main.utab.json"),
+                    "languageId": .string("json"),
+                    "version": .number(1),
+                    "text": .string("{"),
+                ]),
+            ]
+        ))
+
+        let diagnostics = try decode(responses[0])
+            .objectValue?["params"]?.objectValue?["diagnostics"]?.arrayValue
+        #expect(diagnostics?.isEmpty == true)
+    }
+
+    @Test("Diagnostics retain their source line")
+    func diagnosticLocation() async throws {
+        let server = UTABLanguageServer()
+        let uri = "file:///main.utab"
+        let source = """
+        module composition.test
+
+        title "Test"
+        !
+        """
+        let responses = await server.handle(message(
+            method: "textDocument/didOpen",
+            params: [
+                "textDocument": .object([
+                    "uri": .string(uri),
+                    "languageId": .string("utab"),
+                    "version": .number(1),
+                    "text": .string(source),
+                ]),
+            ]
+        ))
+
+        let diagnostics = try decode(responses[0])
+            .objectValue?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
+        let unexpectedCharacter = diagnostics.first {
+            $0.objectValue?["message"]?.stringValue?.contains("Unexpected character") == true
+        }
+        let start = unexpectedCharacter?.objectValue?["range"]?.objectValue?["start"]?.objectValue
+        #expect(start?["line"]?.intValue == 3)
+        #expect(start?["character"]?.intValue == 0)
+    }
+
+    @Test("Voice duration diagnostics point to the voice declaration")
+    func voiceDurationDiagnosticLocation() async throws {
+        let server = UTABLanguageServer()
+        let uri = "file:///main.utab"
+        let source = """
+        module composition.test
+        import instruments.guitar
+        title "Test"
+        instrument guitar : Guitar as "Guitar"
+        meter 4/4
+        tempo 96
+        section verse : 1 bars {
+            guitar {
+                voice melody {
+                    E4 q
+                    F4 q
+                    G4 q
+                    A4 q
+                    B4 q
+                }
+            }
+        }
+        main { verse }
+        """
+        let responses = await server.handle(message(
+            method: "textDocument/didOpen",
+            params: [
+                "textDocument": .object([
+                    "uri": .string(uri),
+                    "languageId": .string("utab"),
+                    "version": .number(1),
+                    "text": .string(source),
+                ]),
+            ]
+        ))
+
+        let diagnostics = try decode(responses[0])
+            .objectValue?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
+        let durationError = diagnostics.first {
+            $0.objectValue?["message"]?.stringValue?.contains("Voice duration is 5/4") == true
+        }
+        let start = durationError?.objectValue?["range"]?.objectValue?["start"]?.objectValue
+        #expect(durationError != nil)
+        #expect(start?["line"]?.intValue == 8)
+    }
+
+    @Test("Embedded WebSocket carries standard JSON-RPC")
+    func embeddedWebSocket() async throws {
+        let embedded = EmbeddedUTABLanguageServer()
+        let url = try await embedded.start()
+        defer { embedded.stop() }
+
+        let socket = URLSession(configuration: .ephemeral).webSocketTask(with: url)
+        socket.resume()
+        defer { socket.cancel(with: .normalClosure, reason: nil) }
+
+        try await socket.send(.data(message(method: "initialize", id: 7, params: [:])))
+        let reply = try await socket.receive()
+        let data: Data
+        switch reply {
+        case .data(let value): data = value
+        case .string(let value): data = Data(value.utf8)
+        @unknown default: throw CocoaError(.coderInvalidValue)
+        }
+
+        let response = try decode(data).objectValue
+        #expect(response?["id"]?.intValue == 7)
+        #expect(response?["result"]?.objectValue?["capabilities"] != nil)
+    }
+
+    private func message(
+        method: String,
+        id: Int? = nil,
+        params: [String: JSONValue]
+    ) -> Data {
+        var object: [String: JSONValue] = [
+            "jsonrpc": .string("2.0"),
+            "method": .string(method),
+            "params": .object(params),
+        ]
+        if let id { object["id"] = .number(Double(id)) }
+        return try! JSONEncoder().encode(JSONValue.object(object))
+    }
+
+    private func decode(_ data: Data) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: data)
+    }
+}
