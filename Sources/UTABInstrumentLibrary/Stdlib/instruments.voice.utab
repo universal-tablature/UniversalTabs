@@ -1,7 +1,9 @@
 module instruments.voice
 import profiles.core
+import std.midi
 
 model Voice : SingingVoice {
     id "instrument:voice:generic"
     name "Singing Voice"
+    midiProgram = midi.choirAahs
 }

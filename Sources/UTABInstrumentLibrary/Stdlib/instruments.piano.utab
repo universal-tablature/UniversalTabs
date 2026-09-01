@@ -1,9 +1,11 @@
 module instruments.piano
 import profiles.core
+import std.midi
 
 model Piano : Keyboard {
     id "instrument:piano:88-key"
     name "88-key Piano"
+    midiProgram = midi.acousticGrandPiano
     geometry keyboard {
         lowestPitch A0
         highestPitch C8

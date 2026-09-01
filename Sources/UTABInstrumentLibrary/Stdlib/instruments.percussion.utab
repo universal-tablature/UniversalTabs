@@ -1,5 +1,6 @@
 module instruments.percussion
 import profiles.percussion
+import std.midi
 
 model SnareDrum : UnpitchedPercussion {
     id "instrument:percussion:snare-drum"
@@ -28,12 +29,14 @@ model Triangle : UnpitchedPercussion {
 model DrumKit : UnpitchedPercussion {
     id "instrument:percussion:drum-kit"
     name "Drum Kit"
+    midiPercussion true
     geometry playingSurfaces { minimumCount 5; collection true; drums true; cymbals true }
 }
 
 model Xylophone : PitchedPercussion {
     id "instrument:percussion:xylophone"
     name "Xylophone"
+    midiProgram = midi.xylophone
     geometry bars { material wood; chromatic true; typicalRange "F3-C7" }
 }
 

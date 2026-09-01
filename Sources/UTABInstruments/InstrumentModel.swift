@@ -265,6 +265,27 @@ public struct InstrumentProfileDefinition: Sendable, Hashable {
     }
 }
 
+public struct MIDIRealization: Sendable, Hashable {
+    /// General MIDI program number in the documented 1...128 range.
+    public let program: Int?
+    public let percussion: Bool
+
+    public init(program: Int? = nil, percussion: Bool = false) {
+        self.program = program
+        self.percussion = percussion
+    }
+}
+
+/// Playback-oriented metadata for realizing an instrument outside the semantic model.
+/// Additional realization backends can be added alongside MIDI without changing geometry.
+public struct InstrumentRealization: Sendable, Hashable {
+    public let midi: MIDIRealization?
+
+    public init(midi: MIDIRealization? = nil) {
+        self.midi = midi
+    }
+}
+
 /// A concrete instrument type based on a capability profile, including geometry and defaults.
 public struct InstrumentModelDefinition: Sendable, Hashable {
     public let id: InstrumentID
@@ -276,11 +297,13 @@ public struct InstrumentModelDefinition: Sendable, Hashable {
     public let fingerings: [InstrumentID]
     public let defaultFingering: InstrumentID?
     public let defaults: [String: InstrumentValue]
+    public let realization: InstrumentRealization?
 
-    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], tunings: [InstrumentID] = [], defaultTuning: InstrumentID? = nil, fingerings: [InstrumentID] = [], defaultFingering: InstrumentID? = nil, defaults: [String: InstrumentValue] = [:]) {
+    public init(id: InstrumentID, name: String, profile: InstrumentID, geometry: [InstrumentGeometry] = [], tunings: [InstrumentID] = [], defaultTuning: InstrumentID? = nil, fingerings: [InstrumentID] = [], defaultFingering: InstrumentID? = nil, defaults: [String: InstrumentValue] = [:], realization: InstrumentRealization? = nil) {
         self.id = id; self.name = name; self.profile = profile
         self.geometry = geometry; self.tunings = tunings; self.defaultTuning = defaultTuning
         self.fingerings = fingerings; self.defaultFingering = defaultFingering; self.defaults = defaults
+        self.realization = realization
     }
 }
 

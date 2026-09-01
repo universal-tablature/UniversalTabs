@@ -20,6 +20,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
 
     public func compile(_ modules: [TextLoadedModule], extending base: InstrumentCatalog) -> TextInstrumentCatalogResult {
         var worker = Worker(base: base, modules: modules)
+        worker.addConstants()
         for module in modules { worker.addScales(from: module) }
         for module in modules { worker.addProfiles(from: module) }
         for module in modules { worker.addModels(from: module) }
@@ -46,6 +47,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
         var modelSymbols: [String: InstrumentID]
         var profileSymbols: [String: InstrumentID]
         var scaleSymbols: [String: InstrumentID]
+        var integerConstants: [String: Int]
         var diagnostics: [TextDiagnostic] = []
 
         init(base: InstrumentCatalog, modules: [TextLoadedModule]) {
@@ -58,9 +60,23 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             modelSymbols = [:]
             profileSymbols = [:]
             scaleSymbols = [:]
+            integerConstants = [:]
         }
 
         var catalog: InstrumentCatalog { .init(scales: scales, tunings: tunings, fingerings: fingerings, profiles: profiles, models: models) }
+
+        mutating func addConstants() {
+            for module in modules {
+                for constant in module.syntax.constants {
+                    let qualified = "\(module.name).\(constant.name.lexeme)"
+                    guard integerConstants[qualified] == nil else {
+                        error("Duplicate constant '\(constant.name.lexeme)'", at: constant.range)
+                        continue
+                    }
+                    if let value = constant.value.integerValue { integerConstants[qualified] = value }
+                }
+            }
+        }
 
         mutating func addScales(from module: TextLoadedModule) {
             for syntax in module.syntax.scaleDefinitions {
@@ -183,7 +199,15 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 }
                 let name = property("name", in: syntax.properties) ?? symbol
                 let geometry = syntax.geometries.map { lowerGeometry($0, from: module) }
-                let model = InstrumentModelDefinition(id: .init(rawValue: id), name: name, profile: profile.id, geometry: geometry)
+                let midiProgram = resolveIntegerProperty("midiProgram", in: syntax.properties, from: module)
+                if let midiProgram, !(1...128).contains(midiProgram) {
+                    error("MIDI program must be in the documented 1...128 range", at: syntax.range)
+                    continue
+                }
+                let midiPercussion = property("midiPercussion", in: syntax.properties) == "true"
+                let midi = midiProgram == nil && !midiPercussion ? nil : MIDIRealization(program: midiProgram, percussion: midiPercussion)
+                let realization = midi.map { InstrumentRealization(midi: $0) }
+                let model = InstrumentModelDefinition(id: .init(rawValue: id), name: name, profile: profile.id, geometry: geometry, realization: realization)
                 models.append(model)
                 modelSymbols[qualifiedSymbol] = model.id
             }
@@ -296,7 +320,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     fingeringIDs.append(fingeringID)
                     if fingeringSyntax.isDefault { defaultFingering = fingeringID }
                 }
-                model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, fingerings: fingeringIDs, defaultFingering: defaultFingering, defaults: model.defaults)
+                model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, fingerings: fingeringIDs, defaultFingering: defaultFingering, defaults: model.defaults, realization: model.realization)
                 models[index] = model
             }
         }
@@ -374,6 +398,24 @@ public struct TextInstrumentCatalogCompiler: Sendable {
 
         func integerProperty(_ name: String, in properties: [TextPropertySyntax]) -> Int? {
             properties.first { String($0.name.lexeme) == name }?.value.integerValue
+        }
+
+        mutating func resolveIntegerProperty(_ name: String, in properties: [TextPropertySyntax], from module: TextLoadedModule) -> Int? {
+            guard let property = properties.first(where: { String($0.name.lexeme) == name }) else { return nil }
+            if let literal = property.value.integerValue { return literal }
+            guard let reference = property.reference else {
+                error("Expected an integer or constant reference for '\(name)'", at: property.range)
+                return nil
+            }
+            if let direct = integerConstants[reference] { return direct }
+            let parts = reference.split(separator: ".")
+            if parts.count > 1,
+               let imported = module.syntax.imports.first(where: { $0.name.value.split(separator: ".").last == parts.first }) {
+                let suffix = parts.dropFirst().joined(separator: ".")
+                if let value = integerConstants["\(imported.name.value).\(suffix)"] { return value }
+            }
+            error("Unknown integer constant '\(reference)'", at: property.range)
+            return nil
         }
 
         func decimalProperty(_ name: String, in properties: [TextPropertySyntax]) -> Double? {

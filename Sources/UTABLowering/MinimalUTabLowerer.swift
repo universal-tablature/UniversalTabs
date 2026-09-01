@@ -59,7 +59,8 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     id: instance.id.rawValue,
                     name: instance.name,
                     profile: profileID(id),
-                    configuration: instance.configuration.isEmpty ? nil : instance.configuration.mapValues(instrumentJSONValue)
+                    configuration: instance.configuration.isEmpty ? nil : instance.configuration.mapValues(instrumentJSONValue),
+                    realization: realization(for: id)
                 )
             }
             let tuning = TuningDefinition(
@@ -392,6 +393,15 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         func profileID(_ instanceID: String) -> String { "profile:generated:\(instanceID)" }
+
+        func realization(for instanceID: String) -> UniversalTabs.InstrumentRealization? {
+            guard let source = input.sections.lazy
+                .flatMap(\.parts)
+                .first(where: { $0.instrumentInstance.id.rawValue == instanceID })?
+                .instrumentRealization,
+                  let midi = source.midi else { return nil }
+            return .init(midi: .init(program: midi.program, percussion: midi.percussion))
+        }
 
         func target(_ address: ActuatorAddress) -> String {
             guard let member = address.member else { return address.group }

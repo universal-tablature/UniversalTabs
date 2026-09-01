@@ -3,6 +3,7 @@ import UTABComposerCore
 public struct TextCompositionSyntax: Sendable, Hashable {
     public let module: TextQualifiedNameSyntax?
     public let imports: [TextImportSyntax]
+    public let constants: [TextConstantSyntax]
     public let scaleDefinitions: [TextScaleDefinitionSyntax]
     public let profiles: [TextInstrumentProfileSyntax]
     public let models: [TextInstrumentModelSyntax]
@@ -18,7 +19,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let range: SourceRange
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
+        lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.constants == rhs.constants && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
             && lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
@@ -26,11 +27,17 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(module); hasher.combine(imports); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
+        hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
         hasher.combine(instruments); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
     }
+}
+
+public struct TextConstantSyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let value: TextToken
+    public let range: SourceRange
 }
 
 public struct TextScaleDefinitionSyntax: Sendable, Hashable {
@@ -139,6 +146,10 @@ public struct TextPropertySyntax: Sendable, Hashable {
     public let range: SourceRange
 
     public var value: TextToken { values[0] }
+    public var reference: String? {
+        guard values.count > 1, values.allSatisfy({ $0.kind == .identifier }) else { return nil }
+        return values.map { String($0.lexeme) }.joined(separator: ".")
+    }
 }
 
 public struct TextTuningSyntax: Sendable, Hashable {

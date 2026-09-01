@@ -1,9 +1,11 @@
 module instruments.cello
 import profiles.core
+import std.midi
 
 model Cello : FretlessBowedStrings {
     id "instrument:cello:four-string"
     name "Four-string Cello"
+    midiProgram = midi.cello
     geometry strings { count 4 }
 }
 

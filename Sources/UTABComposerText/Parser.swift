@@ -22,6 +22,7 @@ public struct TextParser: Sendable {
             var title: TextToken?
             var module: TextQualifiedNameSyntax?
             var imports: [TextImportSyntax] = []
+            var constants: [TextConstantSyntax] = []
             var scaleDefinitions: [TextScaleDefinitionSyntax] = []
             var profiles: [TextInstrumentProfileSyntax] = []
             var models: [TextInstrumentModelSyntax] = []
@@ -38,6 +39,13 @@ public struct TextParser: Sendable {
                 if takeKeyword("module") { module = parseQualifiedName() }
                 else if takeKeyword("import") {
                     if let name = parseQualifiedName() { imports.append(.init(name: name, range: name.range)) }
+                } else if takeKeyword("let") {
+                    if let name = expect(.identifier, "Expected constant name") {
+                        _ = take(.equal)
+                        if let value = expect(.integerLiteral, "Expected integer constant value") {
+                            constants.append(.init(name: name, value: value, range: spanning(name, value)))
+                        }
+                    }
                 } else if takeKeyword("profile") {
                     if let profile = parseInstrumentProfile() { profiles.append(profile) }
                 } else if takeKeyword("model") {
@@ -73,6 +81,7 @@ public struct TextParser: Sendable {
             return .init(
                 module: module,
                 imports: imports,
+                constants: constants,
                 scaleDefinitions: scaleDefinitions,
                 profiles: profiles,
                 models: models,
@@ -239,12 +248,17 @@ public struct TextParser: Sendable {
                 return nil
             }
             let name = advance()
+            _ = take(.equal)
             guard current.kind == .identifier || current.kind == .stringLiteral || current.kind == .integerLiteral || current.kind == .decimalLiteral else {
                 diagnose("Expected property value")
                 advance()
                 return nil
             }
             var values = [advance()]
+            while take(.dot) {
+                guard let component = expect(.identifier, "Expected reference component after '.'") else { break }
+                values.append(component)
+            }
             while take(.comma) {
                 guard current.kind == .identifier || current.kind == .stringLiteral || current.kind == .integerLiteral || current.kind == .decimalLiteral else {
                     diagnose("Expected property value after ','")

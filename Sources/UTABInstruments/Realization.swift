@@ -52,6 +52,7 @@ public struct RealizedPart: Sendable, Hashable {
     public let source: Part
     public let instrumentInstance: InstrumentInstanceDefinition
     public let instrumentModel: InstrumentID
+    public let instrumentRealization: InstrumentRealization?
     public let voices: [RealizedVoice]
 }
 
@@ -101,6 +102,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                         source: part.source,
                         instrumentInstance: context.instance,
                         instrumentModel: context.model.id,
+                        instrumentRealization: context.model.realization,
                         voices: voices
                     ))
                 }

@@ -230,6 +230,17 @@ public struct InstrumentInstance: Codable, Sendable {
     public let name: String?
     public let profile: String
     public let configuration: [String: JSONValue]?
+    public let realization: InstrumentRealization?
+}
+
+public struct InstrumentRealization: Codable, Sendable {
+    public let midi: MIDIRealization?
+}
+
+public struct MIDIRealization: Codable, Sendable {
+    /// General MIDI program number in the documented 1...128 range.
+    public let program: Int?
+    public let percussion: Bool?
 }
 
 public struct Performer: Codable, Sendable {

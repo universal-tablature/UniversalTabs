@@ -98,15 +98,15 @@ public final class UTabMIDIConverter {
         profile: InstrumentProfile,
         channel: Int
     ) -> [MIDIMessage] {
-        let profileName = profile.name ?? ""
-        let isDrums = profileName.localizedCaseInsensitiveContains("drum kit")
+        let midiRealization = instrument.realization?.midi
+        let isDrums = midiRealization?.percussion == true
         let midiChannel = isDrums ? 9 : channel
         var output = [StandardMIDIFile.trackName(name)]
         if !isDrums {
             output.append(MIDIMessage(
                 tick: 0,
                 priority: 0,
-                bytes: [UInt8(0xC0 | midiChannel), UInt8(program(for: profileName))]
+                bytes: [UInt8(0xC0 | midiChannel), UInt8(generalMIDIProgram(midiRealization?.program ?? 1))]
             ))
         }
 
@@ -521,17 +521,6 @@ public final class UTabMIDIConverter {
               case .member(let member) = parsed.selector,
               parsed.groupPath == "surfaces" else { return nil }
         return ["kick": 36, "snare-head": 38, "closed-hi-hat": 42, "crash": 49][member]
-    }
-
-    private func program(for profileName: String) -> Int {
-        let name = profileName.lowercased()
-        if name.contains("guitar") { return generalMIDIProgram(26) }
-        if name.contains("cello") { return generalMIDIProgram(43) }
-        if name.contains("xylophone") { return generalMIDIProgram(14) }
-        if name.contains("handpan") { return generalMIDIProgram(115) }
-        if name.contains("nyckelharpa") { return generalMIDIProgram(111) }
-        if name == "voice" { return generalMIDIProgram(53) }
-        return generalMIDIProgram(1)
     }
 
     private func generalMIDIProgram(_ documentedProgram: Int) -> Int {

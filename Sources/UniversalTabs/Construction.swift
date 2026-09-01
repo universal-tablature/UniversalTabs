@@ -174,8 +174,18 @@ public extension ActuatorMember {
 }
 
 public extension InstrumentInstance {
-    init(publicly _: Void = (), id: String, name: String? = nil, profile: String, configuration: [String: JSONValue]? = nil) {
-        self.id = id; self.name = name; self.profile = profile; self.configuration = configuration
+    init(publicly _: Void = (), id: String, name: String? = nil, profile: String, configuration: [String: JSONValue]? = nil, realization: InstrumentRealization? = nil) {
+        self.id = id; self.name = name; self.profile = profile; self.configuration = configuration; self.realization = realization
+    }
+}
+
+public extension InstrumentRealization {
+    init(publicly _: Void = (), midi: MIDIRealization? = nil) { self.midi = midi }
+}
+
+public extension MIDIRealization {
+    init(publicly _: Void = (), program: Int? = nil, percussion: Bool? = nil) {
+        self.program = program; self.percussion = percussion
     }
 }
 

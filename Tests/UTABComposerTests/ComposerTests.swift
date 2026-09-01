@@ -1810,7 +1810,10 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(composition.phrases.first?.bars.first?.annotations.source?.fileID == "twinkle.utab")
     #expect(firstData == secondData)
     #expect(firstDocument.setup.instruments.map(\.id).sorted() == ["guitar_i", "guitar_ii", "piano_i", "voice_i"])
-    #expect(stableFingerprint(firstData) == "51c350c1e7a920cb")
+    #expect(firstDocument.setup.instruments.first { $0.id == "guitar_i" }?.realization?.midi?.program == 25)
+    #expect(firstDocument.setup.instruments.first { $0.id == "piano_i" }?.realization?.midi?.program == 1)
+    #expect(firstDocument.setup.instruments.first { $0.id == "voice_i" }?.realization?.midi?.program == 53)
+    #expect(stableFingerprint(firstData) == "86f7647404a57425")
 }
 
 @Test func importedStandardLibraryModelsAndTuningExtensionsBuildCatalog() throws {

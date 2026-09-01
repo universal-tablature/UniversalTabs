@@ -33,6 +33,14 @@ import Testing
     #expect(result.diagnostics.isEmpty)
 }
 
+@Test func convertsUsingTypedMIDIRealizationInsteadOfProfileName() throws {
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"profiles":[{"id":"p","name":"Misleading Guitar Name","actuators":{"bars":{"members":[{"id":"c","pitch":"C4"}]}},"interactions":{"strike":{}}}],"instruments":[{"id":"i","profile":"p","realization":{"midi":{"program":41}}}]},"tracks":[{"id":"t","instrument":"i","events":[{"at":{"musical":{"measure":1,"beat":1}},"action":"strike","target":"bars[\"c\"]"}]}]}"#
+    let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
+
+    let bytes = Array(result.midi)
+    #expect(bytes.indices.dropLast().contains { bytes[$0] == 0xC0 && bytes[$0 + 1] == 40 })
+}
+
 @Test func decodesAllDraftExamplesIntoTypedModels() throws {
     let repositoryRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
