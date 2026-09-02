@@ -286,6 +286,7 @@ public struct TrackPart: Codable, Sendable {
     public let section: String?
     public let entry: String?
     public let mode: PartMode?
+    public let source: SourceReference?
     public let events: [PerformanceEvent]
 }
 
@@ -306,8 +307,20 @@ public struct PerformanceEvent: Codable, Sendable {
     public let parameter: String?
     public let parameters: [String: JSONValue]?
     public let techniques: [String]?
+    public let source: SourceReference?
     public let changes: [StateChange]?
     public let curve: [JSONValue]?
+}
+
+public struct SourceReference: Codable, Sendable {
+    public let id: String
+    public let file: String?
+    public let line: Int?
+    public let column: Int?
+    public let endLine: Int?
+    public let endColumn: Int?
+    public let ancestry: [String]?
+    public let path: [String]?
 }
 
 public struct StateChange: Codable, Sendable {

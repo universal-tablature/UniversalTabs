@@ -220,7 +220,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                         instrumentID: instanceID,
                         parts: []
                     )
-                    track.parts.append(.init(section: section.source.id.rawValue, events: events))
+                    track.parts.append(.init(
+                        section: section.source.id.rawValue,
+                        source: sourceReference(
+                            id: section.source.id,
+                            range: section.source.annotations.source
+                        ),
+                        events: events
+                    ))
                     tracks[key] = track
                 }
             }
@@ -296,6 +303,37 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             capabilities[instrument, default: .init()].groups[address.group] = group
         }
 
+        func sourceReference(
+            id: SemanticID,
+            range: SourceRange? = nil,
+            ancestry: [SemanticID] = [],
+            path: [String] = []
+        ) -> SourceReference? {
+            let parsedRange: (file: String, line: Int, column: Int)? = {
+                guard range == nil else { return nil }
+                let components = id.rawValue.split(separator: ":", omittingEmptySubsequences: false)
+                guard components.count >= 4,
+                      let line = Int(components[components.count - 2]),
+                      let column = Int(components[components.count - 1]) else { return nil }
+                return (components.dropFirst().dropLast(2).joined(separator: ":"), line, column)
+            }()
+            guard let file = range?.fileID ?? parsedRange?.file,
+                  let line = range?.start.line ?? parsedRange?.line,
+                  let column = range?.start.column ?? parsedRange?.column else {
+                return nil
+            }
+            return .init(
+                id: id.rawValue,
+                file: file,
+                line: line,
+                column: column,
+                endLine: range?.end?.line ?? line,
+                endColumn: range?.end?.column ?? column,
+                ancestry: ancestry.isEmpty ? nil : ancestry.map(\.rawValue),
+                path: path.isEmpty ? nil : path
+            )
+        }
+
         func makeEvent(
             _ expression: RealizedExpression,
             meter: TimeSignature,
@@ -305,11 +343,6 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             techniques: [String]
         ) -> PerformanceEvent {
             var eventParameters = parameters
-            eventParameters["_source"] = .object([
-                "origin": .string(expression.provenance.originID.rawValue),
-                "ancestry": .array(expression.provenance.ancestry.map { .string($0.rawValue) }),
-                "path": .array(expression.provenance.expansionPath.map(JSONValue.string)),
-            ])
             if let lyrics = lyricsByOccurrence[expression.provenance.occurrenceID], !lyrics.isEmpty {
                 eventParameters["_lyrics"] = .array(lyrics.sorted {
                     $0.verseID.rawValue < $1.verseID.rawValue
@@ -330,7 +363,13 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 action: action,
                 target: target,
                 parameters: eventParameters,
-                techniques: techniques.isEmpty ? nil : techniques
+                techniques: techniques.isEmpty ? nil : techniques,
+                source: sourceReference(
+                    id: expression.provenance.originID,
+                    range: expression.annotations.source,
+                    ancestry: expression.provenance.ancestry,
+                    path: expression.provenance.expansionPath
+                )
             )
         }
 

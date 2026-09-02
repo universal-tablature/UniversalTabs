@@ -215,8 +215,8 @@ public extension EventTrack {
 }
 
 public extension TrackPart {
-    init(publicly _: Void = (), section: String? = nil, entry: String? = nil, mode: PartMode? = nil, events: [PerformanceEvent]) {
-        self.section = section; self.entry = entry; self.mode = mode; self.events = events
+    init(publicly _: Void = (), section: String? = nil, entry: String? = nil, mode: PartMode? = nil, source: SourceReference? = nil, events: [PerformanceEvent]) {
+        self.section = section; self.entry = entry; self.mode = mode; self.source = source; self.events = events
     }
 }
 
@@ -234,12 +234,32 @@ public extension PerformanceEvent {
         parameter: String? = nil,
         parameters: [String: JSONValue]? = nil,
         techniques: [String]? = nil,
+        source: SourceReference? = nil,
         changes: [StateChange]? = nil,
         curve: [JSONValue]? = nil
     ) {
         self.id = id; self.at = at; self.duration = duration; self.type = type; self.action = action
         self.gesture = gesture; self.target = target; self.targets = targets; self.parameter = parameter
-        self.parameters = parameters; self.techniques = techniques; self.changes = changes; self.curve = curve
+        self.parameters = parameters; self.techniques = techniques; self.source = source
+        self.changes = changes; self.curve = curve
+    }
+}
+
+public extension SourceReference {
+    init(
+        publicly _: Void = (),
+        id: String,
+        file: String? = nil,
+        line: Int? = nil,
+        column: Int? = nil,
+        endLine: Int? = nil,
+        endColumn: Int? = nil,
+        ancestry: [String]? = nil,
+        path: [String]? = nil
+    ) {
+        self.id = id; self.file = file; self.line = line; self.column = column
+        self.endLine = endLine; self.endColumn = endColumn
+        self.ancestry = ancestry; self.path = path
     }
 }
 

@@ -421,7 +421,8 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     #expect(document.tracks.first?.parts?.first?.events.count == 4)
     #expect(document.tracks.first?.parts?.first?.events[0].at.musical?.beat == 1)
     #expect(document.tracks.first?.parts?.first?.events[1].at.musical?.beat == 2)
-    #expect(document.tracks.first?.parts?.first?.events[0].parameters?["_source"] != nil)
+    #expect(document.tracks.first?.parts?.first?.source == nil)
+    #expect(document.tracks.first?.parts?.first?.events[0].source?.line == nil)
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
