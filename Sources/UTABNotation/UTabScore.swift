@@ -13,6 +13,7 @@ public struct UTabScore: Sendable {
     public struct Event: Identifiable, Sendable {
         public let id: String
         public let sourcePath: String
+        public let source: SourceReference?
         public let measure: Int
         public let beat: Double
         public let stringNumber: Int?
@@ -86,6 +87,7 @@ public struct UTabScore: Sendable {
                     prepared.append(Event(
                         id: eventID,
                         sourcePath: path,
+                        source: event.source,
                         measure: displayMeasure,
                         beat: beat,
                         stringNumber: nil,
@@ -117,7 +119,7 @@ public struct UTabScore: Sendable {
         let realizedPitch = pitch(event.parameters?["pitch"])
         let fallbackMIDI = tuning.indices.contains(string - 1) ? tuning[string - 1] + fret : nil
         let midiPitch = realizedPitch?.midi ?? fallbackMIDI
-        return Event(id: id, sourcePath: path, measure: measure, beat: beat, stringNumber: string, fret: fret,
+        return Event(id: id, sourcePath: path, source: event.source, measure: measure, beat: beat, stringNumber: string, fret: fret,
                      midiPitch: midiPitch,
                      staffStep: realizedPitch?.staffStep ?? midiPitch.map(staffStep),
                      label: event.action ?? event.gesture ?? event.type ?? "event")
