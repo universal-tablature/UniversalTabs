@@ -173,7 +173,11 @@ public struct Scale: Sendable, Hashable {
 
 public enum MusicalPitch: Sendable, Hashable {
     case absolute(AbsolutePitch)
-    case scaleDegree(Int, octave: Int)
+    case scaleDegree(Int, octave: Int, alteration: Int)
+
+    public static func scaleDegree(_ degree: Int, octave: Int) -> Self {
+        .scaleDegree(degree, octave: octave, alteration: 0)
+    }
 }
 
 public enum ChordQuality: Sendable, Hashable {
@@ -192,7 +196,7 @@ public enum ChordQuality: Sendable, Hashable {
 public struct ChordSymbol: Sendable, Hashable {
     public enum Root: Sendable, Hashable {
         case absolute(SpelledPitchClass)
-        case scaleDegree(Int)
+        case scaleDegree(Int, alteration: Int)
     }
 
     public let root: Root
@@ -209,7 +213,12 @@ public struct ChordSymbol: Sendable, Hashable {
     }
 
     public init(scaleDegree: Int, _ quality: ChordQuality) {
-        self.root = .scaleDegree(scaleDegree)
+        self.root = .scaleDegree(scaleDegree, alteration: 0)
+        self.quality = quality
+    }
+
+    public init(scaleDegree: Int, alteration: Int, _ quality: ChordQuality) {
+        self.root = .scaleDegree(scaleDegree, alteration: alteration)
         self.quality = quality
     }
 }

@@ -356,8 +356,8 @@ public struct PitchResolutionStage: CompilerStage {
             switch pitch {
             case .absolute(let value):
                 absolute = value
-            case .scaleDegree(let degree, let octave):
-                absolute = scale?.resolve(degree: degree, octave: octave)
+            case .scaleDegree(let degree, let octave, let alteration):
+                absolute = scale?.resolve(degree: degree, octave: octave)?.transposed(cents: alteration * 100)
             }
             if absolute == nil {
                 diagnostics.append(.init(
@@ -374,8 +374,9 @@ public struct PitchResolutionStage: CompilerStage {
             switch chord.root {
             case .absolute(let spelling):
                 root = spelling.pitchClass
-            case .scaleDegree(let degree):
-                root = scale?.resolve(degree: degree, octave: 0)?.pitchClass
+            case .scaleDegree(let degree, let alteration):
+                root = scale?.resolve(degree: degree, octave: 0)?
+                    .transposed(cents: alteration * 100).pitchClass
             }
             if root == nil {
                 diagnostics.append(.init(
@@ -453,8 +454,15 @@ public struct TimelineDebugRenderer: Sendable {
     private func format(_ pitch: MusicalPitch) -> String {
         switch pitch {
         case .absolute(let absolute): format(absolute)
-        case .scaleDegree(let degree, let octave): "@\(degree)[\(octave)]"
+        case .scaleDegree(let degree, let octave, let alteration):
+            "@\(degree)\(alterationText(alteration))[\(octave)]"
         }
+    }
+
+    private func alterationText(_ alteration: Int) -> String {
+        alteration >= 0
+            ? String(repeating: "#", count: alteration)
+            : String(repeating: "b", count: -alteration)
     }
 
     private func format(_ pitch: AbsolutePitch) -> String {

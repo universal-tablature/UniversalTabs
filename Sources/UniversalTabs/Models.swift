@@ -36,6 +36,180 @@ public struct UTabDocument: Codable, Sendable {
     public let setup: PerformanceSetup
     public let tracks: [EventTrack]
     public let harmony: [HarmonyEvent]?
+    /// Optional structural provenance for authoring tools. Playback consumers can ignore this map.
+    public let editingMap: UTabEditingMap?
+}
+
+public struct UTabEditingMap: Codable, Sendable {
+    public let version: Int
+    public let occurrences: [UTabEditingOccurrence]
+    public let containers: [UTabEditingContainer]
+    public let measures: [UTabEditingMeasure]
+    public let scale: UTabEditingScale?
+
+    public init(
+        version: Int = 1,
+        occurrences: [UTabEditingOccurrence],
+        containers: [UTabEditingContainer],
+        measures: [UTabEditingMeasure],
+        scale: UTabEditingScale? = nil
+    ) {
+        self.version = version
+        self.occurrences = occurrences
+        self.containers = containers
+        self.measures = measures
+        self.scale = scale
+    }
+}
+
+/// Optional authoring context used by editors to present scale-relative material.
+public struct UTabEditingScale: Codable, Sendable {
+    public let tonic: String
+    public let name: String
+    public let centIntervals: [Int]
+
+    public init(tonic: String, name: String, centIntervals: [Int]) {
+        self.tonic = tonic
+        self.name = name
+        self.centIntervals = centIntervals
+    }
+}
+
+public struct UTabEditingPitchRepresentation: Codable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case absolute
+        case scaleRelative
+    }
+
+    public let kind: Kind
+    public let letter: String?
+    public let accidental: Int?
+    public let tuningOffsetCents: Int?
+    public let degree: Int?
+    public let alteration: Int?
+    public let octave: Int
+    public let resolvedMIDIPitch: Int?
+
+    public init(
+        kind: Kind,
+        letter: String? = nil,
+        accidental: Int? = nil,
+        tuningOffsetCents: Int? = nil,
+        degree: Int? = nil,
+        alteration: Int? = nil,
+        octave: Int,
+        resolvedMIDIPitch: Int? = nil
+    ) {
+        self.kind = kind
+        self.letter = letter
+        self.accidental = accidental
+        self.tuningOffsetCents = tuningOffsetCents
+        self.degree = degree
+        self.alteration = alteration
+        self.octave = octave
+        self.resolvedMIDIPitch = resolvedMIDIPitch
+    }
+}
+
+public struct UTabEditingOccurrence: Codable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case note
+        case rest
+        case actuator
+    }
+
+    public let occurrenceID: String
+    public let definitionID: String
+    public let kind: Kind
+    public let trackID: String
+    public let sectionID: String
+    public let at: EventTime
+    public let duration: EventDuration
+    public let pitchRepresentation: UTabEditingPitchRepresentation?
+    public let source: SourceReference?
+
+    public init(
+        occurrenceID: String,
+        definitionID: String,
+        kind: Kind,
+        trackID: String,
+        sectionID: String,
+        at: EventTime,
+        duration: EventDuration,
+        pitchRepresentation: UTabEditingPitchRepresentation? = nil,
+        source: SourceReference? = nil
+    ) {
+        self.occurrenceID = occurrenceID
+        self.definitionID = definitionID
+        self.kind = kind
+        self.trackID = trackID
+        self.sectionID = sectionID
+        self.at = at
+        self.duration = duration
+        self.pitchRepresentation = pitchRepresentation
+        self.source = source
+    }
+}
+
+public struct UTabEditingContainer: Codable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case sequence
+        case parallel
+        case technique
+        case explicitBar
+    }
+
+    public let occurrenceID: String
+    public let definitionID: String
+    public let kind: Kind
+    public let trackID: String
+    public let sectionID: String
+    public let childOccurrenceIDs: [String]
+    public let source: SourceReference?
+
+    public init(
+        occurrenceID: String,
+        definitionID: String,
+        kind: Kind,
+        trackID: String,
+        sectionID: String,
+        childOccurrenceIDs: [String],
+        source: SourceReference? = nil
+    ) {
+        self.occurrenceID = occurrenceID
+        self.definitionID = definitionID
+        self.kind = kind
+        self.trackID = trackID
+        self.sectionID = sectionID
+        self.childOccurrenceIDs = childOccurrenceIDs
+        self.source = source
+    }
+}
+
+public struct UTabEditingMeasure: Codable, Sendable {
+    public let id: String
+    public let trackID: String
+    public let sectionID: String
+    public let measure: Int
+    public let contributorOccurrenceIDs: [String]
+    /// Present only when the measure comes from an authored `bar { ... }` container.
+    public let explicitBarSource: SourceReference?
+
+    public init(
+        id: String,
+        trackID: String,
+        sectionID: String,
+        measure: Int,
+        contributorOccurrenceIDs: [String],
+        explicitBarSource: SourceReference? = nil
+    ) {
+        self.id = id
+        self.trackID = trackID
+        self.sectionID = sectionID
+        self.measure = measure
+        self.contributorOccurrenceIDs = contributorOccurrenceIDs
+        self.explicitBarSource = explicitBarSource
+    }
 }
 
 public struct HarmonyEvent: Codable, Sendable {

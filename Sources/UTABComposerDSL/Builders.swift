@@ -33,11 +33,12 @@ public func Degree(
     _ degree: Int,
     octave: Int,
     _ duration: MusicalDuration,
+    alteration: Int = 0,
     fileID: String = #fileID,
     line: UInt = #line,
     column: UInt = #column
 ) -> MusicalExpression {
-    Note(.scaleDegree(degree, octave: octave), duration, fileID: fileID, line: line, column: column)
+    Note(.scaleDegree(degree, octave: octave, alteration: alteration), duration, fileID: fileID, line: line, column: column)
 }
 
 public func Chord(

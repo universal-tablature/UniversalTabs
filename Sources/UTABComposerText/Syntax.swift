@@ -36,8 +36,16 @@ public struct TextCompositionSyntax: Sendable, Hashable {
 }
 
 public struct TextConstantSyntax: Sendable, Hashable {
+    public enum Value: Sendable, Hashable {
+        case integer(TextToken)
+        case pitchClass(TextToken)
+        case scaleDegree(degree: TextToken, alteration: Int)
+        case chordAbsolute(root: TextToken, quality: TextToken)
+        case chordRelative(degree: TextToken, alteration: Int, quality: TextToken)
+    }
+
     public let name: TextToken
-    public let value: TextToken
+    public let value: Value
     public let range: SourceRange
 }
 
@@ -247,12 +255,15 @@ public struct TextVoiceSyntax: Sendable, Hashable {
 public struct TextExpressionSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
         case note(pitch: TextToken, duration: TextToken)
-        case relativeNote(degree: TextToken, octave: TextToken, duration: TextToken)
+        case relativeNote(degree: TextToken, alteration: Int, octave: TextToken, duration: TextToken)
         case chord(root: TextToken, quality: TextToken, duration: TextToken, shape: TextToken?)
+        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextToken, shape: TextToken?)
+        case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextToken)
         case rest(duration: TextToken)
         case reference(TextToken)
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])
         case bar([TextExpressionSyntax])
+        case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case performed(pattern: TextToken, chords: [TextExpressionSyntax])
     }

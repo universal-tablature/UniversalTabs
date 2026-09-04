@@ -75,7 +75,9 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                         error("Duplicate constant '\(constant.name.lexeme)'", at: constant.range)
                         continue
                     }
-                    if let value = constant.value.integerValue { integerConstants[qualified] = value }
+                    if case .integer(let token) = constant.value, let value = token.integerValue {
+                        integerConstants[qualified] = value
+                    }
                 }
             }
         }

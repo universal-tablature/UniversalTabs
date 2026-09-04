@@ -1,0 +1,9 @@
+module std.solfege.fixed
+
+let do = C
+let re = D
+let mi = E
+let fa = F
+let sol = G
+let la = A
+let ti = B

@@ -15,7 +15,8 @@
     "harmony": {
       "type": "array",
       "items": { "$ref": "#/$defs/harmonyEvent" }
-    }
+    },
+    "editingMap": { "$ref": "#/$defs/editingMap" }
   },
   "additionalProperties": true,
   "$defs": {
@@ -345,6 +346,105 @@
         "source": { "type": "object" }
       },
       "additionalProperties": true
+    },
+    "editingPitchRepresentation": {
+      "type": "object",
+      "required": ["kind", "octave"],
+      "properties": {
+        "kind": { "enum": ["absolute", "scaleRelative"] },
+        "letter": { "enum": ["A", "B", "C", "D", "E", "F", "G"] },
+        "accidental": { "type": "integer" },
+        "tuningOffsetCents": { "type": "integer" },
+        "degree": { "type": "integer", "minimum": 1 },
+        "alteration": { "type": "integer" },
+        "octave": { "type": "integer" },
+        "resolvedMIDIPitch": { "type": "integer", "minimum": 0, "maximum": 127 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "absolute" } } },
+          "then": { "required": ["letter", "accidental", "tuningOffsetCents"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "scaleRelative" } } },
+          "then": { "required": ["degree"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "editingMap": {
+      "type": "object",
+      "required": ["version", "occurrences", "containers", "measures"],
+      "properties": {
+        "version": { "type": "integer", "minimum": 1 },
+        "scale": {
+          "type": "object",
+          "required": ["tonic", "name", "centIntervals"],
+          "properties": {
+            "tonic": { "type": "string", "minLength": 1 },
+            "name": { "type": "string", "minLength": 1 },
+            "centIntervals": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "integer" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "occurrences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["occurrenceID", "definitionID", "kind", "trackID", "sectionID", "at", "duration"],
+            "properties": {
+              "occurrenceID": { "type": "string", "minLength": 1 },
+              "definitionID": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["note", "rest", "actuator"] },
+              "trackID": { "type": "string", "minLength": 1 },
+              "sectionID": { "type": "string", "minLength": 1 },
+              "at": { "$ref": "#/$defs/timePosition" },
+              "duration": { "$ref": "#/$defs/duration" },
+              "pitchRepresentation": { "$ref": "#/$defs/editingPitchRepresentation" },
+              "source": { "$ref": "#/$defs/sourceReference" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "containers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["occurrenceID", "definitionID", "kind", "trackID", "sectionID", "childOccurrenceIDs"],
+            "properties": {
+              "occurrenceID": { "type": "string", "minLength": 1 },
+              "definitionID": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["sequence", "parallel", "technique", "explicitBar"] },
+              "trackID": { "type": "string", "minLength": 1 },
+              "sectionID": { "type": "string", "minLength": 1 },
+              "childOccurrenceIDs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "source": { "$ref": "#/$defs/sourceReference" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "measures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "trackID", "sectionID", "measure", "contributorOccurrenceIDs"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "trackID": { "type": "string", "minLength": 1 },
+              "sectionID": { "type": "string", "minLength": 1 },
+              "measure": { "type": "integer", "minimum": 1 },
+              "contributorOccurrenceIDs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "explicitBarSource": { "$ref": "#/$defs/sourceReference" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "sourceReference": {
       "type": "object",

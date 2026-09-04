@@ -21,7 +21,7 @@ public struct TextSemanticLowerer: Sendable {
 
     public func lower(_ syntax: TextCompositionSyntax) -> TextSemanticResult {
         let definitions = scaleKinds(in: [syntax])
-        var worker = Worker(syntax: syntax, scaleKinds: definitions.kinds, diagnostics: definitions.diagnostics)
+        var worker = Worker(syntax: syntax, scaleKinds: definitions.kinds, bindings: bindings(in: [syntax]), diagnostics: definitions.diagnostics)
         return worker.lower()
     }
 
@@ -30,8 +30,16 @@ public struct TextSemanticLowerer: Sendable {
             return .init(composition: nil, instruments: [], diagnostics: [])
         }
         let definitions = scaleKinds(in: modules.map(\.syntax))
-        var worker = Worker(syntax: root.syntax, scaleKinds: definitions.kinds, diagnostics: definitions.diagnostics)
+        var worker = Worker(syntax: root.syntax, scaleKinds: definitions.kinds, bindings: bindings(in: modules.map(\.syntax)), diagnostics: definitions.diagnostics)
         return worker.lower()
+    }
+
+    private func bindings(in syntaxes: [TextCompositionSyntax]) -> [String: TextConstantSyntax.Value] {
+        var result: [String: TextConstantSyntax.Value] = [:]
+        for constant in syntaxes.flatMap(\.constants) {
+            result[String(constant.name.lexeme)] = constant.value
+        }
+        return result
     }
 
     private func scaleKinds(in syntaxes: [TextCompositionSyntax]) -> (kinds: [String: ScaleKind], diagnostics: [TextDiagnostic]) {
@@ -58,6 +66,7 @@ public struct TextSemanticLowerer: Sendable {
     private struct Worker {
         let syntax: TextCompositionSyntax
         let scaleKinds: [String: ScaleKind]
+        let bindings: [String: TextConstantSyntax.Value]
         var diagnostics: [TextDiagnostic]
 
         mutating func lower() -> TextSemanticResult {
@@ -199,10 +208,10 @@ public struct TextSemanticLowerer: Sendable {
                     kind: .note(.absolute(pitch), duration: duration(durationToken), constraints: []),
                     annotations: .init(source: expression.range)
                 )
-            case .relativeNote(let degree, let octave, let durationToken):
+            case .relativeNote(let degree, let alteration, let octave, let durationToken):
                 return .init(
                     id: id("relative-note", expression.range),
-                    kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0), duration: duration(durationToken), constraints: []),
+                    kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0, alteration: alteration), duration: duration(durationToken), constraints: []),
                     annotations: .init(source: expression.range)
                 )
             case .chord(let root, let quality, let durationToken, let shape):
@@ -219,13 +228,60 @@ public struct TextSemanticLowerer: Sendable {
                     kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []),
                     annotations: .init(source: expression.range)
                 )
+            case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape):
+                guard let chordQuality = chordQuality(quality) else {
+                    error("Unsupported chord quality '\(quality.lexeme)'", at: quality.range)
+                    return .rest(.zero, id: id("invalid", expression.range))
+                }
+                return .init(
+                    id: id("relative-chord", expression.range),
+                    kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: alteration, chordQuality), duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []),
+                    annotations: .init(source: expression.range)
+                )
+            case .symbol(let name, let useAlteration, let octave, let durationToken):
+                let resolved = symbolicBinding(String(name.lexeme), useAlteration: useAlteration)
+                guard let binding = resolved.binding else {
+                    error("Unknown musical symbol '\(name.lexeme)'", at: name.range)
+                    return .rest(.zero, id: id("invalid", expression.range))
+                }
+                let useAlteration = resolved.alteration
+                switch binding {
+                case .pitchClass(let pitchClass):
+                    guard let octave, let spelling = parsePitchClass(String(pitchClass.lexeme)) else {
+                        error("Pitch symbol '\(name.lexeme)' requires an octave", at: expression.range)
+                        return .rest(.zero, id: id("invalid", expression.range))
+                    }
+                    let pitch = AbsolutePitch(.init(spelling.letter, accidental: spelling.accidental + useAlteration, tuningOffsetCents: spelling.tuningOffsetCents), octave: octave.integerValue ?? 0)
+                    return .init(id: id("symbolic-note", expression.range), kind: .note(.absolute(pitch), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                case .scaleDegree(let degree, let bindingAlteration):
+                    guard let octave else {
+                        error("Pitch symbol '\(name.lexeme)' requires an octave", at: expression.range)
+                        return .rest(.zero, id: id("invalid", expression.range))
+                    }
+                    return .init(id: id("symbolic-relative-note", expression.range), kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0, alteration: bindingAlteration + useAlteration), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                case .chordAbsolute(let root, let quality):
+                    guard octave == nil, useAlteration == 0, let spelling = parsePitchClass(String(root.lexeme)), let chordQuality = chordQuality(quality) else {
+                        error("Invalid chord symbol '\(name.lexeme)'", at: expression.range)
+                        return .rest(.zero, id: id("invalid", expression.range))
+                    }
+                    return .init(id: id("symbolic-chord", expression.range), kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                case .chordRelative(let degree, let bindingAlteration, let quality):
+                    guard octave == nil, let chordQuality = chordQuality(quality) else {
+                        error("Invalid relative chord symbol '\(name.lexeme)'", at: expression.range)
+                        return .rest(.zero, id: id("invalid", expression.range))
+                    }
+                    return .init(id: id("symbolic-relative-chord", expression.range), kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: bindingAlteration + useAlteration, chordQuality), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                case .integer:
+                    error("Integer constant '\(name.lexeme)' is not a musical value", at: expression.range)
+                    return .rest(.zero, id: id("invalid", expression.range))
+                }
             case .rest(let token):
                 return .init(id: id("rest", expression.range), kind: .rest(duration(token)), annotations: .init(source: expression.range))
             case .reference(let token):
                 return .reference(.named("phrase", String(token.lexeme)), id: id("phrase-reference", expression.range))
             case .repeated(let count, let expressions):
                 return .repeated(count: count.integerValue ?? 0, expressionSequence(expressions, range: expression.range), id: id("repeat", expression.range))
-            case .bar(let expressions):
+            case .bar(let expressions), .sequence(let expressions):
                 return expressionSequence(expressions, range: expression.range)
             case .parallel(let expressions):
                 return .parallel(expressions.map { lowerExpression($0) }, id: id("parallel", expression.range))
@@ -250,6 +306,17 @@ public struct TextSemanticLowerer: Sendable {
                     ]
                 ), id: id("performance", expression.range))
             }
+        }
+
+        func symbolicBinding(_ rawName: String, useAlteration: Int) -> (binding: TextConstantSyntax.Value?, alteration: Int) {
+            if let binding = bindings[rawName] { return (binding, useAlteration) }
+            var name = rawName
+            var alteration = useAlteration
+            while let suffix = name.last, suffix == "#" || suffix == "b" {
+                alteration += suffix == "#" ? 1 : -1
+                name.removeLast()
+            }
+            return (bindings[name], alteration)
         }
 
         func performanceStep(_ step: TextPerformanceStepSyntax) -> MetadataValue {

@@ -1,0 +1,9 @@
+module std.solfege.movable
+
+let do = @1
+let re = @2
+let mi = @3
+let fa = @4
+let sol = @5
+let la = @6
+let ti = @7

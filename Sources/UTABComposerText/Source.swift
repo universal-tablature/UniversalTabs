@@ -29,6 +29,7 @@ public enum TextTokenKind: String, Sendable, Hashable {
     case semicolon
     case newline
     case atSign
+    case accidental
     case leftBracket
     case rightBracket
     case endOfFile
@@ -229,7 +230,7 @@ public struct TextLexer: Sendable {
         func punctuation(_ character: Character) -> TextTokenKind? {
             switch character {
             case "{": .leftBrace; case "}": .rightBrace; case "(": .leftParen; case ")": .rightParen
-            case "[": .leftBracket; case "]": .rightBracket; case "@": .atSign
+            case "[": .leftBracket; case "]": .rightBracket; case "@": .atSign; case "#": .accidental
             case ":": .colon; case "=": .equal; case ".": .dot; case ",": .comma; case "/": .slash; case ";": .semicolon
             default: nil
             }

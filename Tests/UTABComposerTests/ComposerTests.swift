@@ -22,6 +22,46 @@ import UniversalTabs
     #expect(parallel.duration == .whole)
 }
 
+@Test func symbolicPitchAndRelativeChordBindingsLoadFromStandardModules() throws {
+    let source = TextSource(
+        """
+        module tests.symbolic
+        import std.solfege.movable
+        import std.harmony.roman
+        import std.notes.oud.arabic
+
+        meter 4/4
+        tempo 90
+        scale D MaqamBayati
+
+        section verse : 2 bars {
+            harmony {
+                I h
+                chord @4# diminished h
+                V w
+            }
+            oud {
+                voice melody {
+                    do[3] q
+                    duka[3] q
+                    mi#[3] q
+                    sikah[3] q
+                    nawa[3] w
+                }
+            }
+        }
+        main { verse }
+        """,
+        fileID: "symbolic-bindings.utab"
+    )
+    let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+    let lowered = TextSemanticLowerer().lower(loaded.modules)
+
+    #expect(loaded.diagnostics.isEmpty)
+    #expect(lowered.diagnostics.isEmpty)
+    #expect(lowered.composition != nil)
+}
+
 @Test func semanticExpressionsHaveStableExplicitAndStructuralIdentities() {
     let first = MusicalExpression.rest(.quarter, id: "expression:first")
     let second = MusicalExpression.rest(.half, id: "expression:second")
@@ -1584,7 +1624,7 @@ private func stableFingerprint(_ data: Data) -> String {
         scale C major
 
         phrase melody {
-            C4 h
+            @1#[4] h
             D4 h
         }
 
@@ -1613,6 +1653,11 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(composition.title == "Twinkle Text")
     #expect(composition.annotations.source?.fileID == "twinkle.utablang")
     #expect(composition.phrases.first?.annotations.source?.start.line == 6)
+    let representations = try #require(result.output?.editingMap).occurrences.compactMap(\.pitchRepresentation)
+    #expect(representations.contains {
+        $0.kind == .scaleRelative && $0.degree == 1 && $0.alteration == 1 && $0.octave == 4
+    })
+    #expect(representations.contains { $0.kind == .absolute && $0.letter == "D" && $0.octave == 4 })
     #expect(result.succeeded)
 }
 
@@ -1785,6 +1830,17 @@ private func stableFingerprint(_ data: Data) -> String {
 
     #expect(!result.succeeded)
     #expect(result.diagnostics.contains { $0.message.contains("Expected ';' or newline") })
+}
+
+@Test func textualParserAcceptsParenthesizedSequencesAndRestShorthand() throws {
+    let result = TextCompositionFrontend().compile(.init(
+        "meter 4/4\ntempo 100\nphrase overlap { (C4 h; E4 q; F4 q), (_ q; D4 q; _ h) }",
+        fileID: "overlap.utab"
+    ))
+    let phrase = try #require(result.composition?.phrases.first)
+
+    #expect(result.succeeded)
+    #expect(phrase.duration == .whole)
 }
 
 @Test func completeTextualTwinkleCompilesDeterministicallyToUTab() throws {

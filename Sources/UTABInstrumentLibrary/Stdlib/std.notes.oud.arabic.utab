@@ -1,0 +1,12 @@
+module std.notes.oud.arabic
+
+// Scale-relative Arabic pitch names. Their exact intonation follows the
+// active maqam instead of being flattened to twelve-tone pitch classes.
+let qarar_rast = @1
+let duka = @2
+let sikah = @3
+let jaharkah = @4
+let nawa = @5
+let husayni = @6
+let awj = @7
+let kirdan = @8

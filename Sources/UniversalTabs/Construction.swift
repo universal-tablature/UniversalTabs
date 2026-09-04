@@ -4,12 +4,14 @@ public extension UTabDocument {
         utab: UTabMetadata,
         setup: PerformanceSetup,
         tracks: [EventTrack],
-        harmony: [HarmonyEvent]? = nil
+        harmony: [HarmonyEvent]? = nil,
+        editingMap: UTabEditingMap? = nil
     ) {
         self.utab = utab
         self.setup = setup
         self.tracks = tracks
         self.harmony = harmony
+        self.editingMap = editingMap
     }
 }
 

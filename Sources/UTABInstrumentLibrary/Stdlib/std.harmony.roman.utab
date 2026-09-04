@@ -1,0 +1,16 @@
+module std.harmony.roman
+
+let I = chord @1 major
+let i = chord @1 minor
+let II = chord @2 major
+let ii = chord @2 minor
+let III = chord @3 major
+let iii = chord @3 minor
+let IV = chord @4 major
+let iv = chord @4 minor
+let V = chord @5 major
+let v = chord @5 minor
+let VI = chord @6 major
+let vi = chord @6 minor
+let VII = chord @7 major
+let vii = chord @7 diminished

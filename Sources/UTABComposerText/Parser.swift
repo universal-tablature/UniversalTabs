@@ -43,8 +43,8 @@ public struct TextParser: Sendable {
                 } else if takeKeyword("let") {
                     if let name = expect(.identifier, "Expected constant name") {
                         _ = take(.equal)
-                        if let value = expect(.integerLiteral, "Expected integer constant value") {
-                            constants.append(.init(name: name, value: value, range: spanning(name, value)))
+                        if let value = parseConstantValue() {
+                            constants.append(.init(name: name, value: value.value, range: spanning(name, value.end)))
                         }
                     }
                 } else if takeKeyword("profile") {
@@ -100,6 +100,40 @@ public struct TextParser: Sendable {
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseConstantValue() -> (value: TextConstantSyntax.Value, end: TextToken)? {
+            if current.kind == .integerLiteral {
+                let token = advance()
+                return (.integer(token), token)
+            }
+            if take(.atSign) {
+                guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
+                let alteration = parseAlteration()
+                return (.scaleDegree(degree: degree, alteration: alteration), tokens[index - 1])
+            }
+            if takeKeyword("chord") {
+                if take(.atSign) {
+                    guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
+                    let alteration = parseAlteration()
+                    guard let quality = expect(.identifier, "Expected chord quality") else { return nil }
+                    return (.chordRelative(degree: degree, alteration: alteration, quality: quality), quality)
+                }
+                guard let root = expect(.identifier, "Expected chord root"),
+                      let quality = expect(.identifier, "Expected chord quality") else { return nil }
+                return (.chordAbsolute(root: root, quality: quality), quality)
+            }
+            guard let pitch = expect(.identifier, "Expected integer, pitch, scale degree, or chord value") else { return nil }
+            return (.pitchClass(pitch), pitch)
+        }
+
+        mutating func parseAlteration() -> Int {
+            var alteration = 0
+            while current.kind == .accidental || (current.kind == .identifier && current.lexeme == "b") {
+                alteration += current.kind == .accidental ? 1 : -1
+                advance()
+            }
+            return alteration
         }
 
         mutating func parseScaleDefinition(symbol: TextToken) -> TextScaleDefinitionSyntax? {
@@ -595,15 +629,32 @@ public struct TextParser: Sendable {
         mutating func parseExpression() -> TextExpressionSyntax? {
             if take(.atSign) {
                 let start = tokens[index - 1]
-                guard let degree = expect(.integerLiteral, "Expected scale degree after '@'"),
-                      expect(.leftBracket, "Expected '[' before relative octave") != nil,
+                guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
+                var alteration = 0
+                while current.kind == .accidental || (current.kind == .identifier && current.lexeme == "b") {
+                    alteration += current.kind == .accidental ? 1 : -1
+                    advance()
+                }
+                guard expect(.leftBracket, "Expected '[' before relative octave") != nil,
                       let octave = expect(.integerLiteral, "Expected relative octave"),
                       expect(.rightBracket, "Expected ']' after relative octave") != nil,
                       let duration = expect(.identifier, "Expected note duration") else { return nil }
-                return .init(kind: .relativeNote(degree: degree, octave: octave, duration: duration), range: spanning(start, duration))
+                return .init(
+                    kind: .relativeNote(degree: degree, alteration: alteration, octave: octave, duration: duration),
+                    range: spanning(start, duration)
+                )
             }
             if takeKeyword("chord") {
                 let start = tokens[index - 1]
+                if take(.atSign) {
+                    guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
+                    let alteration = parseAlteration()
+                    guard let quality = expect(.identifier, "Expected chord quality"),
+                          let duration = expect(.identifier, "Expected chord duration") else { return nil }
+                    var shape: TextToken?
+                    if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
+                    return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? duration))
+                }
                 guard let root = expect(.identifier, "Expected chord root"),
                       let quality = expect(.identifier, "Expected chord quality"),
                       let duration = expect(.identifier, "Expected chord duration") else { return nil }
@@ -633,16 +684,30 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after bar") ?? current
                 return .init(kind: .bar(children), range: spanning(keyword, close))
             }
-            if takeKeyword("rest") {
-                let keyword = tokens[index - 1]
+            if take(.leftParen) {
+                let open = tokens[index - 1]
+                let children = parseExpressions(until: .rightParen)
+                let close = expect(.rightParen, "Expected ')' after grouped sequence") ?? current
+                return .init(kind: .sequence(children), range: spanning(open, close))
+            }
+            if takeKeyword("rest") || takeKeyword("_") {
+                let restToken = tokens[index - 1]
                 guard let duration = expect(.identifier, "Expected rest duration") else { return nil }
-                return .init(kind: .rest(duration: duration), range: spanning(keyword, duration))
+                return .init(kind: .rest(duration: duration), range: spanning(restToken, duration))
             }
             guard current.kind == .identifier else { diagnose("Expected musical expression"); return nil }
             let first = advance()
+            let alteration = parseAlteration()
+            if take(.leftBracket) {
+                guard let octave = expect(.integerLiteral, "Expected octave"),
+                      expect(.rightBracket, "Expected ']' after octave") != nil,
+                      let duration = expect(.identifier, "Expected note duration") else { return nil }
+                return .init(kind: .symbol(name: first, alteration: alteration, octave: octave, duration: duration), range: spanning(first, duration))
+            }
             if current.kind == .identifier, isDuration(current) {
                 let duration = advance()
-                return .init(kind: .note(pitch: first, duration: duration), range: spanning(first, duration))
+                let isConcretePitch = first.lexeme.contains(where: \.isNumber)
+                return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, duration))
             }
             return .init(kind: .reference(first), range: first.range)
         }

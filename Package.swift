@@ -15,6 +15,7 @@ let package = Package(
         .library(name: "UTABInstruments", targets: ["UTABInstruments"]),
         .library(name: "UTABComposerDSL", targets: ["UTABComposerDSL"]),
         .library(name: "UTABComposerText", targets: ["UTABComposerText"]),
+        .library(name: "UTABEditing", targets: ["UTABEditing"]),
         .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
         .library(name: "UTABLowering", targets: ["UTABLowering"]),
         .library(name: "UTABAudio", targets: ["UTABAudio"]),
@@ -39,6 +40,7 @@ let package = Package(
         .target(name: "UTABInstruments", dependencies: ["UTABComposerCore"]),
         .target(name: "UTABComposerDSL", dependencies: ["UTABComposerCore", "UTABInstruments"]),
         .target(name: "UTABComposerText", dependencies: ["UTABComposerCore"]),
+        .target(name: "UTABEditing", dependencies: ["UniversalTabs", "UTABComposerCore"]),
         .target(
             name: "UTABInstrumentLibrary",
             dependencies: ["UTABInstruments", "UTABComposerText", "UTABLowering"],
@@ -52,7 +54,7 @@ let package = Package(
         .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
         .target(name: "UTABNotation", dependencies: ["UniversalTabs"]),
         .target(name: "UTABEngraving", dependencies: ["UTABNotation"]),
-        .target(name: "UTABScoreUI", dependencies: ["UniversalTabs", "UTABNotation", "UTABEngraving"]),
+        .target(name: "UTABScoreUI", dependencies: ["UniversalTabs", "UTABEditing", "UTABNotation", "UTABEngraving"]),
         .target(
             name: "UTABLanguageServer",
             dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]
@@ -70,6 +72,7 @@ let package = Package(
             .product(name: "ZIPFoundation", package: "ZIPFoundation")
         ]),
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
+        .testTarget(name: "UTABEditingTests", dependencies: ["UTABEditing", "UTABComposerCore"]),
         .testTarget(name: "UTABScoreUITests", dependencies: ["UTABScoreUI", "UTABNotation", "UTABEngraving", "UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",

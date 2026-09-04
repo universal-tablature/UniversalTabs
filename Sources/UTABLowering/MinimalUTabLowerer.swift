@@ -29,6 +29,18 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var parts: [TrackPart]
     }
 
+    private struct EditingLeaf {
+        let occurrenceID: String
+        let offset: MusicalDuration
+        let duration: MusicalDuration
+    }
+
+    private struct EditingBar {
+        let offset: MusicalDuration
+        let duration: MusicalDuration
+        let source: SourceReference?
+    }
+
     private struct Lowerer {
         let input: RealizedComposition
         var diagnostics: [ComposerDiagnostic] = []
@@ -36,6 +48,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var tracks: [String: TrackAccumulator] = [:]
         var instances: [String: InstrumentInstanceDefinition] = [:]
         var lyricsByOccurrence: [SemanticID: [AlignedLyricSyllable]] = [:]
+        var editingOccurrences: [UTabEditingOccurrence] = []
+        var editingContainers: [UTabEditingContainer] = []
+        var editingMeasures: [UTabEditingMeasure] = []
 
         var composition: Composition { input.source.source.source.source.source }
 
@@ -103,9 +118,32 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 tracks: tracks.values.sorted { $0.id < $1.id }.map {
                     EventTrack(id: $0.id, name: $0.name, instrument: $0.instrumentID, parts: $0.parts)
                 },
-                harmony: harmony.isEmpty ? nil : harmony
+                harmony: harmony.isEmpty ? nil : harmony,
+                editingMap: editingOccurrences.isEmpty && editingContainers.isEmpty && editingMeasures.isEmpty
+                    ? nil
+                    : UTabEditingMap(
+                        occurrences: editingOccurrences,
+                        containers: editingContainers,
+                        measures: editingMeasures,
+                        scale: editingScale()
+                    )
             )
             return .init(output: document, diagnostics: diagnostics)
+        }
+
+        func editingScale() -> UTabEditingScale? {
+            guard let scale = composition.scale else { return nil }
+            let name: String
+            switch scale.kind {
+            case .major: name = "major"
+            case .naturalMinor: name = "natural minor"
+            case .custom(let customName, _): name = customName
+            }
+            return .init(
+                tonic: format(scale.tonicSpelling),
+                name: name,
+                centIntervals: scale.kind.centIntervals
+            )
         }
 
         func lowerHarmony() -> [HarmonyEvent] {
@@ -213,6 +251,12 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     }
                     let key = "\(instanceID)\u{1f}\(voice.source.id.rawValue)"
                     let trackID = "track:\(instanceID):\(voice.source.id.rawValue)"
+                    collectEditingMap(
+                        voice.expression,
+                        trackID: trackID,
+                        sectionID: section.source.id.rawValue,
+                        meter: meter
+                    )
                     let displayName = part.instrumentInstance.name ?? part.source.instrument
                     var track = tracks[key] ?? .init(
                         id: trackID,
@@ -231,6 +275,203 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     tracks[key] = track
                 }
             }
+        }
+
+        mutating func collectEditingMap(
+            _ expression: RealizedExpression,
+            trackID: String,
+            sectionID: String,
+            meter: TimeSignature
+        ) {
+            var leaves: [EditingLeaf] = []
+            var explicitBars: [EditingBar] = []
+            collectEditingNode(
+                expression,
+                trackID: trackID,
+                sectionID: sectionID,
+                meter: meter,
+                leaves: &leaves,
+                explicitBars: &explicitBars
+            )
+
+            let measureCount = max(1, ceilingRatio(expression.duration, meter.duration))
+            for measureIndex in 0..<measureCount {
+                let measureStart = meter.duration * measureIndex
+                let measureEnd = measureStart + meter.duration
+                let contributors = leaves.filter { leaf in
+                    leaf.offset < measureEnd && leaf.offset + leaf.duration > measureStart
+                }.map(\.occurrenceID)
+                let explicitBarSource = explicitBars.first { bar in
+                    bar.offset == measureStart && bar.duration == meter.duration
+                }?.source
+                editingMeasures.append(.init(
+                    id: "\(trackID):\(sectionID):measure:\(measureIndex + 1)",
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    measure: measureIndex + 1,
+                    contributorOccurrenceIDs: contributors,
+                    explicitBarSource: explicitBarSource
+                ))
+            }
+        }
+
+        mutating func collectEditingNode(
+            _ expression: RealizedExpression,
+            trackID: String,
+            sectionID: String,
+            meter: TimeSignature,
+            leaves: inout [EditingLeaf],
+            explicitBars: inout [EditingBar]
+        ) {
+            let occurrenceID = expression.provenance.occurrenceID.rawValue
+            let definitionID = expression.provenance.originID.rawValue
+            let source = sourceReference(
+                id: expression.provenance.originID,
+                range: expression.annotations.source,
+                ancestry: expression.provenance.ancestry,
+                path: expression.provenance.expansionPath
+            )
+
+            switch expression.kind {
+            case .sequence(let children), .parallel(let children):
+                let isExplicitBar = definitionID.hasPrefix("bar:")
+                let kind: UTabEditingContainer.Kind
+                switch expression.kind {
+                case .parallel:
+                    kind = .parallel
+                default:
+                    kind = isExplicitBar ? .explicitBar : .sequence
+                }
+                editingContainers.append(.init(
+                    occurrenceID: occurrenceID,
+                    definitionID: definitionID,
+                    kind: kind,
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    childOccurrenceIDs: children.map { $0.provenance.occurrenceID.rawValue },
+                    source: source
+                ))
+                if isExplicitBar {
+                    explicitBars.append(.init(
+                        offset: expression.offset,
+                        duration: expression.duration,
+                        source: source
+                    ))
+                }
+                children.forEach {
+                    collectEditingNode(
+                        $0,
+                        trackID: trackID,
+                        sectionID: sectionID,
+                        meter: meter,
+                        leaves: &leaves,
+                        explicitBars: &explicitBars
+                    )
+                }
+            case .technique(let application):
+                editingContainers.append(.init(
+                    occurrenceID: occurrenceID,
+                    definitionID: definitionID,
+                    kind: .technique,
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    childOccurrenceIDs: application.operands.map { $0.provenance.occurrenceID.rawValue },
+                    source: source
+                ))
+                application.operands.forEach {
+                    collectEditingNode(
+                        $0,
+                        trackID: trackID,
+                        sectionID: sectionID,
+                        meter: meter,
+                        leaves: &leaves,
+                        explicitBars: &explicitBars
+                    )
+                }
+            case .note:
+                appendEditingOccurrence(
+                    expression,
+                    kind: .note,
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    meter: meter,
+                    source: source,
+                    leaves: &leaves
+                )
+            case .rest:
+                appendEditingOccurrence(
+                    expression,
+                    kind: .rest,
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    meter: meter,
+                    source: source,
+                    leaves: &leaves
+                )
+            case .actuator:
+                appendEditingOccurrence(
+                    expression,
+                    kind: .actuator,
+                    trackID: trackID,
+                    sectionID: sectionID,
+                    meter: meter,
+                    source: source,
+                    leaves: &leaves
+                )
+            }
+        }
+
+        func editingPitchRepresentation(
+            _ expression: RealizedExpression
+        ) -> UTabEditingPitchRepresentation? {
+            guard case .note(let resolvedPitch, _) = expression.kind else { return nil }
+            switch resolvedPitch.authored {
+            case .absolute(let pitch):
+                return .init(
+                    kind: .absolute,
+                    letter: String(describing: pitch.spelling.letter).uppercased(),
+                    accidental: pitch.spelling.accidental,
+                    tuningOffsetCents: pitch.spelling.tuningOffsetCents,
+                    octave: pitch.octave,
+                    resolvedMIDIPitch: resolvedPitch.absolute.chromaticIndex
+                )
+            case .scaleDegree(let degree, let octave, let alteration):
+                return .init(
+                    kind: .scaleRelative,
+                    degree: degree,
+                    alteration: alteration,
+                    octave: octave,
+                    resolvedMIDIPitch: resolvedPitch.absolute.chromaticIndex
+                )
+            }
+        }
+
+        mutating func appendEditingOccurrence(
+            _ expression: RealizedExpression,
+            kind: UTabEditingOccurrence.Kind,
+            trackID: String,
+            sectionID: String,
+            meter: TimeSignature,
+            source: SourceReference?,
+            leaves: inout [EditingLeaf]
+        ) {
+            let occurrenceID = expression.provenance.occurrenceID.rawValue
+            editingOccurrences.append(.init(
+                occurrenceID: occurrenceID,
+                definitionID: expression.provenance.originID.rawValue,
+                kind: kind,
+                trackID: trackID,
+                sectionID: sectionID,
+                at: eventTime(expression.offset, meter: meter),
+                duration: .init(quarterNotes: .string((expression.duration * 4).description)),
+                pitchRepresentation: editingPitchRepresentation(expression),
+                source: source
+            ))
+            leaves.append(.init(
+                occurrenceID: occurrenceID,
+                offset: expression.offset,
+                duration: expression.duration
+            ))
         }
 
         mutating func lower(
