@@ -31,6 +31,18 @@ private func leaves(_ expression: TimedExpression) -> [TimedExpression] {
     }
 }
 
+private func containsTechnique(_ name: String, in expression: MusicalExpression) -> Bool {
+    switch expression.kind {
+    case .sequence(let children), .parallel(let children):
+        children.contains { containsTechnique(name, in: $0) }
+    case .repeated(_, let child), .proportional(_, let child), .barAssertion(let child):
+        containsTechnique(name, in: child)
+    case .technique(let application):
+        application.technique == name || application.operands.contains { containsTechnique(name, in: $0) }
+    default: false
+    }
+}
+
 private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch] {
     expressions.compactMap { expression in
         if case .note(.absolute(let pitch), _) = expression.kind { return pitch }
@@ -172,10 +184,82 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
 }
 
 @Test func notationDiagnosticsCoverUnknownLateDuplicateAndAmbiguousSelections() {
-    for body in ["using notation German", "phrase a { C4 q; using notation German; H4 q }", "phrase a { using notation German; using notation German; H4 q }", "phrase a { using notation Missing }", "phrase a { using notation German; Z4 q }", "phrase a { H4 q }"] {
+    for body in ["using notation German", "phrase a { using notation German; using notation German; H4 q }", "phrase a { using notation Missing }", "phrase a { using notation German; Z4 q }", "phrase a { H4 q }"] {
         let loaded = TextModuleLoader().load(root: TextSource("import std.naming.western.german; meter 4/4; tempo 100; \(body)"), provider: StandardTextModuleProvider())
         #expect(!loaded.succeeded || !TextSemanticLowerer().lower(loaded.modules).succeeded, "\(body)")
     }
+}
+
+@Test func usingDeclarationsApplyToTheirWholeEnclosingSequence() throws {
+    let events = try timed("""
+        import std.naming.western.german
+        meter 4/4
+        tempo 100
+        section s { piano { voice v {
+            bar {
+                B4 q
+                using notation German
+                H4 q
+                using legato
+                C5 h
+            }
+        } } }
+        """)
+    #expect(absolutePitches(events).map { $0.spelling.accidental } == [-1, 0, 0])
+
+    let composition = try semantic("""
+        meter 4/4
+        tempo 100
+        section s { piano { voice v {
+            bar { C4 q; using legato; D4 q; E4 q rearticulate; F4 q letRing }
+        } } }
+        """)
+    guard case .expression(let voiceExpression) = composition.sections[0].parts[0].voices[0].content[0] else {
+        Issue.record("Expected voice expression")
+        return
+    }
+    #expect(containsTechnique("legato", in: voiceExpression))
+}
+
+@Test func looseTechniqueBlocksAndModifiersReachPerformanceEvents() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            C4 q
+            legato { D4 q; E4 q rearticulate }
+            F4 q letRing
+        } } }
+        main { s }
+        """, fileID: "articulation.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.map(\.techniques) == [nil, ["legato"], ["legato", "rearticulate"], ["letRing"]])
+}
+
+@Test func letRingExtendsPerformanceUntilDampButPreservesWrittenDuration() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            C4 q letRing
+            D4 q
+            damp
+            rest h
+        } } }
+        main { s }
+        """, fileID: "ringing.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let attacks = events.filter { $0.action == "press" }
+    #expect(attacks.map { $0.duration?.quarterNotes } == [.string("2/1"), .string("1/1")])
+    #expect(events.contains { $0.action == "damp" && $0.at.musical?.beat == 3 })
+    let occurrences = try #require(result.document?.editingMap?.occurrences)
+    #expect(occurrences.first?.duration.quarterNotes == .string("1/1"))
 }
 
 @Test func importedPhraseNamesBindAtDeclarationSite() throws {
@@ -353,6 +437,44 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(result.diagnostics.contains { $0.message.contains("tie") || $0.message.contains("Tied") })
         #expect(result.diagnostics.contains { $0.range?.fileID == "invalid-tie.utab" })
     }
+}
+
+@Test func chordTiesSustainOnlySharedRealizedPitches() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord C major h~
+            chord C sus4 h
+        } } }
+        main { s }
+        """, fileID: "chord-ties.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let attacks = events.filter { $0.action == "press" }
+    #expect(attacks.count == 4)
+    #expect(attacks.compactMap { $0.duration?.quarterNotes }.filter { $0 == .string("4/1") }.count == 2)
+    #expect(attacks.compactMap { $0.duration?.quarterNotes }.filter { $0 == .string("2/1") }.count == 2)
+    let occurrences = try #require(result.document?.editingMap?.occurrences)
+    #expect(occurrences.filter { $0.kind == .actuator }.allSatisfy { $0.duration.quarterNotes == .string("2/1") })
+}
+
+@Test func chordTiesRequireAtLeastOneSharedRealizedPitch() {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord C major h~
+            chord F# major h
+        } } }
+        main { s }
+        """, fileID: "invalid-chord-tie.utab"), modules: StandardTextModuleProvider())
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("share at least one sounding pitch") })
 }
 
 @Test func pickupAndFinalBarsPreserveTimelineAndCrossBoundaryTies() throws {

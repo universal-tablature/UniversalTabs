@@ -588,6 +588,13 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             leaves: inout [EditingLeaf]
         ) {
             let occurrenceID = expression.provenance.occurrenceID.rawValue
+            let editingDuration: MusicalDuration = {
+                guard case .integer(let numerator)? = expression.annotations.metadata["writtenDurationNumerator"],
+                      case .integer(let denominator)? = expression.annotations.metadata["writtenDurationDenominator"] else {
+                    return expression.duration
+                }
+                return MusicalDuration(numerator, denominator)
+            }()
             editingOccurrences.append(.init(
                 occurrenceID: occurrenceID,
                 definitionID: expression.provenance.originID.rawValue,
@@ -595,14 +602,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 trackID: trackID,
                 sectionID: sectionID,
                 at: eventTime(expression.offset, meter: meter),
-                duration: .init(quarterNotes: .string((expression.duration * 4).description)),
+                duration: .init(quarterNotes: .string((editingDuration * 4).description)),
                 pitchRepresentation: editingPitchRepresentation(expression),
                 source: source
             ))
             leaves.append(.init(
                 occurrenceID: occurrenceID,
                 offset: expression.offset,
-                duration: expression.duration
+                duration: editingDuration
             ))
         }
 
@@ -626,7 +633,17 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
                 }
             case .rest:
-                break
+                if expression.annotations.metadata["damp"] == .boolean(true) {
+                    capabilities[instrument, default: .init()].actions.insert("damp")
+                    events.append(makeEvent(
+                        expression,
+                        meter: meter,
+                        action: "damp",
+                        target: "notes",
+                        parameters: [:],
+                        techniques: inheritedTechniques
+                    ))
+                }
             case .note(let pitch, _):
                 capabilities[instrument, default: .init()].actions.insert("play")
                 if capabilities[instrument, default: .init()].groups["notes"] == nil {

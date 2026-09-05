@@ -275,6 +275,8 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case tempoRamp(target: TextToken, duration: TextDurationSyntax, steps: TextToken?)
         case fermata(duration: TextDurationSyntax, factor: TextToken)
         case rubato(duration: TextDurationSyntax, factor: TextToken)
+        case damp
+        case technique(name: TextToken, expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])
@@ -285,6 +287,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public let range: SourceRange
     public var notation: TextQualifiedNameSyntax? = nil
     public var tieToNext = false
+    public var modifiers: [TextToken] = []
 }
 
 public struct TextParseResult: Sendable {

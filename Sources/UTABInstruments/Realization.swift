@@ -88,13 +88,14 @@ public struct InstrumentRealizationStage: CompilerStage {
                     let path = "sections[\(sectionIndex)].parts[\(partIndex)]"
                     guard let context = context(for: part.source.instrument, path: path) else { continue }
                     let voices = part.voices.enumerated().map { voiceIndex, voice in
-                        RealizedVoice(
+                        let realized = realize(
+                            voice.expression,
+                            context: context,
+                            path: "\(path).voices[\(voiceIndex)]"
+                        )
+                        return RealizedVoice(
                             source: voice.source,
-                            expression: realize(
-                                voice.expression,
-                                context: context,
-                                path: "\(path).voices[\(voiceIndex)]"
-                            ),
+                            expression: resolveChordTies(realized, path: "\(path).voices[\(voiceIndex)]"),
                             lyrics: voice.lyrics
                         )
                     }
@@ -126,6 +127,130 @@ public struct InstrumentRealizationStage: CompilerStage {
 
             var isKeyboard: Bool { profile.actuators.contains { $0.id == "keys" } }
             var isFrettedStrings: Bool { fretCount != nil && profile.actuators.contains { $0.id == "strings" } }
+        }
+
+        struct RealizedTone {
+            let pitch: AbsolutePitch
+            let expression: RealizedExpression
+        }
+
+        mutating func resolveChordTies(_ expression: RealizedExpression, path: String) -> RealizedExpression {
+            var extended: [SemanticID: MusicalDuration] = [:]
+            var continuations = Set<SemanticID>()
+            diagnoseAndCollectChordTies(expression, path: path, extended: &extended, continuations: &continuations)
+            return rewriteChordTies(expression, extended: extended, continuations: continuations)
+        }
+
+        mutating func diagnoseAndCollectChordTies(
+            _ expression: RealizedExpression,
+            path: String,
+            extended: inout [SemanticID: MusicalDuration],
+            continuations: inout Set<SemanticID>
+        ) {
+            switch expression.kind {
+            case .sequence(let children):
+                var active: [AbsolutePitch: (id: SemanticID, offset: MusicalDuration)] = [:]
+                for index in children.indices {
+                    let source = children[index]
+                    guard source.annotations.metadata["tieToNext"] == .boolean(true) else {
+                        active.removeAll()
+                        diagnoseAndCollectChordTies(source, path: "\(path).sequence[\(index)]", extended: &extended, continuations: &continuations)
+                        continue
+                    }
+                    let sourceTones = realizedTones(in: source)
+                    guard sourceTones.count > 1 else { continue }
+                    guard children.indices.contains(index + 1) else {
+                        diagnostics.append(.init(.error, path: path, message: "A chord tie must be followed by another chord", range: source.annotations.source))
+                        continue
+                    }
+                    let destination = children[index + 1]
+                    let destinationTones = realizedTones(in: destination)
+                    guard destinationTones.count > 1,
+                          source.offset + source.duration == destination.offset else {
+                        diagnostics.append(.init(.error, path: path, message: "A chord tie must connect adjacent realized chords", range: source.annotations.source))
+                        continue
+                    }
+                    let sourceByPitch = Dictionary(grouping: sourceTones, by: \.pitch)
+                    let destinationByPitch = Dictionary(grouping: destinationTones, by: \.pitch)
+                    let shared = Set(sourceByPitch.keys).intersection(destinationByPitch.keys)
+                    guard !shared.isEmpty else {
+                        diagnostics.append(.init(.error, path: path, message: "Tied chords must share at least one sounding pitch", range: source.annotations.source))
+                        active.removeAll()
+                        continue
+                    }
+                    var nextActive: [AbsolutePitch: (id: SemanticID, offset: MusicalDuration)] = [:]
+                    for pitch in shared {
+                        guard sourceByPitch[pitch]?.count == 1, destinationByPitch[pitch]?.count == 1,
+                              let sourceTone = sourceByPitch[pitch]?.first,
+                              let destinationTone = destinationByPitch[pitch]?.first else {
+                            diagnostics.append(.init(.error, path: path, message: "A chord tie is ambiguous when a realized chord doubles the same pitch", range: source.annotations.source))
+                            continue
+                        }
+                        let origin = active[pitch] ?? (sourceTone.expression.provenance.occurrenceID, sourceTone.expression.offset)
+                        let end = destinationTone.expression.offset + destinationTone.expression.duration
+                        if let value = end.wholeNotes.subtracting(origin.offset.wholeNotes) {
+                            extended[origin.id] = .init(value.numerator, value.denominator)
+                            continuations.insert(destinationTone.expression.provenance.occurrenceID)
+                            nextActive[pitch] = origin
+                        }
+                    }
+                    active = nextActive
+                }
+            case .parallel(let children):
+                for (index, child) in children.enumerated() {
+                    diagnoseAndCollectChordTies(child, path: "\(path).parallel[\(index)]", extended: &extended, continuations: &continuations)
+                }
+            case .technique(let application):
+                for (index, operand) in application.operands.enumerated() {
+                    diagnoseAndCollectChordTies(operand, path: "\(path).technique[\(index)]", extended: &extended, continuations: &continuations)
+                }
+            case .note, .rest, .actuator: break
+            }
+        }
+
+        func realizedTones(in expression: RealizedExpression) -> [RealizedTone] {
+            switch expression.kind {
+            case .note(let pitch, _): return [.init(pitch: pitch.absolute, expression: expression)]
+            case .actuator(let actuator):
+                guard case .absolute(let pitch)? = actuator.soundingPitch else { return [] }
+                return [.init(pitch: pitch, expression: expression)]
+            case .parallel(let children): return children.flatMap(realizedTones)
+            case .technique(let application): return application.operands.flatMap(realizedTones)
+            case .sequence, .rest: return []
+            }
+        }
+
+        func rewriteChordTies(
+            _ expression: RealizedExpression,
+            extended: [SemanticID: MusicalDuration],
+            continuations: Set<SemanticID>
+        ) -> RealizedExpression {
+            let kind: RealizedExpression.Kind
+            switch expression.kind {
+            case .sequence(let children): kind = .sequence(children.map { rewriteChordTies($0, extended: extended, continuations: continuations) })
+            case .parallel(let children): kind = .parallel(children.map { rewriteChordTies($0, extended: extended, continuations: continuations) })
+            case .technique(let application): kind = .technique(.init(
+                technique: application.technique,
+                form: application.form,
+                operands: application.operands.map { rewriteChordTies($0, extended: extended, continuations: continuations) },
+                parameters: application.parameters
+            ))
+            default: kind = expression.kind
+            }
+            let occurrence = expression.provenance.occurrenceID
+            var metadata = expression.annotations.metadata
+            if continuations.contains(occurrence) { metadata["tieContinuation"] = .boolean(true) }
+            if extended[occurrence] != nil {
+                metadata["writtenDurationNumerator"] = .integer(expression.duration.wholeNotes.numerator)
+                metadata["writtenDurationDenominator"] = .integer(expression.duration.wholeNotes.denominator)
+            }
+            return .init(
+                provenance: expression.provenance,
+                offset: expression.offset,
+                duration: extended[occurrence] ?? expression.duration,
+                kind: kind,
+                annotations: .init(metadata: metadata, source: expression.annotations.source)
+            )
         }
 
         mutating func context(for alias: String, path: String) -> Context? {
@@ -184,7 +309,9 @@ public struct InstrumentRealizationStage: CompilerStage {
                     kind = realizePerformancePattern(application, context: context, expression: expression, path: path)
                     break
                 }
-                if !context.profile.techniques.contains(where: { $0.id == application.technique }) {
+                let universalTechniques: Set<String> = ["legato", "slur", "rearticulate", "letRing"]
+                if !universalTechniques.contains(application.technique),
+                   !context.profile.techniques.contains(where: { $0.id == application.technique }) {
                     diagnostics.append(.init(.error, path: path, message: "Instrument '\(context.model.name)' does not support technique '\(application.technique)'"))
                 }
                 kind = .technique(.init(

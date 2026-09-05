@@ -636,13 +636,25 @@ public struct TextParser: Sendable {
         mutating func parseExpressions(until end: TextTokenKind) -> [TextExpressionSyntax] {
             let inheritedNotation = notation
             defer { notation = inheritedNotation }
-            parseNotationDirective()
+            let scopedTechniques = scanUsingDirectives(until: end)
             var result: [TextExpressionSyntax] = []
             while current.kind != end && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
+                if isKeyword("using") {
+                    consumeUsingDirective()
+                    requireSequenceSeparator(unlessAt: end)
+                    continue
+                }
                 if let expression = parseTemporalGroup() { result.append(expression) }
                 else { synchronizeBlockItem() }
                 requireSequenceSeparator(unlessAt: end)
+            }
+            for technique in scopedTechniques.reversed() {
+                guard let first = result.first, let last = result.last else { continue }
+                result = [.init(
+                    kind: .technique(name: technique, expressions: result),
+                    range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end)
+                )]
             }
             return result
         }
@@ -667,12 +679,25 @@ public struct TextParser: Sendable {
         mutating func parseExpression() -> TextExpressionSyntax? {
             var expression = parseExpressionBody()
             expression?.notation = notation
+            var modifiers: [TextToken] = []
+            while isKeyword("letRing") || isKeyword("rearticulate") {
+                modifiers.append(advance())
+            }
             if take(.tie), let original = expression {
                 expression = .init(
                     kind: original.kind,
                     range: .init(fileID: original.range.fileID, start: original.range.start, end: tokens[index - 1].range.end),
                     notation: original.notation,
-                    tieToNext: true
+                    tieToNext: true,
+                    modifiers: modifiers
+                )
+            } else if let original = expression, !modifiers.isEmpty {
+                expression = .init(
+                    kind: original.kind,
+                    range: .init(fileID: original.range.fileID, start: original.range.start, end: modifiers.last!.range.end),
+                    notation: original.notation,
+                    tieToNext: original.tieToNext,
+                    modifiers: modifiers
                 )
             }
             return expression
@@ -726,6 +751,17 @@ public struct TextParser: Sendable {
                       expectKeyword("factor", "Expected 'factor' after rubato duration") != nil,
                       let factor = expectNumber("Expected rubato time factor") else { return nil }
                 return .init(kind: .rubato(duration: duration, factor: factor), range: spanning(keyword, factor))
+            }
+            if takeKeyword("damp") {
+                let keyword = tokens[index - 1]
+                return .init(kind: .damp, range: keyword.range)
+            }
+            if (isKeyword("legato") || isKeyword("slur")) && tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace {
+                let technique = advance()
+                _ = advance()
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after \(technique.lexeme)") ?? current
+                return .init(kind: .technique(name: technique, expressions: children), range: spanning(technique, close))
             }
 
             if take(.atSign) {
@@ -905,6 +941,61 @@ public struct TextParser: Sendable {
             notation = parseQualifiedName()
             if let notation { notationUses.append(notation) }
             requireSequenceSeparator(unlessAt: .rightBrace)
+        }
+
+        /// Finds declarations belonging to this sequence without descending into
+        /// nested groups. This makes `using` scope-wide rather than source-order
+        /// dependent, including when it appears after the first note.
+        mutating func scanUsingDirectives(until end: TextTokenKind) -> [TextToken] {
+            var cursor = index
+            var depth = 0
+            var foundNotation: TextQualifiedNameSyntax?
+            var techniques: [TextToken] = []
+            while cursor < tokens.count {
+                let token = tokens[cursor]
+                if depth == 0 && token.kind == end { break }
+                if token.kind == .leftBrace || token.kind == .leftParen { depth += 1; cursor += 1; continue }
+                if token.kind == .rightBrace || token.kind == .rightParen { depth = max(0, depth - 1); cursor += 1; continue }
+                guard depth == 0, token.kind == .identifier, token.lexeme == "using", cursor + 1 < tokens.count else {
+                    cursor += 1
+                    continue
+                }
+                let policy = tokens[cursor + 1]
+                if policy.lexeme == "notation" {
+                    var components: [TextToken] = []
+                    var nameCursor = cursor + 2
+                    if nameCursor < tokens.count, tokens[nameCursor].kind == .identifier {
+                        components.append(tokens[nameCursor]); nameCursor += 1
+                        while nameCursor + 1 < tokens.count, tokens[nameCursor].kind == .dot, tokens[nameCursor + 1].kind == .identifier {
+                            components.append(tokens[nameCursor + 1]); nameCursor += 2
+                        }
+                    }
+                    if let first = components.first, let last = components.last {
+                        let candidate = TextQualifiedNameSyntax(components: components, range: spanning(first, last))
+                        if foundNotation != nil { diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using notation' declaration", range: token.range)) }
+                        else { foundNotation = candidate }
+                    }
+                    cursor = max(cursor + 1, nameCursor)
+                } else if policy.lexeme == "legato" || policy.lexeme == "slur" {
+                    if techniques.contains(where: { $0.lexeme == policy.lexeme }) {
+                        diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using \(policy.lexeme)' declaration", range: token.range))
+                    } else { techniques.append(policy) }
+                    cursor += 2
+                } else { cursor += 1 }
+            }
+            if let foundNotation {
+                notation = foundNotation
+                notationUses.append(foundNotation)
+            }
+            return techniques
+        }
+
+        mutating func consumeUsingDirective() {
+            _ = advance()
+            if takeKeyword("notation") { _ = parseQualifiedName(); return }
+            if isKeyword("legato") || isKeyword("slur") { _ = advance(); return }
+            diagnose("Expected notation, legato, or slur after 'using'")
+            if current.kind == .identifier { _ = advance() }
         }
 
         mutating func parseNaming() -> TextNamingSyntax? {

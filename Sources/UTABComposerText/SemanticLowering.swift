@@ -291,14 +291,44 @@ public struct TextSemanticLowerer: Sendable {
             case .tempoRamp: result = lowerTempoRampExpression(expression)
             case .fermata: result = lowerFermataExpression(expression)
             case .rubato: result = lowerRubatoExpression(expression)
+            case .damp:
+                result = .init(
+                    id: id("damp", expression.range),
+                    kind: .rest(.zero),
+                    annotations: .init(metadata: ["damp": .boolean(true)], source: expression.range)
+                )
+            case .technique: result = lowerTechniqueExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
             }}
-            guard expression.tieToNext else { return result }
             var metadata = result.annotations.metadata
-            metadata["tieToNext"] = .boolean(true)
-            return .init(id: result.id, kind: result.kind, annotations: .init(metadata: metadata, source: result.annotations.source))
+            if expression.tieToNext { metadata["tieToNext"] = .boolean(true) }
+            for modifier in expression.modifiers { metadata[String(modifier.lexeme)] = .boolean(true) }
+            var decorated = metadata == result.annotations.metadata ? result : MusicalExpression(
+                id: result.id,
+                kind: result.kind,
+                annotations: .init(metadata: metadata, source: result.annotations.source)
+            )
+            for modifier in expression.modifiers.reversed() {
+                decorated = .technique(.init(
+                    String(modifier.lexeme),
+                    form: .unary,
+                    operands: [decorated]
+                ), id: id("modifier:\(modifier.lexeme)", modifier.range))
+            }
+            return decorated
+        }
+
+        mutating func lowerTechniqueExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .technique(let name, let expressions) = expression.kind else {
+                preconditionFailure("Mismatched expression dispatch")
+            }
+            return .technique(.init(
+                String(name.lexeme),
+                form: .scoped,
+                operands: [expressionSequence(expressions, range: expression.range)]
+            ), id: id("technique:\(name.lexeme)", expression.range))
         }
 
         mutating func lowerNamedExpression(_ expression: TextExpressionSyntax) -> MusicalExpression? {

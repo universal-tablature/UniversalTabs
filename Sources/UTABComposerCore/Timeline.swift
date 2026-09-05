@@ -253,9 +253,10 @@ public struct PitchResolutionStage: CompilerStage {
                     source: part.source,
                     voices: part.voices.map { voice in
                         let resolved = resolve(voice.expression, scale: scale, diagnostics: &diagnostics)
+                        let tied = resolveTies(in: resolved, diagnostics: &diagnostics)
                         return PitchResolvedVoice(
                             source: voice.source,
-                            expression: resolveTies(in: resolved, diagnostics: &diagnostics),
+                            expression: resolveRinging(in: tied, sectionDuration: section.duration),
                             lyrics: voice.lyrics
                         )
                     }
@@ -430,6 +431,12 @@ public struct PitchResolutionStage: CompilerStage {
             let first = leaves[index]
             guard hasTie(first.expression) else { index += 1; continue }
             guard case .note(let firstPitch, _) = first.expression.kind else {
+                if case .chord = first.expression.kind {
+                    // Chord voicing is selected by the bound instrument. Its
+                    // individual tone ties are resolved after realization.
+                    index += 1
+                    continue
+                }
                 tieError("Only a note may start a tie", at: first.expression, diagnostics: &diagnostics)
                 index += 1
                 continue
@@ -521,6 +528,60 @@ public struct PitchResolutionStage: CompilerStage {
             kind: kind,
             annotations: .init(metadata: metadata, source: expression.annotations.source)
         )
+    }
+
+    private func resolveRinging(
+        in expression: PitchResolvedExpression,
+        sectionDuration: MusicalDuration
+    ) -> PitchResolvedExpression {
+        var leaves: [TieLeaf] = []
+        collectTieLeaves(expression, isInParallel: false, into: &leaves)
+        let dampOffsets = leaves.compactMap { leaf in
+            leaf.expression.annotations.metadata["damp"] == .boolean(true) ? leaf.expression.offset : nil
+        }.sorted()
+        var durations: [SemanticID: MusicalDuration] = [:]
+        for leaf in leaves where leaf.expression.annotations.metadata["letRing"] == .boolean(true) {
+            guard case .note = leaf.expression.kind else { continue }
+            let writtenEnd = leaf.expression.offset + leaf.expression.duration
+            let end = dampOffsets.first(where: { $0 >= writtenEnd }) ?? sectionDuration
+            guard end > writtenEnd,
+                  let value = end.wholeNotes.subtracting(leaf.expression.offset.wholeNotes) else { continue }
+            durations[leaf.expression.provenance.occurrenceID] = .init(value.numerator, value.denominator)
+        }
+        return rewriteRinging(expression, extendedDurations: durations)
+    }
+
+    private func rewriteRinging(
+        _ expression: PitchResolvedExpression,
+        extendedDurations: [SemanticID: MusicalDuration]
+    ) -> PitchResolvedExpression {
+        let kind: PitchResolvedExpression.Kind
+        switch expression.kind {
+        case .sequence(let children): kind = .sequence(children.map { rewriteRinging($0, extendedDurations: extendedDurations) })
+        case .parallel(let children): kind = .parallel(children.map { rewriteRinging($0, extendedDurations: extendedDurations) })
+        case .technique(let application): kind = .technique(.init(
+            technique: application.technique,
+            form: application.form,
+            operands: application.operands.map { rewriteRinging($0, extendedDurations: extendedDurations) },
+            parameters: application.parameters
+        ))
+        default: kind = expression.kind
+        }
+        let occurrence = expression.provenance.occurrenceID
+        var metadata = expression.annotations.metadata
+        if let duration = extendedDurations[occurrence] {
+            metadata["writtenDurationNumerator"] = .integer(expression.duration.wholeNotes.numerator)
+            metadata["writtenDurationDenominator"] = .integer(expression.duration.wholeNotes.denominator)
+            metadata["ringingResolved"] = .boolean(true)
+            return .init(
+                provenance: expression.provenance,
+                offset: expression.offset,
+                duration: duration,
+                kind: kind,
+                annotations: .init(metadata: metadata, source: expression.annotations.source)
+            )
+        }
+        return .init(provenance: expression.provenance, offset: expression.offset, duration: expression.duration, kind: kind, annotations: expression.annotations)
     }
 }
 
