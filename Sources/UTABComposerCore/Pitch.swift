@@ -157,16 +157,28 @@ public struct Scale: Sendable, Hashable {
     }
 
     public func resolve(degree: Int, octave: Int) -> AbsolutePitch? {
-        guard degree > 0 else { return nil }
+        let intervals = kind.centIntervals
+        guard degree > 0, !intervals.isEmpty else { return nil }
         let zeroBased = degree - 1
-        let scaleOctave = zeroBased / kind.centIntervals.count
-        let cents = tonic.rawValue * 100 + kind.centIntervals[zeroBased % kind.centIntervals.count]
-        let chromatic = cents / 100
-        let pitchClass = PitchClass(rawValue: chromatic % 12)!
-        let canonical = SpelledPitchClass.canonical(pitchClass)
+        let scaleOctave = zeroBased / intervals.count
+        let intervalCents = intervals[zeroBased % intervals.count] + scaleOctave * 1_200
+        let targetCents = AbsolutePitch(tonicSpelling, octave: octave).acousticCents + intervalCents
+
+        // Seven-degree scales retain the authored tonic's diatonic spelling. This
+        // keeps, for example, D-major's third as F# rather than canonicalizing it
+        // to Gb, while acoustic cents still include fine tuning on the tonic.
+        guard intervals.count == NoteLetter.allCases.count else {
+            return AbsolutePitch(acousticCents: targetCents)
+        }
+        let letterIndex = tonicSpelling.letter.rawValue + zeroBased
+        let letter = NoteLetter.allCases[letterIndex % NoteLetter.allCases.count]
+        let resolvedOctave = octave + letterIndex / NoteLetter.allCases.count
+        let naturalCents = ((resolvedOctave + 1) * 12 + letter.naturalPitchClass) * 100
+        let displacement = targetCents - naturalCents
+        let accidental = Int((Double(displacement) / 100).rounded())
         return AbsolutePitch(
-            .init(canonical.letter, accidental: canonical.accidental, tuningOffsetCents: cents % 100),
-            octave: octave + scaleOctave + chromatic / 12
+            .init(letter, accidental: accidental, tuningOffsetCents: displacement - accidental * 100),
+            octave: resolvedOctave
         )
     }
 }
