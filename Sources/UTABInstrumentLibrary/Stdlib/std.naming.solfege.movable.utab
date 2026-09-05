@@ -1,6 +1,5 @@
-module std.solfege.movable
+module std.naming.solfege.movable
 
-// Legacy module path. Select explicitly with using notation MovableSolfege.
 // Contextual degree names; the active scale determines pitches and intonation.
 naming MovableSolfege {
     register relativeRegister

@@ -3,6 +3,9 @@ import UTABComposerCore
 public struct TextCompositionSyntax: Sendable, Hashable {
     public let module: TextQualifiedNameSyntax?
     public let imports: [TextImportSyntax]
+    public var notationUses: [TextQualifiedNameSyntax] = []
+    public var defaultNotation: TextQualifiedNameSyntax? = nil
+    public var namingSystems: [TextNamingSyntax] = []
     public let constants: [TextConstantSyntax]
     public let scaleDefinitions: [TextScaleDefinitionSyntax]
     public let profiles: [TextInstrumentProfileSyntax]
@@ -20,7 +23,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let range: SourceRange
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.constants == rhs.constants && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
+        lhs.notationUses == rhs.notationUses && lhs.defaultNotation == rhs.defaultNotation && lhs.namingSystems == rhs.namingSystems && lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.constants == rhs.constants && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
             && lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
@@ -28,7 +31,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
+        hasher.combine(notationUses); hasher.combine(defaultNotation); hasher.combine(namingSystems); hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
         hasher.combine(instruments); hasher.combine(performancePatterns); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
@@ -45,6 +48,7 @@ public struct TextConstantSyntax: Sendable, Hashable {
     }
 
     public let name: TextToken
+    public var notation: TextQualifiedNameSyntax? = nil
     public let value: Value
     public let range: SourceRange
 }
@@ -193,6 +197,7 @@ public struct TextPropertySyntax: Sendable, Hashable {
 }
 
 public struct TextTuningSyntax: Sendable, Hashable {
+    public var notation: TextQualifiedNameSyntax? = nil
     public let symbol: TextToken
     public let isDefault: Bool
     public let properties: [TextPropertySyntax]
@@ -211,7 +216,7 @@ public struct TextInstrumentInstanceSyntax: Sendable, Hashable {
 
 public struct TextPerformancePatternSyntax: Sendable, Hashable {
     public let name: TextToken
-    public let subdivision: TextToken
+    public let subdivision: TextDurationSyntax
     public let steps: [TextPerformanceStepSyntax]
     public let range: SourceRange
 }
@@ -254,23 +259,25 @@ public struct TextVoiceSyntax: Sendable, Hashable {
 
 public struct TextExpressionSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
-        case note(pitch: TextToken, duration: TextToken)
-        case relativeNote(degree: TextToken, alteration: Int, octave: TextToken, duration: TextToken)
-        case chord(root: TextToken, quality: TextToken, duration: TextToken, shape: TextToken?)
-        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextToken, shape: TextToken?)
-        case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextToken)
-        case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextToken)
-        case rest(duration: TextToken)
+        case note(pitch: TextToken, duration: TextDurationSyntax)
+        case relativeNote(degree: TextToken, alteration: Int, octave: TextToken, duration: TextDurationSyntax)
+        case chord(root: TextToken, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?)
+        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?)
+        case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextDurationSyntax)
+        case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextDurationSyntax)
+        case rest(duration: TextDurationSyntax)
         case reference(TextToken)
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])
         case bar([TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
+        case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])
         case performed(pattern: TextToken, chords: [TextExpressionSyntax])
     }
 
     public let kind: Kind
     public let range: SourceRange
+    public var notation: TextQualifiedNameSyntax? = nil
 }
 
 public struct TextParseResult: Sendable {
@@ -279,4 +286,26 @@ public struct TextParseResult: Sendable {
     public let diagnostics: [TextDiagnostic]
 
     public var succeeded: Bool { syntax != nil && !diagnostics.contains { $0.severity == .error } }
+}
+
+public struct TextDurationSyntax: Sendable, Hashable {
+    public enum Kind: Sendable, Hashable {
+        case named(TextToken, dots: Int)
+        case fraction(TextToken, TextToken)
+    }
+    public let kind: Kind
+    public let range: SourceRange
+}
+
+public struct TextNamingSyntax: Sendable, Hashable {
+    public struct Entry: Sendable, Hashable {
+        public let name: TextToken
+        public let target: TextToken
+        public let alteration: TextToken
+        public let relative: Bool
+    }
+    public let name: TextToken
+    public let register: TextToken
+    public let entries: [Entry]
+    public let range: SourceRange
 }

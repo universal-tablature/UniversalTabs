@@ -1,0 +1,25 @@
+module std.naming.western.german
+
+naming German {
+    register absoluteOctave
+    note C = letter(C, 0)
+    note D = letter(D, 0)
+    note E = letter(E, 0)
+    note F = letter(F, 0)
+    note G = letter(G, 0)
+    note A = letter(A, 0)
+    note B = letter(B, -1)
+    note H = letter(B, 0)
+    note Cis = letter(C, 1)
+    note Dis = letter(D, 1)
+    note Des = letter(D, -1)
+    note Eis = letter(E, 1)
+    note Es = letter(E, -1)
+    note Fis = letter(F, 1)
+    note Fes = letter(F, -1)
+    note Gis = letter(G, 1)
+    note Ges = letter(G, -1)
+    note Ais = letter(A, 1)
+    note As = letter(A, -1)
+    note His = letter(B, 1)
+}

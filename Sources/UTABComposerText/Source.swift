@@ -239,14 +239,17 @@ public struct TextLexer: Sendable {
         func insertingSemicolons(_ input: [TextToken]) -> [TextToken] {
             var result: [TextToken] = []
             var parenthesisDepth = 0
+            var bracketDepth = 0
             for (tokenIndex, token) in input.enumerated() {
+                if token.kind == .leftBracket { bracketDepth += 1 }
+                if token.kind == .rightBracket { bracketDepth = max(0, bracketDepth - 1) }
                 if token.kind == .leftParen { parenthesisDepth += 1 }
                 if token.kind == .rightParen { parenthesisDepth = max(0, parenthesisDepth - 1) }
                 guard token.kind == .newline else {
                     result.append(token)
                     continue
                 }
-                guard parenthesisDepth == 0,
+                guard parenthesisDepth == 0, bracketDepth == 0,
                       let previous = result.last,
                       let next = input[(tokenIndex + 1)...].first(where: { $0.kind != .newline }),
                       canEndStatement(previous.kind),
@@ -264,7 +267,7 @@ public struct TextLexer: Sendable {
 
         func canEndStatement(_ kind: TextTokenKind) -> Bool {
             switch kind {
-            case .identifier, .integerLiteral, .decimalLiteral, .stringLiteral, .rightBrace, .rightParen: true
+            case .identifier, .integerLiteral, .decimalLiteral, .stringLiteral, .rightBrace, .rightParen, .rightBracket, .dot: true
             default: false
             }
         }

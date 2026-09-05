@@ -1,0 +1,12 @@
+module std.naming.western.english
+
+naming English {
+    register absoluteOctave
+    note C = letter(C, 0)
+    note D = letter(D, 0)
+    note E = letter(E, 0)
+    note F = letter(F, 0)
+    note G = letter(G, 0)
+    note A = letter(A, 0)
+    note B = letter(B, 0)
+}

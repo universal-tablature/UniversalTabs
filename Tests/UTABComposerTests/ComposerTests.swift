@@ -26,9 +26,9 @@ import UniversalTabs
     let source = TextSource(
         """
         module tests.symbolic
-        import std.solfege.movable
+        import std.naming.solfege.movable
         import std.harmony.roman
-        import std.notes.oud.arabic
+        import std.naming.arabic.degrees; import instruments.oud.arabic
 
         meter 4/4
         tempo 90
@@ -42,9 +42,9 @@ import UniversalTabs
             }
             oud {
                 voice melody {
-                    do[3] q
-                    duka[3] q
-                    mi#[3] q
+                    using notation ArabicDegrees
+                    repeat 1 { using notation MovableSolfege; do[3] q; re[3] q; mi#[3] q }
+                    // Each naming table is scoped independently.
                     sikah[3] q
                     nawa[3] w
                 }
@@ -462,7 +462,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     #expect(document.tracks.first?.parts?.first?.events[0].at.musical?.beat == 1)
     #expect(document.tracks.first?.parts?.first?.events[1].at.musical?.beat == 2)
     #expect(document.tracks.first?.parts?.first?.source == nil)
-    #expect(document.tracks.first?.parts?.first?.events[0].source?.line == nil)
+    #expect(document.tracks.first?.parts?.first?.events[0].source.map { $0.file == #fileID && $0.line == 425 } == true)
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
@@ -704,7 +704,7 @@ private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String?
     let canonical = try encoder.encode(document)
     let repeatedCanonical = try encoder.encode(repeatedDocument)
     #expect(canonical == repeatedCanonical)
-    #expect(stableFingerprint(canonical) == "92fe9cf17db9d97e")
+    #expect(stableFingerprint(canonical) == "f9005a62415127e8")
 }
 
 private func stableFingerprint(_ data: Data) -> String {
@@ -1871,7 +1871,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(firstDocument.setup.instruments.first { $0.id == "guitar_i" }?.realization?.midi?.program == 25)
     #expect(firstDocument.setup.instruments.first { $0.id == "piano_i" }?.realization?.midi?.program == 1)
     #expect(firstDocument.setup.instruments.first { $0.id == "voice_i" }?.realization?.midi?.program == 53)
-    #expect(stableFingerprint(firstData) == "86f7647404a57425")
+    #expect(stableFingerprint(firstData) == "532e4ae3d1c4a128")
 }
 
 @Test func importedStandardLibraryModelsAndTuningExtensionsBuildCatalog() throws {

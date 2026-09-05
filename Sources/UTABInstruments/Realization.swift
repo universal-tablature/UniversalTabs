@@ -242,8 +242,7 @@ public struct InstrumentRealizationStage: CompilerStage {
             expression: PitchResolvedExpression,
             path: String
         ) -> RealizedExpression.Kind {
-            guard let subdivisionName = metadataString(application.parameters["subdivision"]),
-                  let subdivision = patternDuration(subdivisionName),
+            guard let subdivision = patternSubdivision(application.parameters),
                   case .list(let encodedSteps)? = application.parameters["steps"],
                   let chordContainer = application.operands.first else {
                 diagnostics.append(.init(.error, path: path, message: "Malformed performance pattern"))
@@ -267,8 +266,14 @@ public struct InstrumentRealizationStage: CompilerStage {
                 var stepIndex = 0
                 while cursor < chordExpression.duration {
                     let step = steps[stepIndex % steps.count]
-                    let offset = chordExpression.offset + cursor
-                    let duration = minDuration(subdivision, subtract(chordExpression.duration, cursor))
+                    guard stepIndex < 1_000_000,
+                          let start = chordExpression.offset.wholeNotes.adding(cursor.wholeNotes),
+                          let remaining = chordExpression.duration.wholeNotes.subtracting(cursor.wholeNotes) else {
+                        diagnostics.append(.init(.error, path: path, message: "Performance pattern timing overflows or exceeds one million steps", range: chordExpression.annotations.source))
+                        return .parallel([])
+                    }
+                    let offset = MusicalDuration(start.numerator, start.denominator)
+                    let duration = minDuration(subdivision, MusicalDuration(remaining.numerator, remaining.denominator))
                     let children = step.interactions.compactMap { words in
                         realizePatternInteraction(
                             words,
@@ -284,7 +289,11 @@ public struct InstrumentRealizationStage: CompilerStage {
                     else if !children.isEmpty {
                         result.append(realizedContainer(from: chordExpression, discriminator: "pattern-step:\(stepIndex)", offset: offset, duration: duration, kind: .parallel(children)))
                     }
-                    cursor = cursor + subdivision
+                    guard let next = cursor.wholeNotes.adding(duration.wholeNotes) else {
+                        diagnostics.append(.init(.error, path: path, message: "Performance pattern timing overflows", range: chordExpression.annotations.source))
+                        return .parallel([])
+                    }
+                    cursor = MusicalDuration(next.numerator, next.denominator)
                     stepIndex += 1
                 }
             }
@@ -405,6 +414,14 @@ public struct InstrumentRealizationStage: CompilerStage {
             return nil
         }
 
+        func patternSubdivision(_ parameters: [String: MetadataValue]) -> MusicalDuration? {
+            if case .integer(let n) = parameters["subdivisionNumerator"],
+               case .integer(let d) = parameters["subdivisionDenominator"], n > 0, d > 0 {
+                return MusicalDuration(n, d)
+            }
+            return metadataString(parameters["subdivision"]).flatMap(patternDuration)
+        }
+
         func patternDuration(_ name: String) -> MusicalDuration? {
             switch name {
             case "w": .whole
@@ -455,13 +472,6 @@ public struct InstrumentRealizationStage: CompilerStage {
 
         func minDuration(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> MusicalDuration {
             lhs < rhs ? lhs : rhs
-        }
-
-        func subtract(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> MusicalDuration {
-            .init(
-                lhs.wholeNotes.numerator * rhs.wholeNotes.denominator - rhs.wholeNotes.numerator * lhs.wholeNotes.denominator,
-                lhs.wholeNotes.denominator * rhs.wholeNotes.denominator
-            )
         }
 
         func metadataString(_ value: MetadataValue?) -> String? {

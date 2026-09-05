@@ -289,7 +289,12 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     guard !tunings.contains(where: { $0.id.rawValue == idString }) else {
                         error("Duplicate tuning ID '\(idString)'", at: tuningSyntax.range); continue
                     }
-                    let parsedCourses = tuningSyntax.courses.map { course in course.compactMap(parsePitch) }
+                    let parsedCourses = tuningSyntax.courses.map { course in course.compactMap { token -> AbsolutePitch? in
+                        guard let notation = tuningSyntax.notation else { return parsePitch(token) }
+                        let result = TextSemanticLowerer().resolvePitch(token, notation: notation, in: modules)
+                        diagnostics.append(contentsOf: result.diagnostics)
+                        return result.pitch
+                    } }
                     guard !parsedCourses.isEmpty, zip(parsedCourses, tuningSyntax.courses).allSatisfy({ $0.count == $1.count }) else {
                         error("A tuning requires valid pitches in every course", at: tuningSyntax.range); continue
                     }

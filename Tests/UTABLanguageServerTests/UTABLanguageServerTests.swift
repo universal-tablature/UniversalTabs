@@ -204,6 +204,34 @@ struct UTABLanguageServerTests {
         #expect(response?["result"]?.objectValue?["capabilities"] != nil)
     }
 
+    @Test("Scoped naming and rational durations use compiler diagnostics")
+    func scopedNamingDiagnostics() async throws {
+        let server = UTABLanguageServer()
+        let source = """
+            import instruments.guitar
+            import std.naming.western.german
+            meter 4/4
+            tempo 100
+            instrument guitar : Guitar
+            section s { guitar { voice v {
+                using notation German
+                H4 q.
+                tuplet 3:2 { E4 e; Fis4 e; G4 e }
+                rest [3/8]
+            } } }
+            main { s }
+            """
+        for (version, text) in [(1, source), (2, source.replacingOccurrences(of: "H4 q.", with: "Z4 q."))] {
+            let responses = await server.handle(message(method: "textDocument/didOpen", params: [
+                "textDocument": .object(["uri": .string("file:///notation.utab"), "languageId": .string("utab"), "version": .number(Double(version)), "text": .string(text)])
+            ]))
+            let response = try decode(try #require(responses.first)).objectValue
+            let diagnostics = response?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
+            if version == 1 { #expect(diagnostics.isEmpty, "\(diagnostics)") }
+            else { #expect(diagnostics.contains { $0.objectValue?["message"]?.stringValue?.contains("Unknown note name 'Z'") == true }) }
+        }
+    }
+
     private func message(
         method: String,
         id: Int? = nil,

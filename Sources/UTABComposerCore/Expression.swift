@@ -67,6 +67,8 @@ public struct MusicalExpression: Sendable, Hashable {
         case parallel([MusicalExpression])
         case reference(SemanticID)
         case repeated(count: Int, MusicalExpression)
+        case proportional(Rational, MusicalExpression)
+        case barAssertion(MusicalExpression)
         case technique(TechniqueApplication)
     }
 
@@ -90,17 +92,24 @@ public struct MusicalExpression: Sendable, Hashable {
             var total = MusicalDuration.zero
             for child in children {
                 guard let duration = child.duration else { return nil }
-                total = total + duration
+                guard let sum = total.wholeNotes.adding(duration.wholeNotes) else { return nil }
+                total = MusicalDuration(sum.numerator, sum.denominator)
             }
             return total
         case .parallel(let children):
             guard children.allSatisfy({ $0.duration != nil }) else { return nil }
             return children.compactMap(\.duration).max() ?? .zero
+        case .proportional(let factor, let child):
+            guard let value = child.duration?.wholeNotes.multiplied(by: factor) else { return nil }
+            return MusicalDuration(value.numerator, value.denominator)
+        case .barAssertion(let child):
+            return child.duration
         case .reference:
             return nil
         case .repeated(let count, let expression):
             guard count >= 0, let duration = expression.duration else { return nil }
-            return duration * count
+            guard let value = duration.wholeNotes.multiplied(by: Rational(count)) else { return nil }
+            return MusicalDuration(value.numerator, value.denominator)
         case .technique(let application):
             switch application.form {
             case .unary, .scoped:
@@ -109,7 +118,8 @@ public struct MusicalExpression: Sendable, Hashable {
                 var total = MusicalDuration.zero
                 for operand in application.operands {
                     guard let duration = operand.duration else { return nil }
-                    total = total + duration
+                    guard let sum = total.wholeNotes.adding(duration.wholeNotes) else { return nil }
+                total = MusicalDuration(sum.numerator, sum.denominator)
                 }
                 return total
             }

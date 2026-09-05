@@ -215,7 +215,7 @@ public struct NameResolutionStage: CompilerStage {
                 for (index, child) in children.enumerated() {
                     resolveExpression(child, path: "\(path)[\(index)]", allowedKinds: allowedKinds, ownerPhrase: ownerPhrase)
                 }
-            case .repeated(_, let child):
+            case .repeated(_, let child), .proportional(_, let child), .barAssertion(let child):
                 resolveExpression(child, path: "\(path).repeated", allowedKinds: allowedKinds, ownerPhrase: ownerPhrase)
             case .technique(let application):
                 for (index, operand) in application.operands.enumerated() {

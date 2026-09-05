@@ -13,16 +13,14 @@ public struct MusicalDuration: Sendable, Hashable, Comparable, CustomStringConve
     public static let sixteenth = MusicalDuration(1, 16)
 
     public static func + (lhs: Self, rhs: Self) -> Self {
-        Self(
-            lhs.wholeNotes.numerator * rhs.wholeNotes.denominator
-                + rhs.wholeNotes.numerator * lhs.wholeNotes.denominator,
-            lhs.wholeNotes.denominator * rhs.wholeNotes.denominator
-        )
+        let value = lhs.wholeNotes.adding(rhs.wholeNotes)!
+        return Self(value.numerator, value.denominator)
     }
 
     public static func * (lhs: Self, rhs: Int) -> Self {
         precondition(rhs >= 0, "A duration multiplier cannot be negative")
-        return Self(lhs.wholeNotes.numerator * rhs, lhs.wholeNotes.denominator)
+        let value = lhs.wholeNotes.multiplied(by: Rational(rhs))!
+        return Self(value.numerator, value.denominator)
     }
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
@@ -45,10 +43,59 @@ public struct Rational: Sendable, Hashable, Comparable, CustomStringConvertible 
     }
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
-        lhs.numerator * rhs.denominator < rhs.numerator * lhs.denominator
+        let left = lhs.numerator.multipliedFullWidth(by: rhs.denominator)
+        let right = rhs.numerator.multipliedFullWidth(by: lhs.denominator)
+        return left.high == right.high ? left.low < right.low : left.high < right.high
+    }
+
+    /// Checked arithmetic for nonnegative score time. Cross-cancel before multiplying.
+    public func multiplied(by other: Self) -> Self? {
+        guard numerator >= 0, other.numerator >= 0 else { return nil }
+        let a = Self.gcd(numerator, other.denominator)
+        let b = Self.gcd(other.numerator, denominator)
+        let n = (numerator / a).multipliedReportingOverflow(by: other.numerator / b)
+        let d = (denominator / b).multipliedReportingOverflow(by: other.denominator / a)
+        guard !n.overflow, !d.overflow else { return nil }
+        return Self(n.partialValue, d.partialValue)
+    }
+
+    public func adding(_ other: Self) -> Self? {
+        guard numerator >= 0, other.numerator >= 0 else { return nil }
+        let common = Self.gcd(denominator, other.denominator)
+        let left = UInt(numerator).multipliedFullWidth(by: UInt(other.denominator / common))
+        let right = UInt(other.numerator).multipliedFullWidth(by: UInt(denominator / common))
+        let low = left.low.addingReportingOverflow(right.low)
+        let high = left.high + right.high + (low.overflow ? 1 : 0)
+        // Reduce the wide numerator before narrowing either component to Int.
+        let divisor = UInt(common)
+        let remainder = divisor.dividingFullWidth((high: high % divisor, low: low.partialValue)).remainder
+        let reduction = UInt(Self.gcd(Int(remainder), common))
+        guard high < reduction else { return nil }
+        let n = reduction.dividingFullWidth((high: high, low: low.partialValue)).quotient
+        let d = (denominator / common).multipliedReportingOverflow(by: other.denominator / Int(reduction))
+        guard n <= UInt(Int.max), !d.overflow else { return nil }
+        return Self(Int(n), d.partialValue)
     }
 
     public var description: String { "\(numerator)/\(denominator)" }
+
+    public func subtracting(_ other: Self) -> Self? {
+        guard numerator >= 0, other.numerator >= 0, self >= other else { return nil }
+        let common = Self.gcd(denominator, other.denominator)
+        let left = UInt(numerator).multipliedFullWidth(by: UInt(other.denominator / common))
+        let right = UInt(other.numerator).multipliedFullWidth(by: UInt(denominator / common))
+        let low = left.low.subtractingReportingOverflow(right.low)
+        let high = left.high - right.high - (low.overflow ? 1 : 0)
+        // Reduce the wide numerator before narrowing either component to Int.
+        let divisor = UInt(common)
+        let remainder = divisor.dividingFullWidth((high: high % divisor, low: low.partialValue)).remainder
+        let reduction = UInt(Self.gcd(Int(remainder), common))
+        guard high < reduction else { return nil }
+        let n = reduction.dividingFullWidth((high: high, low: low.partialValue)).quotient
+        let d = (denominator / common).multipliedReportingOverflow(by: other.denominator / Int(reduction))
+        guard n <= UInt(Int.max), !d.overflow else { return nil }
+        return Self(Int(n), d.partialValue)
+    }
 
     private static func gcd(_ a: Int, _ b: Int) -> Int {
         var x = a

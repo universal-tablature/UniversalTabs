@@ -55,6 +55,8 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var composition: Composition { input.source.source.source.source.source }
 
         mutating func lower() -> CompilerStageResult<UTabDocument> {
+            validateTimingRepresentation()
+            guard diagnostics.isEmpty else { return .init(output: nil, diagnostics: diagnostics) }
             let sectionDefinitions = input.sections.map(makeSectionDefinition)
             for section in input.sections {
                 lower(section)
@@ -736,6 +738,38 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
+        /// UTAB serializes quarter-note fractions and materializes editing measures.
+        /// Reject unsupported conversions before any integer arithmetic or allocation.
+        mutating func validateTimingRepresentation() {
+            for section in input.sections {
+                let meter = section.source.meter ?? composition.meter
+                let reciprocalMeter = Rational(meter.duration.wholeNotes.denominator, meter.duration.wholeNotes.numerator)
+                guard let length = section.duration.wholeNotes.multiplied(by: reciprocalMeter),
+                      length <= Rational(1_000_000) else {
+                    diagnostics.append(.init(.error, path: section.source.id.rawValue, message: "UTAB section timing exceeds the supported rational range or one million measures", range: section.source.annotations.source))
+                    continue
+                }
+                for part in section.parts { for voice in part.voices { validateTiming(voice.expression, meter: meter) } }
+            }
+        }
+
+        mutating func validateTiming(_ expression: RealizedExpression, meter: TimeSignature) {
+            let reciprocalMeter = Rational(meter.duration.wholeNotes.denominator, meter.duration.wholeNotes.numerator)
+            if expression.duration.wholeNotes.multiplied(by: Rational(4)) == nil ||
+                expression.offset.wholeNotes.multiplied(by: Rational(4)) == nil ||
+                expression.offset.wholeNotes.multiplied(by: reciprocalMeter) == nil ||
+                expression.offset.wholeNotes.multiplied(by: Rational(meter.denominator)) == nil {
+                diagnostics.append(.init(.error, path: expression.provenance.originID.rawValue, message: "Timing cannot be represented exactly in UTAB quarter-note or meter units", range: expression.annotations.source))
+            }
+            switch expression.kind {
+            case .sequence(let children), .parallel(let children):
+                for child in children { validateTiming(child, meter: meter) }
+            case .technique(let application):
+                for operand in application.operands { validateTiming(operand, meter: meter) }
+            default: break
+            }
+        }
+
         func eventTime(_ offset: MusicalDuration, meter: TimeSignature) -> EventTime {
             let measureIndex = floorRatio(offset, meter.duration)
             let measureStart = meter.duration * measureIndex
@@ -758,31 +792,22 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         func floorRatio(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> Int {
-            let a = lhs.wholeNotes
-            let b = rhs.wholeNotes
-            return (a.numerator * b.denominator) / (a.denominator * b.numerator)
+            let value = divide(lhs, rhs)
+            return value.numerator / value.denominator
         }
 
         func ceilingRatio(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> Int {
-            let a = lhs.wholeNotes
-            let b = rhs.wholeNotes
-            let numerator = a.numerator * b.denominator
-            let denominator = a.denominator * b.numerator
-            return (numerator + denominator - 1) / denominator
+            let value = divide(lhs, rhs)
+            return value.numerator / value.denominator + (value.numerator % value.denominator == 0 ? 0 : 1)
         }
 
         func subtract(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> MusicalDuration {
-            .init(
-                lhs.wholeNotes.numerator * rhs.wholeNotes.denominator - rhs.wholeNotes.numerator * lhs.wholeNotes.denominator,
-                lhs.wholeNotes.denominator * rhs.wholeNotes.denominator
-            )
+            let value = lhs.wholeNotes.subtracting(rhs.wholeNotes)!
+            return MusicalDuration(value.numerator, value.denominator)
         }
 
         func divide(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> Rational {
-            .init(
-                lhs.wholeNotes.numerator * rhs.wholeNotes.denominator,
-                lhs.wholeNotes.denominator * rhs.wholeNotes.numerator
-            )
+            lhs.wholeNotes.multiplied(by: Rational(rhs.wholeNotes.denominator, rhs.wholeNotes.numerator))!
         }
     }
 }

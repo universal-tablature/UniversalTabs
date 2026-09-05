@@ -1,6 +1,5 @@
-module std.notes.oud.arabic
+module std.naming.arabic.degrees
 
-// Legacy module path. Select explicitly with using notation ArabicDegrees.
 // Contextual degree names; the active scale determines pitches and intonation.
 naming ArabicDegrees {
     register relativeRegister

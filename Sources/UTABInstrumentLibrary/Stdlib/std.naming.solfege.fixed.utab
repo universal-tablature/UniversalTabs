@@ -1,6 +1,5 @@
-module std.solfege.fixed
+module std.naming.solfege.fixed
 
-// Legacy module path. Select explicitly with using notation FixedSolfege.
 naming FixedSolfege {
     register absoluteOctave
     note do = letter(C, 0)

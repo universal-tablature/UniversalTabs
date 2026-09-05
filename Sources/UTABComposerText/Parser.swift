@@ -13,6 +13,8 @@ public struct TextParser: Sendable {
     private struct Parser {
         let tokens: [TextToken]
         var index = 0
+        var notation: TextQualifiedNameSyntax?
+        var notationUses: [TextQualifiedNameSyntax] = []
         var diagnostics: [TextDiagnostic]
         var hasErrors: Bool { diagnostics.contains { $0.severity == .error } }
         var current: TextToken { tokens[index] }
@@ -23,6 +25,7 @@ public struct TextParser: Sendable {
             var module: TextQualifiedNameSyntax?
             var imports: [TextImportSyntax] = []
             var constants: [TextConstantSyntax] = []
+            var namingSystems: [TextNamingSyntax] = []
             var scaleDefinitions: [TextScaleDefinitionSyntax] = []
             var profiles: [TextInstrumentProfileSyntax] = []
             var models: [TextInstrumentModelSyntax] = []
@@ -35,16 +38,32 @@ public struct TextParser: Sendable {
             var phrases: [TextPhraseSyntax] = []
             var sections: [TextSectionSyntax] = []
             var main: [TextToken] = []
+            var compositionBody = false
+            var compositionClosed = false
+            var compositionNotation: TextQualifiedNameSyntax?
 
             while current.kind != .endOfFile {
-                if takeKeyword("module") { module = parseQualifiedName() }
+                if takeKeyword("composition") {
+                    if compositionBody || compositionClosed { diagnose("Only one composition body is allowed") }
+                    _ = expect(.leftBrace, "Expected '{' after composition")
+                    compositionBody = true
+                    parseNotationDirective()
+                    compositionNotation = notation
+                } else if current.kind == .rightBrace && compositionBody {
+                    advance()
+                    compositionBody = false
+                    compositionClosed = true
+                    notation = nil
+                } else if takeKeyword("module") { module = parseQualifiedName() }
                 else if takeKeyword("import") {
                     if let name = parseQualifiedName() { imports.append(.init(name: name, range: name.range)) }
+                } else if takeKeyword("naming") {
+                    if let system = parseNaming() { namingSystems.append(system) }
                 } else if takeKeyword("let") {
                     if let name = expect(.identifier, "Expected constant name") {
                         _ = take(.equal)
                         if let value = parseConstantValue() {
-                            constants.append(.init(name: name, value: value.value, range: spanning(name, value.end)))
+                            constants.append(.init(name: name, notation: notation, value: value.value, range: spanning(name, value.end)))
                         }
                     }
                 } else if takeKeyword("profile") {
@@ -81,9 +100,13 @@ public struct TextParser: Sendable {
                 }
                 _ = take(.semicolon)
             }
+            if compositionBody { diagnose("Expected closing composition brace") }
             return .init(
                 module: module,
                 imports: imports,
+                notationUses: notationUses,
+                defaultNotation: compositionNotation,
+                namingSystems: namingSystems,
                 constants: constants,
                 scaleDefinitions: scaleDefinitions,
                 profiles: profiles,
@@ -437,6 +460,9 @@ public struct TextParser: Sendable {
             guard let symbol = expect(.identifier, "Expected tuning name") else { return nil }
             let isDefault = takeKeyword("default")
             guard let open = expect(.leftBrace, "Expected '{' after tuning name") else { return nil }
+            let inheritedNotation = notation
+            defer { notation = inheritedNotation }
+            parseNotationDirective()
             var properties: [TextPropertySyntax] = []
             var tags: [TextToken] = []
             var courses: [[TextToken]] = []
@@ -458,7 +484,7 @@ public struct TextParser: Sendable {
                 _ = take(.semicolon)
             }
             let close = expect(.rightBrace, "Expected '}' after tuning") ?? current
-            return .init(symbol: symbol, isDefault: isDefault, properties: properties, tags: tags, courses: courses, range: spanning(open, close))
+            return .init(notation: notation, symbol: symbol, isDefault: isDefault, properties: properties, tags: tags, courses: courses, range: spanning(open, close))
         }
 
         mutating func parseInstrumentInstance() -> TextInstrumentInstanceSyntax? {
@@ -478,12 +504,12 @@ public struct TextParser: Sendable {
         mutating func parsePerformancePattern() -> TextPerformancePatternSyntax? {
             guard let name = expect(.identifier, "Expected performance pattern name"),
                   let open = expect(.leftBrace, "Expected '{' after performance pattern name") else { return nil }
-            var subdivision: TextToken?
+            var subdivision: TextDurationSyntax?
             var steps: [TextPerformanceStepSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
                 if takeKeyword("subdivision") {
-                    subdivision = expect(.identifier, "Expected pattern subdivision")
+                    subdivision = parseDuration()
                     _ = take(.semicolon)
                 } else if takeKeyword("steps") {
                     guard expect(.leftBrace, "Expected '{' after steps") != nil else { continue }
@@ -545,6 +571,9 @@ public struct TextParser: Sendable {
                 _ = expectKeyword("bars", "Expected 'bars' after section length")
             }
             guard let open = expect(.leftBrace, "Expected '{' after section name") else { return nil }
+            let inheritedNotation = notation
+            defer { notation = inheritedNotation }
+            parseNotationDirective()
             var harmony: [TextExpressionSyntax] = []
             var instruments: [TextInstrumentSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -569,6 +598,9 @@ public struct TextParser: Sendable {
             }
             let name = advance()
             guard let open = expect(.leftBrace, "Expected '{' after instrument instance name") else { return nil }
+            let inheritedNotation = notation
+            defer { notation = inheritedNotation }
+            parseNotationDirective()
             var voices: [TextVoiceSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
@@ -581,6 +613,9 @@ public struct TextParser: Sendable {
 
         mutating func parseVoice() -> TextVoiceSyntax? {
             guard let name = expect(.identifier, "Expected voice name"), let open = expect(.leftBrace, "Expected '{' after voice name") else { return nil }
+            let inheritedNotation = notation
+            defer { notation = inheritedNotation }
+            parseNotationDirective()
             var lyrics: [TextToken] = []
             var expressions: [TextExpressionSyntax] = []
             while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -599,6 +634,9 @@ public struct TextParser: Sendable {
         }
 
         mutating func parseExpressions(until end: TextTokenKind) -> [TextExpressionSyntax] {
+            let inheritedNotation = notation
+            defer { notation = inheritedNotation }
+            parseNotationDirective()
             var result: [TextExpressionSyntax] = []
             while current.kind != end && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
@@ -627,6 +665,28 @@ public struct TextParser: Sendable {
         }
 
         mutating func parseExpression() -> TextExpressionSyntax? {
+            var expression = parseExpressionBody()
+            expression?.notation = notation
+            return expression
+        }
+
+        mutating func parseExpressionBody() -> TextExpressionSyntax? {
+            if isKeyword("using") {
+                diagnose("Notation directives must appear once at the start of a musical scope")
+                parseNotationDirective()
+                return nil
+            }
+            if isKeyword("tuplet") || isKeyword("stretch") {
+                let start = advance()
+                guard let numerator = expect(.integerLiteral, "Expected positive ratio numerator"),
+                      expect(start.lexeme == "tuplet" ? .colon : .slash, "Expected ratio separator") != nil,
+                      let denominator = expect(.integerLiteral, "Expected positive ratio denominator"),
+                      expect(.leftBrace, "Expected '{' after ratio") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after proportional group") ?? current
+                return .init(kind: .proportional(numerator: numerator, denominator: denominator, tuplet: start.lexeme == "tuplet", expressions: children), range: spanning(start, close))
+            }
+
             if take(.atSign) {
                 let start = tokens[index - 1]
                 guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
@@ -638,10 +698,10 @@ public struct TextParser: Sendable {
                 guard expect(.leftBracket, "Expected '[' before relative octave") != nil,
                       let octave = expect(.integerLiteral, "Expected relative octave"),
                       expect(.rightBracket, "Expected ']' after relative octave") != nil,
-                      let duration = expect(.identifier, "Expected note duration") else { return nil }
+                      let duration = parseDuration() else { return nil }
                 return .init(
                     kind: .relativeNote(degree: degree, alteration: alteration, octave: octave, duration: duration),
-                    range: spanning(start, duration)
+                    range: spanning(start, tokens[index - 1])
                 )
             }
             if takeKeyword("chord") {
@@ -650,17 +710,17 @@ public struct TextParser: Sendable {
                     guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
                     let alteration = parseAlteration()
                     guard let quality = expect(.identifier, "Expected chord quality"),
-                          let duration = expect(.identifier, "Expected chord duration") else { return nil }
+                          let duration = parseDuration() else { return nil }
                     var shape: TextToken?
                     if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
-                    return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? duration))
+                    return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? tokens[index - 1]))
                 }
                 guard let root = expect(.identifier, "Expected chord root"),
                       let quality = expect(.identifier, "Expected chord quality"),
-                      let duration = expect(.identifier, "Expected chord duration") else { return nil }
+                      let duration = parseDuration() else { return nil }
                 var shape: TextToken?
                 if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
-                return .init(kind: .chord(root: root, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? duration))
+                return .init(kind: .chord(root: root, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? tokens[index - 1]))
             }
             if takeKeyword("perform") {
                 let start = tokens[index - 1]
@@ -692,25 +752,33 @@ public struct TextParser: Sendable {
             }
             if takeKeyword("rest") || takeKeyword("_") {
                 let restToken = tokens[index - 1]
-                guard let duration = expect(.identifier, "Expected rest duration") else { return nil }
-                return .init(kind: .rest(duration: duration), range: spanning(restToken, duration))
+                guard let duration = parseDuration() else { return nil }
+                return .init(kind: .rest(duration: duration), range: spanning(restToken, tokens[index - 1]))
             }
             if isActuatorExpressionStart() {
                 return parseActuatorExpression()
             }
             guard current.kind == .identifier else { diagnose("Expected musical expression"); return nil }
-            let first = advance()
+            var first = advance()
+            if current.kind == .dot {
+                var name = String(first.lexeme)
+                while take(.dot) {
+                    guard let component = expect(.identifier, "Expected qualified phrase name") else { return nil }
+                    name += "." + component.lexeme
+                }
+                first = .init(kind: .identifier, lexeme: Substring(name), range: spanning(first, tokens[index - 1]))
+            }
             let alteration = parseAlteration()
-            if take(.leftBracket) {
+            if current.kind == .leftBracket && tokens[min(index + 2, tokens.count - 1)].kind != .slash, take(.leftBracket) {
                 guard let octave = expect(.integerLiteral, "Expected octave"),
                       expect(.rightBracket, "Expected ']' after octave") != nil,
-                      let duration = expect(.identifier, "Expected note duration") else { return nil }
-                return .init(kind: .symbol(name: first, alteration: alteration, octave: octave, duration: duration), range: spanning(first, duration))
+                      let duration = parseDuration() else { return nil }
+                return .init(kind: .symbol(name: first, alteration: alteration, octave: octave, duration: duration), range: spanning(first, tokens[index - 1]))
             }
-            if current.kind == .identifier, isDuration(current) {
-                let duration = advance()
+            if isDuration(current) || current.kind == .leftBracket {
+                guard let duration = parseDuration() else { return nil }
                 let isConcretePitch = first.lexeme.contains(where: \.isNumber)
-                return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, duration))
+                return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, tokens[index - 1]))
             }
             return .init(kind: .reference(first), range: first.range)
         }
@@ -738,8 +806,8 @@ public struct TextParser: Sendable {
                 }
                 guard expect(.rightBracket, "Expected ']' after actuator member") != nil else { return nil }
             }
-            guard let duration = expect(.identifier, "Expected actuator duration") else { return nil }
-            return .init(kind: .actuator(action: action, target: target, member: member, duration: duration), range: spanning(action, duration))
+            guard let duration = parseDuration() else { return nil }
+            return .init(kind: .actuator(action: action, target: target, member: member, duration: duration), range: spanning(action, tokens[index - 1]))
         }
 
         func isActuatorExpressionStart() -> Bool {
@@ -779,6 +847,62 @@ public struct TextParser: Sendable {
             }
             _ = expect(.rightBrace, "Expected '}' after lyrics")
             return strings
+        }
+
+        mutating func parseNotationDirective() {
+            while take(.semicolon) {}
+            guard takeKeyword("using") else { return }
+            guard expectKeyword("notation", "Expected 'notation' after 'using'") != nil else { return }
+            notation = parseQualifiedName()
+            if let notation { notationUses.append(notation) }
+            requireSequenceSeparator(unlessAt: .rightBrace)
+        }
+
+        mutating func parseNaming() -> TextNamingSyntax? {
+            guard let name = expect(.identifier, "Expected naming system name"),
+                  let open = expect(.leftBrace, "Expected '{' after naming system"),
+                  expectKeyword("register", "Expected register policy") != nil,
+                  let register = expect(.identifier, "Expected register policy") else { return nil }
+            _ = take(.semicolon)
+            var entries: [TextNamingSyntax.Entry] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                guard expectKeyword("note", "Expected note entry") != nil,
+                      let name = expect(.identifier, "Expected note name"),
+                      expect(.equal, "Expected '='") != nil,
+                      let constructor = expect(.identifier, "Expected letter or degree"),
+                      expect(.leftParen, "Expected '('") != nil else { synchronizeBlockItem(); continue }
+                let relative = constructor.lexeme == "degree"
+                if !relative && constructor.lexeme != "letter" { diagnose("Expected letter or degree constructor") }
+                guard let target = expect(relative ? .integerLiteral : .identifier, "Expected canonical pitch target"),
+                      expect(.comma, "Expected ','") != nil,
+                      let alteration = expect(.integerLiteral, "Expected accidental steps"),
+                      expect(.rightParen, "Expected ')'") != nil else { synchronizeBlockItem(); continue }
+                entries.append(.init(name: name, target: target, alteration: alteration, relative: relative))
+                requireSequenceSeparator(unlessAt: .rightBrace)
+            }
+            let close = expect(.rightBrace, "Expected '}' after naming system") ?? current
+            return .init(name: name, register: register, entries: entries, range: spanning(open, close))
+        }
+
+        mutating func parseDuration() -> TextDurationSyntax? {
+            let start = current
+            if take(.leftBracket) {
+                guard let numerator = expect(.integerLiteral, "Expected duration numerator"),
+                      expect(.slash, "Expected '/' in duration") != nil,
+                      let denominator = expect(.integerLiteral, "Expected duration denominator"),
+                      let close = expect(.rightBracket, "Expected ']' after duration") else { return nil }
+                return .init(kind: .fraction(numerator, denominator), range: spanning(start, close))
+            }
+            guard let name = expect(.identifier, "Expected duration") else { return nil }
+            var dots = 0
+            var last = name
+            while current.kind == .dot {
+                if last.range.end != current.range.start { diagnose("Duration dots must immediately follow the duration") }
+                last = advance()
+                dots += 1
+            }
+            return .init(kind: .named(name, dots: dots), range: spanning(name, last))
         }
 
         func isDuration(_ token: TextToken) -> Bool { ["w", "h", "q", "e", "s"].contains(String(token.lexeme)) }

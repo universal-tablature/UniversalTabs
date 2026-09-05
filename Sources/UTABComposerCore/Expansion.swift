@@ -121,6 +121,7 @@ public struct ReferenceExpansionStage: CompilerStage {
     private struct Expander {
         let input: NameResolvedComposition
         var diagnostics: [ComposerDiagnostic] = []
+        var timeFactor = Rational(1)
 
         var phrasesByID: [SemanticID: Phrase] {
             Dictionary(uniqueKeysWithValues: input.source.phrases.map { ($0.id, $0) })
@@ -174,6 +175,8 @@ public struct ReferenceExpansionStage: CompilerStage {
                     diagnostics.append(.init(.error, path: path, message: "Repetition count must not be negative"))
                 }
                 validateRepetitionCounts(in: child, path: "\(path).repeated")
+            case .proportional(_, let child), .barAssertion(let child):
+                validateRepetitionCounts(in: child, path: path)
             case .sequence(let children), .parallel(let children):
                 for (index, child) in children.enumerated() {
                     validateRepetitionCounts(in: child, path: "\(path)[\(index)]")
@@ -217,6 +220,9 @@ public struct ReferenceExpansionStage: CompilerStage {
                         kind: .sequence(expressions),
                         annotations: voice.source.annotations
                     )
+                    if checkedDuration(sequence) == nil {
+                        diagnostics.append(.init(.error, path: voicePath.joined(separator: "."), message: "Combined voice duration overflows supported rational score time", range: voice.source.annotations.source))
+                    }
                     return ExpandedVoice(source: voice.source, expression: sequence)
                 }
                 return ExpandedPart(source: part.source, voices: voices)
@@ -235,12 +241,16 @@ public struct ReferenceExpansionStage: CompilerStage {
             }
             if !phrase.bars.isEmpty {
                 let phrasePath = path + ["phrase:\(phraseID.rawValue)"]
-                let children = phrase.bars.enumerated().compactMap { index, bar in
-                    expandExpression(
+                let children: [ExpandedExpression] = phrase.bars.enumerated().compactMap { index, bar in
+                    let result = expandExpression(
                         bar.expression,
                         path: phrasePath + ["bar:\(index):\(bar.id.rawValue)"],
                         ancestry: ancestry + [phraseID, bar.id]
                     )
+                    if let result, result.duration != (bar.meter ?? input.source.meter).duration {
+                        diagnostics.append(.init(.error, path: phrasePath.joined(separator: "."), message: "Bar duration is \(result.duration); expected \((bar.meter ?? input.source.meter).duration)", range: bar.annotations.source))
+                    }
+                    return result
                 }
                 return ExpandedExpression(
                     provenance: .init(
@@ -269,13 +279,13 @@ public struct ReferenceExpansionStage: CompilerStage {
 
             switch expression.kind {
             case .note(let pitch, let duration, let constraints):
-                expandedKind = .note(pitch, duration: duration, constraints: constraints)
+                expandedKind = .note(pitch, duration: scaled(duration, at: expression), constraints: constraints)
             case .rest(let duration):
-                expandedKind = .rest(duration)
+                expandedKind = .rest(scaled(duration, at: expression))
             case .chord(let chord, let duration, let constraints):
-                expandedKind = .chord(chord, duration: duration, constraints: constraints)
+                expandedKind = .chord(chord, duration: scaled(duration, at: expression), constraints: constraints)
             case .actuator(let actuator):
-                expandedKind = .actuator(actuator)
+                expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch, parameters: actuator.parameters))
             case .sequence(let children):
                 expandedKind = .sequence(children.enumerated().compactMap { index, child in
                     expandExpression(child, path: path + ["sequence:\(index)"], ancestry: ancestry)
@@ -294,6 +304,21 @@ public struct ReferenceExpansionStage: CompilerStage {
                     path: path + ["reference:\(expression.id.rawValue)"],
                     ancestry: ancestry + [expression.id]
                 )
+            case .proportional(let factor, let child):
+                guard factor.numerator > 0, let combined = timeFactor.multiplied(by: factor) else {
+                    timingError("Duration scaling is invalid or overflows", at: expression)
+                    return nil
+                }
+                let previous = timeFactor
+                timeFactor = combined
+                defer { timeFactor = previous }
+                return expandExpression(child, path: path + ["proportional:\(factor)"], ancestry: ancestry + [expression.id])
+            case .barAssertion(let child):
+                guard let result = expandExpression(child, path: path + ["bar"], ancestry: ancestry + [expression.id]) else { return nil }
+                if result.duration != input.source.meter.duration {
+                    timingError("Bar duration is \(result.duration); expected \(input.source.meter.duration)", at: expression)
+                }
+                return result
             case .repeated(let count, let child):
                 guard count >= 0 else {
                     diagnostics.append(.init(.error, path: path.joined(separator: "."), message: "Repetition count must not be negative"))
@@ -319,10 +344,68 @@ public struct ReferenceExpansionStage: CompilerStage {
                     technique: application.technique,
                     form: application.form,
                     operands: operands,
-                    parameters: application.parameters
+                    parameters: scaledParameters(application.parameters, at: expression)
                 ))
             }
-            return .init(provenance: provenance, kind: expandedKind, annotations: expression.annotations)
+            let result = ExpandedExpression(provenance: provenance, kind: expandedKind, annotations: expression.annotations)
+            if checkedDuration(result) == nil {
+                timingError("Combined duration overflows supported rational score time", at: expression)
+                return nil
+            }
+            return result
+        }
+
+        func sourceRange(_ expression: MusicalExpression) -> SourceRange? {
+            if let range = expression.annotations.source { return range }
+            switch expression.kind {
+            case .sequence(let children), .parallel(let children): return children.lazy.compactMap(sourceRange).first
+            case .repeated(_, let child), .proportional(_, let child), .barAssertion(let child): return sourceRange(child)
+            case .technique(let application): return application.operands.lazy.compactMap(sourceRange).first
+            default: return nil
+            }
+        }
+
+        mutating func timingError(_ message: String, at expression: MusicalExpression) {
+            diagnostics.append(.init(.error, path: expression.id.rawValue, message: message, range: sourceRange(expression)))
+        }
+
+        mutating func scaled(_ duration: MusicalDuration, at expression: MusicalExpression) -> MusicalDuration {
+            guard let value = duration.wholeNotes.multiplied(by: timeFactor) else {
+                timingError("Duration scaling overflows supported rational score time", at: expression)
+                return .zero
+            }
+            return MusicalDuration(value.numerator, value.denominator)
+        }
+
+        mutating func scaledParameters(_ parameters: [String: MetadataValue], at expression: MusicalExpression) -> [String: MetadataValue] {
+            var result = parameters
+            if case .integer(let n) = parameters["subdivisionNumerator"],
+               case .integer(let d) = parameters["subdivisionDenominator"], d > 0 {
+                let value = scaled(MusicalDuration(n, d), at: expression).wholeNotes
+                result["subdivisionNumerator"] = .integer(value.numerator)
+                result["subdivisionDenominator"] = .integer(value.denominator)
+            }
+            return result
+        }
+
+        func checkedDuration(_ expression: ExpandedExpression) -> Rational? {
+            switch expression.kind {
+            case .sequence(let children):
+                return children.reduce(Optional(Rational(0))) { total, child in
+                    guard let total, let next = checkedDuration(child) else { return nil }
+                    return total.adding(next)
+                }
+            case .parallel(let children):
+                let values = children.compactMap { checkedDuration($0) }
+                return values.count == children.count ? values.max() ?? Rational(0) : nil
+            case .technique(let application):
+                if application.form != .transition { return application.operands.first.flatMap { checkedDuration($0) } ?? Rational(0) }
+                return application.operands.reduce(Optional(Rational(0))) { total, child in
+                    guard let total, let next = checkedDuration(child) else { return nil }
+                    return total.adding(next)
+                }
+            default: return expression.duration.wholeNotes
+            }
         }
 
         mutating func expandArrangement(_ expression: MusicalExpression, path: [String]) -> ExpandedArrangement? {
@@ -352,7 +435,7 @@ public struct ReferenceExpansionStage: CompilerStage {
                 return .init(kind: .sequence((0..<count).compactMap { index in
                     expandArrangement(child, path: path + ["repeat:\(expression.id.rawValue):\(index)"])
                 }))
-            case .note, .rest, .chord, .actuator, .technique:
+            case .note, .rest, .chord, .actuator, .technique, .proportional, .barAssertion:
                 diagnostics.append(.init(.error, path: path.joined(separator: "."), message: "The main arrangement may contain only section references, sequence, parallel composition, and repetition"))
                 return nil
             }
