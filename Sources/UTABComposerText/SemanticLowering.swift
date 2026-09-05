@@ -289,6 +289,7 @@ public struct TextSemanticLowerer: Sendable {
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .tempo: result = lowerTempoExpression(expression)
             case .tempoRamp: result = lowerTempoRampExpression(expression)
+            case .fermata: result = lowerFermataExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
@@ -562,6 +563,24 @@ public struct TextSemanticLowerer: Sendable {
                     "tempoRampDurationNumerator": .integer(span.wholeNotes.numerator),
                     "tempoRampDurationDenominator": .integer(span.wholeNotes.denominator),
                     "tempoRampSteps": .integer(steps),
+                ], source: expression.range)
+            )
+        }
+
+        mutating func lowerFermataExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .fermata(let durationSyntax, let factorToken) = expression.kind,
+                  let factor = factorToken.decimalValue, factor > 1 else {
+                error("Fermata factor must be greater than one", at: expression.range)
+                return .rest(.zero, id: id("invalid-fermata", expression.range))
+            }
+            let span = duration(durationSyntax)
+            return .init(
+                id: id("fermata", expression.range),
+                kind: .rest(.zero),
+                annotations: .init(metadata: [
+                    "fermataFactor": .decimal(factor),
+                    "fermataDurationNumerator": .integer(span.wholeNotes.numerator),
+                    "fermataDurationDenominator": .integer(span.wholeNotes.denominator),
                 ], source: expression.range)
             )
         }

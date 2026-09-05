@@ -273,6 +273,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case finalBar([TextExpressionSyntax])
         case tempo(unit: TextDurationSyntax?, beatsPerMinute: TextToken)
         case tempoRamp(target: TextToken, duration: TextDurationSyntax, steps: TextToken?)
+        case fermata(duration: TextDurationSyntax, factor: TextToken)
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])

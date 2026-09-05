@@ -475,3 +475,41 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(!result.succeeded, "\(directive)")
     }
 }
+
+@Test func fermataStretchesPerformedTimeWithoutChangingScoreDuration() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            C4 h
+            fermata q factor 2
+            D4 q
+            E4 q
+        } } }
+        main { s }
+        """, fileID: "fermata.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let map = try #require(result.document?.setup.time?.tempoMap)
+    #expect(map.map(\.quarterNotesPerMinute) == [50, 100])
+    #expect(map.map { $0.at?["beat"] } == [.number(3), .number(4)])
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.compactMap(\.duration?.quarterNotes) == [.string("2/1"), .string("1/1"), .string("1/1")])
+    let bytes = [UInt8](try #require(result.artifact(.midi)?.data))
+    #expect((0..<(bytes.count - 2)).filter { Array(bytes[$0...($0 + 2)]) == [0xFF, 0x51, 0x03] }.count == 3)
+}
+
+@Test func fermataRejectsInvalidFactorsAndSectionOverflow() {
+    for directive in ["fermata q factor 1; C4 w", "C4 w; fermata q factor 2"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(directive) } } }
+            main { s }
+            """, fileID: "invalid-fermata.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded, "\(directive)")
+    }
+}

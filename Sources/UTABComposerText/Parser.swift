@@ -713,6 +713,13 @@ public struct TextParser: Sendable {
                       let bpm = expectNumber("Expected positive tempo") else { return nil }
                 return .init(kind: .tempo(unit: unit, beatsPerMinute: bpm), range: spanning(keyword, bpm))
             }
+            if takeKeyword("fermata") {
+                let keyword = tokens[index - 1]
+                guard let duration = parseDuration(),
+                      expectKeyword("factor", "Expected 'factor' after fermata duration") != nil,
+                      let factor = expectNumber("Expected fermata stretch factor") else { return nil }
+                return .init(kind: .fermata(duration: duration, factor: factor), range: spanning(keyword, factor))
+            }
 
             if take(.atSign) {
                 let start = tokens[index - 1]
