@@ -269,6 +269,8 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case reference(TextToken)
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])
         case bar([TextExpressionSyntax])
+        case pickup([TextExpressionSyntax])
+        case finalBar([TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])

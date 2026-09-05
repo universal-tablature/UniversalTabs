@@ -176,10 +176,11 @@ public struct TextSemanticLowerer: Sendable {
                 return .init(phraseID(phrase).rawValue.dropFirst("phrase:".count).description, id: phraseID(phrase), bars: bars, source: phrase.range)
             }
 
+            let expression = lowerBoundarySequence(phrase.expressions, range: phrase.range)
             return .init(
                 phraseID(phrase).rawValue.dropFirst("phrase:".count).description,
                 id: phraseID(phrase),
-                expression: expressionSequence(phrase.expressions, range: phrase.range),
+                expression: expression,
                 source: phrase.range
             )
         }
@@ -218,10 +219,11 @@ public struct TextSemanticLowerer: Sendable {
                 lyricText,
                 id: id("lyrics", voice.lyrics.first?.range ?? voice.range)
             )]
+            let lowered = lowerBoundaryContents(voice.expressions, range: voice.range)
             return .init(
                 String(voice.name.lexeme),
                 id: id("voice", voice.range),
-                content: voice.expressions.map { lowerVoiceContent($0) },
+                content: lowered,
                 lyrics: lyrics,
                 source: voice.range
             )
@@ -230,6 +232,39 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerVoiceContent(_ expression: TextExpressionSyntax) -> VoiceContent {
             if case .reference(let token) = expression.kind { return .reference(resolvePhrase(token)) }
             return .expression(lowerExpression(expression))
+        }
+
+        mutating func lowerBoundaryContents(_ expressions: [TextExpressionSyntax], range: SourceRange) -> [VoiceContent] {
+            let lowered = expressions.map { lowerVoiceContent($0) }
+            let durations = lowered.map { content -> MusicalDuration? in
+                guard case .expression(let expression) = content else { return nil }
+                return expression.duration
+            }
+            validateBoundaryBars(expressions, durations: durations, range: range)
+            return lowered
+        }
+
+        mutating func lowerBoundarySequence(_ expressions: [TextExpressionSyntax], range: SourceRange) -> MusicalExpression {
+            let lowered = expressions.map { lowerExpression($0) }
+            validateBoundaryBars(expressions, durations: lowered.map(\.duration), range: range)
+            return .sequence(lowered, id: id("sequence", range))
+        }
+
+        mutating func validateBoundaryBars(_ expressions: [TextExpressionSyntax], durations: [MusicalDuration?], range: SourceRange) {
+            let pickups = expressions.indices.filter { if case .pickup = expressions[$0].kind { true } else { false } }
+            let finals = expressions.indices.filter { if case .finalBar = expressions[$0].kind { true } else { false } }
+            for index in pickups where index != expressions.startIndex { error("A pickup must be the first expression in its scope", at: expressions[index].range) }
+            for index in finals where index != expressions.index(before: expressions.endIndex) { error("An incomplete final bar must be the last expression in its scope", at: expressions[index].range) }
+            if pickups.count > 1 { error("A scope may contain only one pickup", at: range) }
+            if finals.count > 1 { error("A scope may contain only one incomplete final bar", at: range) }
+            if let pickup = pickups.first, let final = finals.first,
+               let pickupDuration = durations[pickup], let finalDuration = durations[final],
+               let meter = syntax.meter,
+               let numerator = meter.numerator.integerValue,
+               let denominator = meter.denominator.integerValue,
+               pickupDuration + finalDuration != MusicalDuration(numerator, denominator) {
+                error("Pickup and incomplete final bar durations must complement the active meter", at: expressions[final].range)
+            }
         }
 
         mutating func expressionSequence(_ expressions: [TextExpressionSyntax], range: SourceRange) -> MusicalExpression {
@@ -251,6 +286,7 @@ public struct TextSemanticLowerer: Sendable {
             case .repeated: result = lowerRepeatedExpression(expression)
             case .proportional: result = lowerProportionalExpression(expression)
             case .bar: result = lowerBarExpression(expression)
+            case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
@@ -469,6 +505,21 @@ public struct TextSemanticLowerer: Sendable {
                 return .init(id: id("bar", expression.range), kind: .barAssertion(expressionSequence(expressions, range: expression.range)), annotations: .init(source: expression.range))
             default: preconditionFailure("Mismatched expression dispatch")
             }
+        }
+
+        mutating func lowerPartialBarExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            let role: String
+            let expressions: [TextExpressionSyntax]
+            switch expression.kind {
+            case .pickup(let children): role = "pickup"; expressions = children
+            case .finalBar(let children): role = "final"; expressions = children
+            default: preconditionFailure("Mismatched expression dispatch")
+            }
+            return .init(
+                id: id("bar:\(role)", expression.range),
+                kind: .barAssertion(expressionSequence(expressions, range: expression.range)),
+                annotations: .init(metadata: ["barRole": .string(role)], source: expression.range)
+            )
         }
 
         mutating func lowerSequenceExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {

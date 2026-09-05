@@ -354,3 +354,43 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(result.diagnostics.contains { $0.range?.fileID == "invalid-tie.utab" })
     }
 }
+
+@Test func pickupAndFinalBarsPreserveTimelineAndCrossBoundaryTies() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s : 2 bars { piano { voice v {
+            pickup { C4 q~ }
+            bar { C4 q; D4 h. }
+            final { E4 h. }
+        } } }
+        main { s }
+        """, fileID: "pickup.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.filter { $0.action == "press" }.count == 3)
+    #expect(events.first?.duration?.quarterNotes == .string("2/1"))
+    #expect(events.last?.at.musical?.measure == 2)
+}
+
+@Test func partialBarsRequireBoundaryPlacementAndComplementaryDurations() {
+    for music in [
+        "bar { C4 w }; pickup { C4 q }",
+        "final { C4 q }; bar { C4 w }",
+        "pickup { C4 q }; final { C4 q }",
+        "pickup { C4 w }",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(music) } } }
+            main { s }
+            """, fileID: "partial-bar-error.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded, "\(music)")
+        #expect(result.diagnostics.contains { $0.range?.fileID == "partial-bar-error.utab" }, "\(result.diagnostics)")
+    }
+}

@@ -315,7 +315,11 @@ public struct ReferenceExpansionStage: CompilerStage {
                 return expandExpression(child, path: path + ["proportional:\(factor)"], ancestry: ancestry + [expression.id])
             case .barAssertion(let child):
                 guard let result = expandExpression(child, path: path + ["bar"], ancestry: ancestry + [expression.id]) else { return nil }
-                if result.duration != input.source.meter.duration {
+                if case .string(let role)? = expression.annotations.metadata["barRole"] {
+                    if result.duration <= .zero || result.duration >= input.source.meter.duration {
+                        timingError("A \(role) bar must be shorter than the active meter and have positive duration", at: expression)
+                    }
+                } else if result.duration != input.source.meter.duration {
                     timingError("Bar duration is \(result.duration); expected \(input.source.meter.duration)", at: expression)
                 }
                 return result

@@ -752,6 +752,14 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after bar") ?? current
                 return .init(kind: .bar(children), range: spanning(keyword, close))
             }
+            if takeKeyword("pickup") || takeKeyword("final") {
+                let keyword = tokens[index - 1]
+                guard expect(.leftBrace, "Expected '{' after \(keyword.lexeme)") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after \(keyword.lexeme)") ?? current
+                let kind: TextExpressionSyntax.Kind = keyword.lexeme == "pickup" ? .pickup(children) : .finalBar(children)
+                return .init(kind: kind, range: spanning(keyword, close))
+            }
             if take(.leftParen) {
                 let open = tokens[index - 1]
                 let children = parseExpressions(until: .rightParen)
