@@ -271,6 +271,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case bar([TextExpressionSyntax])
         case pickup([TextExpressionSyntax])
         case finalBar([TextExpressionSyntax])
+        case tempo(unit: TextDurationSyntax?, beatsPerMinute: TextToken)
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])

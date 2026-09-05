@@ -394,3 +394,48 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(result.diagnostics.contains { $0.range?.fileID == "partial-bar-error.utab" }, "\(result.diagnostics)")
     }
 }
+
+@Test func inlineTempoChangesUseSequencePositionAndExplicitBeatUnits() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s : 2 bars { piano { voice v {
+            C4 h
+            tempo 90
+            D4 h
+            tempo q. = 80
+            E4 w
+        } } }
+        main { s }
+        """, fileID: "tempo-map.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let map = try #require(result.document?.setup.time?.tempoMap)
+    #expect(map.map(\.quarterNotesPerMinute) == [90, 120])
+    #expect(map[0].at?["measure"] == .number(1))
+    #expect(map[0].at?["beat"] == .number(3))
+    #expect(map[1].at?["measure"] == .number(2))
+    let midi = try #require(result.artifact(.midi)?.data)
+    let bytes = [UInt8](midi)
+    #expect((0..<(bytes.count - 2)).filter { Array(bytes[$0...($0 + 2)]) == [0xFF, 0x51, 0x03] }.count == 3)
+}
+
+@Test func inlineTempoRejectsInvalidAndConflictingChanges() {
+    let invalid = TextParser().parse(TextSource("meter 4/4; tempo 100; phrase p { C4 q; tempo -2; D4 h. }", fileID: "invalid-tempo.utab"))
+    #expect(invalid.syntax.map { !TextSemanticLowerer().lower($0).succeeded } == true)
+
+    let conflict = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano {
+            voice upper { tempo 90; C4 w }
+            voice lower { tempo 110; C3 w }
+        } }
+        main { s }
+        """, fileID: "conflicting-tempo.utab"), modules: StandardTextModuleProvider())
+    #expect(!conflict.succeeded)
+    #expect(conflict.diagnostics.contains { $0.message.contains("Conflicting tempo") })
+}

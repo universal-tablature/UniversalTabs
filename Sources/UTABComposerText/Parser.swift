@@ -694,6 +694,16 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after proportional group") ?? current
                 return .init(kind: .proportional(numerator: numerator, denominator: denominator, tuplet: start.lexeme == "tuplet", expressions: children), range: spanning(start, close))
             }
+            if takeKeyword("tempo") {
+                let keyword = tokens[index - 1]
+                if current.kind == .integerLiteral || current.kind == .decimalLiteral {
+                    guard let bpm = expectNumber("Expected positive tempo") else { return nil }
+                    return .init(kind: .tempo(unit: nil, beatsPerMinute: bpm), range: spanning(keyword, bpm))
+                }
+                guard let unit = parseDuration(), expect(.equal, "Expected '=' after tempo beat unit") != nil,
+                      let bpm = expectNumber("Expected positive tempo") else { return nil }
+                return .init(kind: .tempo(unit: unit, beatsPerMinute: bpm), range: spanning(keyword, bpm))
+            }
 
             if take(.atSign) {
                 let start = tokens[index - 1]

@@ -287,6 +287,7 @@ public struct TextSemanticLowerer: Sendable {
             case .proportional: result = lowerProportionalExpression(expression)
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
+            case .tempo: result = lowerTempoExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
@@ -519,6 +520,24 @@ public struct TextSemanticLowerer: Sendable {
                 id: id("bar:\(role)", expression.range),
                 kind: .barAssertion(expressionSequence(expressions, range: expression.range)),
                 annotations: .init(metadata: ["barRole": .string(role)], source: expression.range)
+            )
+        }
+
+        mutating func lowerTempoExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .tempo(let unitSyntax, let bpmToken) = expression.kind,
+                  let beatsPerMinute = bpmToken.decimalValue, beatsPerMinute > 0 else {
+                error("Tempo must be a positive number", at: expression.range)
+                return .rest(.zero, id: id("invalid-tempo", expression.range))
+            }
+            let unit = unitSyntax.map { duration($0) } ?? .quarter
+            let quarterNotesPerMinute = beatsPerMinute * Double(unit.wholeNotes.numerator * 4) / Double(unit.wholeNotes.denominator)
+            return .init(
+                id: id("tempo", expression.range),
+                kind: .rest(.zero),
+                annotations: .init(metadata: [
+                    "tempoQuarterNotesPerMinute": .decimal(quarterNotesPerMinute),
+                    "tempoBeatUnit": .string(unit.description),
+                ], source: expression.range)
             )
         }
 

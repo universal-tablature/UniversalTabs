@@ -63,6 +63,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
             let arrangement = lowerArrangement()
             let harmony = lowerHarmony()
+            let tempos = lowerTempoMap(arrangement: arrangement)
 
             guard !diagnostics.contains(where: { $0.severity == .error }) else {
                 return .init(output: nil, diagnostics: diagnostics)
@@ -93,7 +94,8 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 instruments: instruments,
                 time: .init(
                     meter: .init(numerator: composition.meter.numerator, denominator: composition.meter.denominator),
-                    tempo: .init(quarterNotesPerMinute: composition.tempo)
+                    tempo: .init(quarterNotesPerMinute: composition.tempo),
+                    tempoMap: tempos.isEmpty ? nil : tempos
                 ),
                 sections: sectionDefinitions,
                 arrangement: arrangement,
@@ -167,6 +169,44 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                         )
                     }
                 }
+            }
+        }
+
+        mutating func lowerTempoMap(arrangement: [ArrangementEntry]) -> [TempoChange] {
+            var changesBySection: [String: [(MusicalDuration, Double)]] = [:]
+            for section in input.sections {
+                let sectionID = section.source.id.rawValue
+                var changes: [(MusicalDuration, Double)] = []
+                for expression in section.parts.flatMap(\.voices).map(\.expression) {
+                    collectTempoChanges(in: expression, into: &changes)
+                }
+                let grouped = Dictionary(grouping: changes, by: { $0.0 })
+                for (offset, values) in grouped where Set(values.map(\.1)).count > 1 {
+                    diagnostics.append(.init(.error, path: sectionID, message: "Conflicting tempo changes at score offset \(offset)"))
+                }
+                changesBySection[sectionID] = grouped.values.compactMap(\.first).sorted { $0.0 < $1.0 }
+            }
+            return arrangement.flatMap { entry -> [TempoChange] in
+                guard let section = input.sections.first(where: { $0.source.id.rawValue == entry.section }) else { return [] }
+                let meter = section.source.meter ?? composition.meter
+                return (changesBySection[entry.section] ?? []).map { offset, bpm in
+                    let position = eventTime(offset, meter: meter).musical!
+                    var at: [String: JSONValue] = ["entry": .string(entry.id), "measure": .number(Double(position.measure))]
+                    if let beat = position.beat { at["beat"] = .number(Double(beat)) }
+                    if let fraction = position.offset { at["offset"] = fraction }
+                    return .init(at: at, quarterNotesPerMinute: bpm)
+                }
+            }
+        }
+
+        func collectTempoChanges(in expression: RealizedExpression, into changes: inout [(MusicalDuration, Double)]) {
+            if case .decimal(let bpm)? = expression.annotations.metadata["tempoQuarterNotesPerMinute"] {
+                changes.append((expression.offset, bpm))
+            }
+            switch expression.kind {
+            case .sequence(let children), .parallel(let children): children.forEach { collectTempoChanges(in: $0, into: &changes) }
+            case .technique(let application): application.operands.forEach { collectTempoChanges(in: $0, into: &changes) }
+            case .note, .rest, .actuator: break
             }
         }
 
