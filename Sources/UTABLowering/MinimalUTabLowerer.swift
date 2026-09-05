@@ -792,8 +792,26 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             if expression.annotations.metadata["tieContinuation"] == .boolean(true) { return }
             switch expression.kind {
             case .sequence(let children), .parallel(let children):
-                children.forEach {
-                    lower($0, instrument: instrument, meter: meter, inheritedTechniques: inheritedTechniques, into: &events)
+                for (index, child) in children.enumerated() {
+                    var childTechniques = inheritedTechniques
+                    if case .technique(let grace) = child.kind, grace.technique == "__grace",
+                       grace.parameters["policy"] != .string("measured") {
+                        if index + 1 >= children.count || boundaryTones(in: children[index + 1]).isEmpty {
+                            diagnostics.append(.init(.error, path: child.provenance.expansionPath.joined(separator: "."), message: "An unmeasured grace group requires a following pitched anchor in the same sequence", range: child.annotations.source))
+                        } else if grace.parameters["policy"] == .string("stealFollowing"),
+                                  case .integer(let n)? = grace.parameters["graceBudgetNumerator"],
+                                  case .integer(let d)? = grace.parameters["graceBudgetDenominator"],
+                                  children[index + 1].duration <= MusicalDuration(n, d) {
+                            diagnostics.append(.init(.error, path: child.provenance.expansionPath.joined(separator: "."), message: "A stealFollowing grace budget must be shorter than its following pitched anchor", range: child.annotations.source))
+                        }
+                    }
+                    if index > 0, case .technique(let prior) = children[index - 1].kind,
+                       prior.technique == "__grace", prior.parameters["policy"] == .string("stealFollowing"),
+                       case .integer(let n)? = prior.parameters["graceBudgetNumerator"],
+                       case .integer(let d)? = prior.parameters["graceBudgetDenominator"] {
+                        childTechniques.append("__graceDelay:\(n),\(d)")
+                    }
+                    lower(child, instrument: instrument, meter: meter, inheritedTechniques: childTechniques, into: &events)
                 }
             case .technique(let application):
                 var techniques = inheritedTechniques
@@ -825,6 +843,33 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     // The matching release is appended after the scoped operands.
                     if !alreadyDown && expression.duration != .zero { events.append(makePedalEvent(expression, meter: meter, down: false)) }
                     return
+                } else if application.technique == "__grace",
+                          case .string(let policy)? = application.parameters["policy"] {
+                    guard let operand = application.operands.first else { return }
+                    if policy == "measured" {
+                        lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques + ["grace"], into: &events)
+                        return
+                    }
+                    guard case .integer(let n)? = application.parameters["graceBudgetNumerator"],
+                          case .integer(let d)? = application.parameters["graceBudgetDenominator"],
+                          operand.duration > .zero else { return }
+                    if policy == "beforeBeat", expression.offset < MusicalDuration(n, d) {
+                        diagnostics.append(.init(.error, path: expression.provenance.expansionPath.joined(separator: "."), message: "A beforeBeat grace group has insufficient preceding performed time", range: expression.annotations.source))
+                        return
+                    }
+                    let anchor = expression.offset.wholeNotes
+                    let source = operand.duration.wholeNotes
+                    techniques.append("__grace:\(policy),\(n),\(d),\(anchor.numerator),\(anchor.denominator),\(source.numerator),\(source.denominator)")
+                    lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
+                    return
+                } else if application.technique == "__ornament",
+                          case .string(let name)? = application.parameters["name"],
+                          case .integer(let n)? = application.parameters["subdivisionNumerator"],
+                          case .integer(let d)? = application.parameters["subdivisionDenominator"] {
+                    if expression.duration <= MusicalDuration(n, d) {
+                        diagnostics.append(.init(.error, path: expression.provenance.expansionPath.joined(separator: "."), message: "Ornament subdivision must be shorter than its operand", range: expression.annotations.source))
+                    }
+                    techniques.append("__ornament:\(name),\(n),\(d)")
                 } else {
                     techniques.append(application.technique)
                     capabilities[instrument, default: .init()].techniques.insert(application.technique)
@@ -934,7 +979,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             techniques: [String]
         ) -> PerformanceEvent {
             var eventParameters = parameters
-            let publicTechniques = techniques.filter { !$0.hasPrefix("__dynamic:") && !$0.hasPrefix("__envelope:") && $0 != "__sustainPedal" }
+            let publicTechniques = techniques.filter { !$0.hasPrefix("__dynamic:") && !$0.hasPrefix("__envelope:") && !$0.hasPrefix("__grace:") && !$0.hasPrefix("__graceDelay:") && !$0.hasPrefix("__ornament:") && $0 != "__sustainPedal" }
             if action != "damp" {
                 let scopedIntensity = resolvedIntensity(at: expression.offset, techniques: techniques)
                 if let scopedIntensity {
@@ -957,10 +1002,45 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     ])
                 })
             }
+            var performedOffset = expression.offset
+            var performedDuration = expression.duration
+            if let grace = techniques.last(where: { $0.hasPrefix("__grace:") }) {
+                let values = grace.dropFirst("__grace:".count).split(separator: ",")
+                if values.count == 7, let budgetN = Int(values[1]), let budgetD = Int(values[2]),
+                   let anchorN = Int(values[3]), let anchorD = Int(values[4]),
+                   let sourceN = Int(values[5]), let sourceD = Int(values[6]) {
+                    let budget = MusicalDuration(budgetN, budgetD)
+                    let anchor = MusicalDuration(anchorN, anchorD)
+                    let sourceDuration = MusicalDuration(sourceN, sourceD)
+                    let factor = divide(budget, sourceDuration)
+                    let relative = subtract(expression.offset, anchor)
+                    let scaledRelative = MusicalDuration(relative.wholeNotes.multiplied(by: factor)!.numerator, relative.wholeNotes.multiplied(by: factor)!.denominator)
+                    performedOffset = values[0] == "beforeBeat" ? subtract(anchor, budget) + scaledRelative : anchor + scaledRelative
+                    let scaledDuration = expression.duration.wholeNotes.multiplied(by: factor)!
+                    performedDuration = MusicalDuration(scaledDuration.numerator, scaledDuration.denominator)
+                    eventParameters["grace"] = .boolean(true)
+                    eventParameters["writtenAt"] = .string(expression.offset.description)
+                }
+            } else if let delay = techniques.last(where: { $0.hasPrefix("__graceDelay:") }) {
+                let values = delay.dropFirst("__graceDelay:".count).split(separator: ",").compactMap { Int($0) }
+                if values.count == 2 {
+                    let budget = MusicalDuration(values[0], values[1])
+                    performedOffset = expression.offset + budget
+                    if expression.duration > budget { performedDuration = subtract(expression.duration, budget) }
+                    else { eventParameters["graceStealClamped"] = .boolean(true) }
+                }
+            }
+            if let ornament = techniques.last(where: { $0.hasPrefix("__ornament:") }) {
+                let values = ornament.dropFirst("__ornament:".count).split(separator: ",")
+                if values.count == 3 {
+                    eventParameters["ornament"] = .string(String(values[0]))
+                    eventParameters["ornamentSubdivision"] = .string("\(values[1])/\(values[2])")
+                }
+            }
             return .init(
                 id: expression.provenance.occurrenceID.rawValue,
-                at: eventTime(expression.offset, meter: meter),
-                duration: .init(quarterNotes: .string((expression.duration * 4).description)),
+                at: eventTime(performedOffset, meter: meter),
+                duration: .init(quarterNotes: .string((performedDuration * 4).description)),
                 action: action,
                 target: target,
                 parameters: eventParameters,
@@ -1247,9 +1327,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             ))
         }
 
-        func timeKey(_ time: EventTime) -> String {
-            guard let musical = time.musical else { return "" }
-            return String(format: "%08d:%08d:%@", musical.measure, musical.beat ?? 1, String(describing: musical.offset))
+        func timeKey(_ time: EventTime) -> Double {
+            guard let musical = time.musical else { return -.infinity }
+            let fraction: Double = {
+                guard case .string(let value)? = musical.offset else { return 0 }
+                let parts = value.split(separator: "/").compactMap { Double($0) }
+                return parts.count == 2 && parts[1] != 0 ? parts[0] / parts[1] : 0
+            }()
+            return Double(musical.measure) * 1_000_000 + Double(musical.beat ?? 1) * 1_000 + fraction
         }
 
         func floorRatio(_ lhs: MusicalDuration, _ rhs: MusicalDuration) -> Int {

@@ -280,6 +280,8 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case dynamic(level: TextToken, expressions: [TextExpressionSyntax])
         case dynamicEnvelope(direction: TextToken, target: TextToken, expressions: [TextExpressionSyntax])
         case pedal([TextExpressionSyntax])
+        case grace(policy: TextToken, budget: TextDurationSyntax?, expressions: [TextExpressionSyntax])
+        case ornament(name: TextToken, subdivision: TextDurationSyntax, expressions: [TextExpressionSyntax])
         case technique(name: TextToken, expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])

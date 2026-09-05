@@ -517,6 +517,91 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(result.diagnostics.contains { $0.message.contains("crescendo target must be louder") })
 }
 
+@Test func gracePoliciesSeparateWrittenAndPerformedTiming() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar {
+            grace stealFollowing e { D5 s; E5 s }
+            C5 w
+        } } } }
+        main { s }
+        """, fileID: "grace.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events.filter { $0.action == "press" })
+    #expect(events.count == 3)
+    let grace = events.filter { $0.parameters?["grace"] == .boolean(true) }
+    let principal = try #require(events.first { $0.parameters?["grace"] == nil })
+    #expect(grace.count == 2)
+    #expect(grace.contains { $0.parameters?["writtenAt"] == .string("0/1") })
+    #expect(principal.at.musical?.offset == .string("1/2"))
+    #expect(principal.duration?.quarterNotes == .string("7/2"))
+    let editing = try #require(result.document?.editingMap?.occurrences)
+    let writtenPrincipal = try #require(editing.first { $0.duration.quarterNotes == .string("4/1") })
+    #expect(writtenPrincipal.at.musical?.measure == 1)
+    #expect(writtenPrincipal.at.musical?.beat == 1)
+}
+
+@Test func gracePoliciesDiagnoseMissingTimeAnchorAndOversizedSteals() {
+    for body in [
+        "grace beforeBeat e { D5 s; E5 s }; C5 w",
+        "grace stealFollowing q { D5 s }; C5 e; rest h.; rest e",
+        "C5 w; grace stealFollowing e { D5 s }",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { bar { \(body) } } } }
+            main { s }
+            """, fileID: "invalid-grace.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.lowercased().contains("grace") })
+    }
+}
+
+@Test func namedOrnamentsPreserveIntentAndCompileDeterministically() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar {
+            ornament trill s { C5 q }
+            ornament mordent s { D5 q }
+            ornament turn s { E5 q }
+            ornament appoggiatura s { F5 q }
+        } } } }
+        main { s }
+        """, fileID: "ornaments.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events.filter { $0.action == "press" })
+    #expect(events.compactMap { event -> String? in
+        guard case .string(let name)? = event.parameters?["ornament"] else { return nil }
+        return name
+    }.sorted() == ["appoggiatura", "mordent", "trill", "turn"])
+    #expect(events.allSatisfy { $0.parameters?["ornamentSubdivision"] == .string("1/16") })
+    #expect((result.artifact(.midi)?.data.count ?? 0) > 32)
+}
+
+@Test func ornamentsRequireKnownNamesAndShorterSubdivisions() {
+    for expression in ["ornament shake s { C5 w }", "ornament trill w { C5 w }"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { bar { \(expression) } } } }
+            main { s }
+            """, fileID: "invalid-ornament.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.lowercased().contains("ornament") })
+    }
+}
+
 @Test func invalidTiesProduceSourceDiagnostics() {
     for notes in ["C4 q~; D4 q; rest h", "C4 q; D4 q; E4 q; F4 q~"] {
         let result = UTabTextCompiler().compile(TextSource("""

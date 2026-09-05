@@ -56,6 +56,8 @@ public struct ExpandedExpression: Sendable, Hashable {
         case .parallel(let children):
             return children.map(\.duration).max() ?? .zero
         case .technique(let application):
+            if application.technique == "__grace",
+               application.parameters["policy"] != .string("measured") { return .zero }
             switch application.form {
             case .unary, .scoped:
                 return application.operands.first?.duration ?? .zero
@@ -396,6 +398,12 @@ public struct ReferenceExpansionStage: CompilerStage {
                 result["subdivisionNumerator"] = .integer(value.numerator)
                 result["subdivisionDenominator"] = .integer(value.denominator)
             }
+            if case .integer(let n) = parameters["graceBudgetNumerator"],
+               case .integer(let d) = parameters["graceBudgetDenominator"], d > 0 {
+                let value = scaled(MusicalDuration(n, d), at: expression).wholeNotes
+                result["graceBudgetNumerator"] = .integer(value.numerator)
+                result["graceBudgetDenominator"] = .integer(value.denominator)
+            }
             return result
         }
 
@@ -410,6 +418,8 @@ public struct ReferenceExpansionStage: CompilerStage {
                 let values = children.compactMap { checkedDuration($0) }
                 return values.count == children.count ? values.max() ?? Rational(0) : nil
             case .technique(let application):
+                if application.technique == "__grace",
+                   application.parameters["policy"] != .string("measured") { return Rational(0) }
                 if application.form != .transition { return application.operands.first.flatMap { checkedDuration($0) } ?? Rational(0) }
                 return application.operands.reduce(Optional(Rational(0))) { total, child in
                     guard let total, let next = checkedDuration(child) else { return nil }

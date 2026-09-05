@@ -342,6 +342,37 @@ public struct TextSemanticLowerer: Sendable {
                     form: .scoped,
                     operands: [expressionSequence(expressions, range: expression.range)]
                 ), id: id("pedal", expression.range))
+            case .grace(let policy, let budgetSyntax, let expressions):
+                var parameters: [String: MetadataValue] = ["policy": .string(String(policy.lexeme))]
+                if let budgetSyntax {
+                    let budget = duration(budgetSyntax).wholeNotes
+                    parameters["graceBudgetNumerator"] = .integer(budget.numerator)
+                    parameters["graceBudgetDenominator"] = .integer(budget.denominator)
+                }
+                result = .technique(.init(
+                    "__grace",
+                    form: .scoped,
+                    operands: [expressionSequence(expressions, range: expression.range)],
+                    parameters: parameters
+                ), id: id("grace:\(policy.lexeme)", expression.range))
+            case .ornament(let name, let subdivisionSyntax, let expressions):
+                let supported = ["trill", "mordent", "turn", "appoggiatura"]
+                guard supported.contains(String(name.lexeme)) else {
+                    error("Unknown ornament '\(name.lexeme)'; expected trill, mordent, turn, or appoggiatura", at: name.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                let subdivision = duration(subdivisionSyntax).wholeNotes
+                result = .technique(.init(
+                    "__ornament",
+                    form: .scoped,
+                    operands: [expressionSequence(expressions, range: expression.range)],
+                    parameters: [
+                        "name": .string(String(name.lexeme)),
+                        "subdivisionNumerator": .integer(subdivision.numerator),
+                        "subdivisionDenominator": .integer(subdivision.denominator),
+                    ]
+                ), id: id("ornament:\(name.lexeme)", expression.range))
             case .technique: result = lowerTechniqueExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)

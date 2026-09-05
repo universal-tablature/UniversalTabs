@@ -794,6 +794,31 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after pedal") ?? current
                 return .init(kind: .pedal(children), range: spanning(keyword, close))
             }
+            if takeKeyword("grace") {
+                let keyword = tokens[index - 1]
+                guard let policy = expect(.identifier, "Expected grace timing policy") else { return nil }
+                let budget: TextDurationSyntax?
+                if policy.lexeme == "measured" { budget = nil }
+                else { budget = parseDuration() }
+                guard ["measured", "stealFollowing", "beforeBeat"].contains(String(policy.lexeme)) else {
+                    diagnose("Expected measured, stealFollowing, or beforeBeat grace policy")
+                    return nil
+                }
+                guard (policy.lexeme == "measured" || budget != nil),
+                      expect(.leftBrace, "Expected '{' after grace policy") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after grace group") ?? current
+                return .init(kind: .grace(policy: policy, budget: budget, expressions: children), range: spanning(keyword, close))
+            }
+            if takeKeyword("ornament") {
+                let keyword = tokens[index - 1]
+                guard let name = expect(.identifier, "Expected ornament name"),
+                      let subdivision = parseDuration(),
+                      expect(.leftBrace, "Expected '{' after ornament subdivision") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after ornament") ?? current
+                return .init(kind: .ornament(name: name, subdivision: subdivision, expressions: children), range: spanning(keyword, close))
+            }
             if (isKeyword("legato") || isKeyword("slur")) && tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace {
                 let technique = advance()
                 _ = advance()

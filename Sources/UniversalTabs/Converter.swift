@@ -174,6 +174,32 @@ public final class UTabMIDIConverter {
                 continue
             }
 
+            if let ornament = string(parameters["ornament"]),
+               let base = pitchValue(parameters["pitch"]).flatMap(midiNote),
+               let subdivision = rational(parameters["ornamentSubdivision"]), subdivision > 0 {
+                let total = durationTicks(event)
+                let unit = max(1, Int((subdivision * 4 * Double(division)).rounded()))
+                let pattern: [Int]
+                switch ornament {
+                case "trill": pattern = [0, 2]
+                case "mordent": pattern = [0, -2, 0]
+                case "turn": pattern = [2, 0, -2, 0]
+                case "appoggiatura": pattern = [2, 0]
+                default: pattern = [0]
+                }
+                var cursor = 0
+                var index = 0
+                while cursor < total {
+                    let remaining = total - cursor
+                    let segment = ornament == "trill" ? min(unit, remaining) : (index == pattern.count - 1 ? remaining : min(unit, remaining))
+                    addNote(&output, tick: tick + cursor, duration: segment, channel: midiChannel, note: base + pattern[index], velocity: velocity(parameters))
+                    cursor += segment
+                    if ornament != "trill" && index == pattern.count - 1 { break }
+                    index = ornament == "trill" ? (index + 1) % pattern.count : min(index + 1, pattern.count - 1)
+                }
+                continue
+            }
+
             if action == "setPosition", let target,
                let index = targetIndex(target, group: "strings"),
                let fret = int(parameters["fret"]) {
