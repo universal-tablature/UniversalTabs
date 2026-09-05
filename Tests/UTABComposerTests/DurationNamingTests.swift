@@ -318,3 +318,39 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(!result.succeeded)
     #expect(result.diagnostics.contains { $0.message.contains("supported rational range") })
 }
+
+@Test func tiesAcrossBarsProduceOneSustainedAttackAndPreserveSegments() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s : 2 bars { piano { voice v {
+            bar { C4 h; rest q; C4 q~ }
+            bar { C4 q; rest h. }
+        } } }
+        main { s }
+        """, fileID: "ties.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.filter { $0.action == "press" }.count == 2)
+    #expect(events.last?.duration?.quarterNotes == .string("2/1"))
+    let occurrences = try #require(result.document?.editingMap?.occurrences)
+    #expect(occurrences.count == 5)
+}
+
+@Test func invalidTiesProduceSourceDiagnostics() {
+    for notes in ["C4 q~; D4 q; rest h", "C4 q; D4 q; E4 q; F4 q~"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(notes) } } }
+            main { s }
+            """, fileID: "invalid-tie.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.contains("tie") || $0.message.contains("Tied") })
+        #expect(result.diagnostics.contains { $0.range?.fileID == "invalid-tie.utab" })
+    }
+}

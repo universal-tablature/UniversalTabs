@@ -237,23 +237,28 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         mutating func lowerExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
-            if expression.notation != nil, let result = lowerNamedExpression(expression) { return result }
-            switch expression.kind {
-            case .note: return lowerNoteExpression(expression)
-            case .relativeNote: return lowerRelativenoteExpression(expression)
-            case .chord: return lowerChordExpression(expression)
-            case .relativeChord: return lowerRelativechordExpression(expression)
-            case .symbol: return lowerSymbolExpression(expression)
-            case .rest: return lowerRestExpression(expression)
-            case .actuator: return lowerActuatorExpression(expression)
-            case .reference: return lowerReferenceExpression(expression)
-            case .repeated: return lowerRepeatedExpression(expression)
-            case .proportional: return lowerProportionalExpression(expression)
-            case .bar: return lowerBarExpression(expression)
-            case .sequence: return lowerSequenceExpression(expression)
-            case .parallel: return lowerParallelExpression(expression)
-            case .performed: return lowerPerformedExpression(expression)
-            }
+            let result: MusicalExpression
+            if expression.notation != nil, let named = lowerNamedExpression(expression) { result = named }
+            else { switch expression.kind {
+            case .note: result = lowerNoteExpression(expression)
+            case .relativeNote: result = lowerRelativenoteExpression(expression)
+            case .chord: result = lowerChordExpression(expression)
+            case .relativeChord: result = lowerRelativechordExpression(expression)
+            case .symbol: result = lowerSymbolExpression(expression)
+            case .rest: result = lowerRestExpression(expression)
+            case .actuator: result = lowerActuatorExpression(expression)
+            case .reference: result = lowerReferenceExpression(expression)
+            case .repeated: result = lowerRepeatedExpression(expression)
+            case .proportional: result = lowerProportionalExpression(expression)
+            case .bar: result = lowerBarExpression(expression)
+            case .sequence: result = lowerSequenceExpression(expression)
+            case .parallel: result = lowerParallelExpression(expression)
+            case .performed: result = lowerPerformedExpression(expression)
+            }}
+            guard expression.tieToNext else { return result }
+            var metadata = result.annotations.metadata
+            metadata["tieToNext"] = .boolean(true)
+            return .init(id: result.id, kind: result.kind, annotations: .init(metadata: metadata, source: result.annotations.source))
         }
 
         mutating func lowerNamedExpression(_ expression: TextExpressionSyntax) -> MusicalExpression? {

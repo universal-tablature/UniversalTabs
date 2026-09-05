@@ -252,9 +252,10 @@ public struct PitchResolutionStage: CompilerStage {
                 PitchResolvedPart(
                     source: part.source,
                     voices: part.voices.map { voice in
-                        PitchResolvedVoice(
+                        let resolved = resolve(voice.expression, scale: scale, diagnostics: &diagnostics)
+                        return PitchResolvedVoice(
                             source: voice.source,
-                            expression: resolve(voice.expression, scale: scale, diagnostics: &diagnostics),
+                            expression: resolveTies(in: resolved, diagnostics: &diagnostics),
                             lyrics: voice.lyrics
                         )
                     }
@@ -406,6 +407,119 @@ public struct PitchResolutionStage: CompilerStage {
             duration: expression.duration,
             kind: kind,
             annotations: expression.annotations
+        )
+    }
+
+    private struct TieLeaf {
+        let expression: PitchResolvedExpression
+        let isInParallel: Bool
+    }
+
+    private func resolveTies(
+        in expression: PitchResolvedExpression,
+        diagnostics: inout [ComposerDiagnostic]
+    ) -> PitchResolvedExpression {
+        var leaves: [TieLeaf] = []
+        collectTieLeaves(expression, isInParallel: false, into: &leaves)
+        var extendedDurations: [SemanticID: MusicalDuration] = [:]
+        var continuations = Set<SemanticID>()
+        var chains: [SemanticID: [SemanticID]] = [:]
+        var index = 0
+
+        while index < leaves.count {
+            let first = leaves[index]
+            guard hasTie(first.expression) else { index += 1; continue }
+            guard case .note(let firstPitch, _) = first.expression.kind else {
+                tieError("Only a note may start a tie", at: first.expression, diagnostics: &diagnostics)
+                index += 1
+                continue
+            }
+            var duration = first.expression.duration
+            var segmentIDs = [first.expression.provenance.occurrenceID]
+            var cursor = index
+            var valid = true
+            while hasTie(leaves[cursor].expression) {
+                guard cursor + 1 < leaves.count else {
+                    tieError("A tie must be followed by another note", at: leaves[cursor].expression, diagnostics: &diagnostics)
+                    valid = false
+                    break
+                }
+                let source = leaves[cursor]
+                let destination = leaves[cursor + 1]
+                guard !source.isInParallel, !destination.isInParallel else {
+                    tieError("A tie is ambiguous inside parallel music", at: source.expression, diagnostics: &diagnostics)
+                    valid = false
+                    break
+                }
+                guard source.expression.offset + source.expression.duration == destination.expression.offset,
+                      case .note(let pitch, _) = destination.expression.kind else {
+                    tieError("A tie must connect adjacent notes in the same sequential voice", at: source.expression, diagnostics: &diagnostics)
+                    valid = false
+                    break
+                }
+                guard pitch.authored == firstPitch.authored, pitch.absolute == firstPitch.absolute else {
+                    tieError("Tied notes must have the same authored and sounding pitch", at: source.expression, diagnostics: &diagnostics)
+                    valid = false
+                    break
+                }
+                duration = duration + destination.expression.duration
+                continuations.insert(destination.expression.provenance.occurrenceID)
+                segmentIDs.append(destination.expression.provenance.occurrenceID)
+                cursor += 1
+            }
+            if valid {
+                extendedDurations[first.expression.provenance.occurrenceID] = duration
+                chains[first.expression.provenance.occurrenceID] = segmentIDs
+            }
+            index = max(index + 1, cursor + 1)
+        }
+        return rewriteTies(expression, extendedDurations: extendedDurations, continuations: continuations, chains: chains)
+    }
+
+    private func collectTieLeaves(_ expression: PitchResolvedExpression, isInParallel: Bool, into leaves: inout [TieLeaf]) {
+        switch expression.kind {
+        case .sequence(let children):
+            children.forEach { collectTieLeaves($0, isInParallel: isInParallel, into: &leaves) }
+        case .parallel(let children):
+            children.forEach { collectTieLeaves($0, isInParallel: true, into: &leaves) }
+        case .technique(let application):
+            application.operands.forEach { collectTieLeaves($0, isInParallel: isInParallel, into: &leaves) }
+        case .note, .rest, .chord, .actuator:
+            leaves.append(.init(expression: expression, isInParallel: isInParallel))
+        }
+    }
+
+    private func hasTie(_ expression: PitchResolvedExpression) -> Bool {
+        expression.annotations.metadata["tieToNext"] == .boolean(true)
+    }
+
+    private func tieError(_ message: String, at expression: PitchResolvedExpression, diagnostics: inout [ComposerDiagnostic]) {
+        diagnostics.append(.init(.error, path: expression.provenance.expansionPath.joined(separator: "."), message: message, range: expression.annotations.source))
+    }
+
+    private func rewriteTies(
+        _ expression: PitchResolvedExpression,
+        extendedDurations: [SemanticID: MusicalDuration],
+        continuations: Set<SemanticID>,
+        chains: [SemanticID: [SemanticID]]
+    ) -> PitchResolvedExpression {
+        let kind: PitchResolvedExpression.Kind
+        switch expression.kind {
+        case .sequence(let children): kind = .sequence(children.map { rewriteTies($0, extendedDurations: extendedDurations, continuations: continuations, chains: chains) })
+        case .parallel(let children): kind = .parallel(children.map { rewriteTies($0, extendedDurations: extendedDurations, continuations: continuations, chains: chains) })
+        case .technique(let application): kind = .technique(.init(technique: application.technique, form: application.form, operands: application.operands.map { rewriteTies($0, extendedDurations: extendedDurations, continuations: continuations, chains: chains) }, parameters: application.parameters))
+        default: kind = expression.kind
+        }
+        let occurrence = expression.provenance.occurrenceID
+        var metadata = expression.annotations.metadata
+        if continuations.contains(occurrence) { metadata["tieContinuation"] = .boolean(true) }
+        if let segmentIDs = chains[occurrence] { metadata["tieSegments"] = .list(segmentIDs.map(MetadataValue.reference)) }
+        return .init(
+            provenance: expression.provenance,
+            offset: expression.offset,
+            duration: extendedDurations[occurrence] ?? expression.duration,
+            kind: kind,
+            annotations: .init(metadata: metadata, source: expression.annotations.source)
         )
     }
 }

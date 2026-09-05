@@ -32,6 +32,7 @@ public enum TextTokenKind: String, Sendable, Hashable {
     case accidental
     case leftBracket
     case rightBracket
+    case tie
     case endOfFile
     case invalid
 }
@@ -231,7 +232,7 @@ public struct TextLexer: Sendable {
             switch character {
             case "{": .leftBrace; case "}": .rightBrace; case "(": .leftParen; case ")": .rightParen
             case "[": .leftBracket; case "]": .rightBracket; case "@": .atSign; case "#": .accidental
-            case ":": .colon; case "=": .equal; case ".": .dot; case ",": .comma; case "/": .slash; case ";": .semicolon
+            case ":": .colon; case "=": .equal; case ".": .dot; case ",": .comma; case "/": .slash; case ";": .semicolon; case "~": .tie
             default: nil
             }
         }
@@ -267,7 +268,7 @@ public struct TextLexer: Sendable {
 
         func canEndStatement(_ kind: TextTokenKind) -> Bool {
             switch kind {
-            case .identifier, .integerLiteral, .decimalLiteral, .stringLiteral, .rightBrace, .rightParen, .rightBracket, .dot: true
+            case .identifier, .integerLiteral, .decimalLiteral, .stringLiteral, .rightBrace, .rightParen, .rightBracket, .dot, .tie: true
             default: false
             }
         }

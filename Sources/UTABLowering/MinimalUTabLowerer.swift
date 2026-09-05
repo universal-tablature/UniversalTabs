@@ -483,6 +483,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             inheritedTechniques: [String],
             into events: inout [PerformanceEvent]
         ) {
+            if expression.annotations.metadata["tieContinuation"] == .boolean(true) { return }
             switch expression.kind {
             case .sequence(let children), .parallel(let children):
                 children.forEach {

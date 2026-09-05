@@ -667,6 +667,14 @@ public struct TextParser: Sendable {
         mutating func parseExpression() -> TextExpressionSyntax? {
             var expression = parseExpressionBody()
             expression?.notation = notation
+            if take(.tie), let original = expression {
+                expression = .init(
+                    kind: original.kind,
+                    range: .init(fileID: original.range.fileID, start: original.range.start, end: tokens[index - 1].range.end),
+                    notation: original.notation,
+                    tieToNext: true
+                )
+            }
             return expression
         }
 

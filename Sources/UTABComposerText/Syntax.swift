@@ -278,6 +278,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public let kind: Kind
     public let range: SourceRange
     public var notation: TextQualifiedNameSyntax? = nil
+    public var tieToNext = false
 }
 
 public struct TextParseResult: Sendable {
