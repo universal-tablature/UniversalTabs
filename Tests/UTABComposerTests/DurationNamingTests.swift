@@ -513,3 +513,41 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(!result.succeeded, "\(directive)")
     }
 }
+
+@Test func resolvedRubatoAppliesDeterministicLocalTimeFactors() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            rubato q factor 0.8
+            C4 q
+            rest q
+            rubato q factor 1.25
+            D4 q
+            E4 q
+        } } }
+        main { s }
+        """, fileID: "rubato.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let map = try #require(result.document?.setup.time?.tempoMap)
+    #expect(map.map(\.quarterNotesPerMinute) == [125, 100, 80, 100])
+    #expect(map.map { $0.at?["beat"] } == [.number(1), .number(2), .number(3), .number(4)])
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.compactMap(\.duration?.quarterNotes) == [.string("1/1"), .string("1/1"), .string("1/1")])
+}
+
+@Test func resolvedRubatoRejectsInvalidFactorsAndSectionOverflow() {
+    for directive in ["rubato q factor 0; C4 w", "C4 w; rubato q factor 1.1"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(directive) } } }
+            main { s }
+            """, fileID: "invalid-rubato.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded, "\(directive)")
+    }
+}

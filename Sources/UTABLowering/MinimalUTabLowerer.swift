@@ -185,6 +185,12 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             let factor: Double
         }
 
+        struct TempoRubato {
+            let offset: MusicalDuration
+            let duration: MusicalDuration
+            let factor: Double
+        }
+
         mutating func lowerTempoMap(arrangement: [ArrangementEntry]) -> [TempoChange] {
             var changesBySection: [String: [(MusicalDuration, Double)]] = [:]
             for section in input.sections {
@@ -192,8 +198,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 var changes: [(MusicalDuration, Double)] = []
                 var ramps: [TempoRamp] = []
                 var fermatas: [TempoFermata] = []
+                var rubatos: [TempoRubato] = []
                 for expression in section.parts.flatMap(\.voices).map(\.expression) {
-                    collectTempoChanges(in: expression, points: &changes, ramps: &ramps, fermatas: &fermatas)
+                    collectTempoChanges(in: expression, points: &changes, ramps: &ramps, fermatas: &fermatas, rubatos: &rubatos)
                 }
                 for ramp in ramps.sorted(by: { $0.offset < $1.offset }) {
                     let end = ramp.offset + ramp.duration
@@ -232,6 +239,21 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     changes.append((fermata.offset, active / fermata.factor))
                     changes.append((end, active))
                 }
+                for rubato in rubatos.sorted(by: { $0.offset < $1.offset }) {
+                    let end = rubato.offset + rubato.duration
+                    guard end <= section.duration else {
+                        diagnostics.append(.init(.error, path: sectionID, message: "Rubato span extends beyond its section"))
+                        continue
+                    }
+                    if changes.contains(where: { rubato.offset < $0.0 && $0.0 < end }) ||
+                        rubatos.contains(where: { $0.offset != rubato.offset && rubato.offset < $0.offset && $0.offset < end }) {
+                        diagnostics.append(.init(.error, path: sectionID, message: "Rubato spans may not overlap another tempo directive"))
+                        continue
+                    }
+                    let active = changes.filter { $0.0 <= rubato.offset }.sorted { $0.0 < $1.0 }.last?.1 ?? composition.tempo
+                    changes.append((rubato.offset, active / rubato.factor))
+                    changes.append((end, active))
+                }
                 let grouped = Dictionary(grouping: changes, by: { $0.0 })
                 for (offset, values) in grouped where Set(values.map(\.1)).count > 1 {
                     diagnostics.append(.init(.error, path: sectionID, message: "Conflicting tempo changes at score offset \(offset)"))
@@ -251,7 +273,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
-        func collectTempoChanges(in expression: RealizedExpression, points: inout [(MusicalDuration, Double)], ramps: inout [TempoRamp], fermatas: inout [TempoFermata]) {
+        func collectTempoChanges(in expression: RealizedExpression, points: inout [(MusicalDuration, Double)], ramps: inout [TempoRamp], fermatas: inout [TempoFermata], rubatos: inout [TempoRubato]) {
             if case .decimal(let bpm)? = expression.annotations.metadata["tempoQuarterNotesPerMinute"] {
                 points.append((expression.offset, bpm))
             }
@@ -266,9 +288,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                case .integer(let denominator)? = expression.annotations.metadata["fermataDurationDenominator"] {
                 fermatas.append(.init(offset: expression.offset, duration: .init(numerator, denominator), factor: factor))
             }
+            if case .decimal(let factor)? = expression.annotations.metadata["rubatoFactor"],
+               case .integer(let numerator)? = expression.annotations.metadata["rubatoDurationNumerator"],
+               case .integer(let denominator)? = expression.annotations.metadata["rubatoDurationDenominator"] {
+                rubatos.append(.init(offset: expression.offset, duration: .init(numerator, denominator), factor: factor))
+            }
             switch expression.kind {
-            case .sequence(let children), .parallel(let children): children.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps, fermatas: &fermatas) }
-            case .technique(let application): application.operands.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps, fermatas: &fermatas) }
+            case .sequence(let children), .parallel(let children): children.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps, fermatas: &fermatas, rubatos: &rubatos) }
+            case .technique(let application): application.operands.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps, fermatas: &fermatas, rubatos: &rubatos) }
             case .note, .rest, .actuator: break
             }
         }

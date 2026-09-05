@@ -720,6 +720,13 @@ public struct TextParser: Sendable {
                       let factor = expectNumber("Expected fermata stretch factor") else { return nil }
                 return .init(kind: .fermata(duration: duration, factor: factor), range: spanning(keyword, factor))
             }
+            if takeKeyword("rubato") {
+                let keyword = tokens[index - 1]
+                guard let duration = parseDuration(),
+                      expectKeyword("factor", "Expected 'factor' after rubato duration") != nil,
+                      let factor = expectNumber("Expected rubato time factor") else { return nil }
+                return .init(kind: .rubato(duration: duration, factor: factor), range: spanning(keyword, factor))
+            }
 
             if take(.atSign) {
                 let start = tokens[index - 1]

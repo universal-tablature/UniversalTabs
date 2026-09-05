@@ -290,6 +290,7 @@ public struct TextSemanticLowerer: Sendable {
             case .tempo: result = lowerTempoExpression(expression)
             case .tempoRamp: result = lowerTempoRampExpression(expression)
             case .fermata: result = lowerFermataExpression(expression)
+            case .rubato: result = lowerRubatoExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
@@ -581,6 +582,24 @@ public struct TextSemanticLowerer: Sendable {
                     "fermataFactor": .decimal(factor),
                     "fermataDurationNumerator": .integer(span.wholeNotes.numerator),
                     "fermataDurationDenominator": .integer(span.wholeNotes.denominator),
+                ], source: expression.range)
+            )
+        }
+
+        mutating func lowerRubatoExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .rubato(let durationSyntax, let factorToken) = expression.kind,
+                  let factor = factorToken.decimalValue, factor > 0 else {
+                error("Rubato factor must be positive", at: expression.range)
+                return .rest(.zero, id: id("invalid-rubato", expression.range))
+            }
+            let span = duration(durationSyntax)
+            return .init(
+                id: id("rubato", expression.range),
+                kind: .rest(.zero),
+                annotations: .init(metadata: [
+                    "rubatoFactor": .decimal(factor),
+                    "rubatoDurationNumerator": .integer(span.wholeNotes.numerator),
+                    "rubatoDurationDenominator": .integer(span.wholeNotes.denominator),
                 ], source: expression.range)
             )
         }
