@@ -288,6 +288,7 @@ public struct TextSemanticLowerer: Sendable {
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .tempo: result = lowerTempoExpression(expression)
+            case .tempoRamp: result = lowerTempoRampExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
             case .performed: result = lowerPerformedExpression(expression)
@@ -537,6 +538,30 @@ public struct TextSemanticLowerer: Sendable {
                 annotations: .init(metadata: [
                     "tempoQuarterNotesPerMinute": .decimal(quarterNotesPerMinute),
                     "tempoBeatUnit": .string(unit.description),
+                ], source: expression.range)
+            )
+        }
+
+        mutating func lowerTempoRampExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .tempoRamp(let targetToken, let durationSyntax, let stepsToken) = expression.kind,
+                  let target = targetToken.decimalValue, target > 0 else {
+                error("Tempo ramp target must be a positive number", at: expression.range)
+                return .rest(.zero, id: id("invalid-tempo-ramp", expression.range))
+            }
+            let span = duration(durationSyntax)
+            let steps = stepsToken?.integerValue ?? 8
+            guard steps > 0, steps <= 1_000 else {
+                error("Tempo ramp steps must be in 1...1000", at: stepsToken?.range ?? expression.range)
+                return .rest(.zero, id: id("invalid-tempo-ramp", expression.range))
+            }
+            return .init(
+                id: id("tempo-ramp", expression.range),
+                kind: .rest(.zero),
+                annotations: .init(metadata: [
+                    "tempoRampTarget": .decimal(target),
+                    "tempoRampDurationNumerator": .integer(span.wholeNotes.numerator),
+                    "tempoRampDurationDenominator": .integer(span.wholeNotes.denominator),
+                    "tempoRampSteps": .integer(steps),
                 ], source: expression.range)
             )
         }

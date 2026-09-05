@@ -696,6 +696,15 @@ public struct TextParser: Sendable {
             }
             if takeKeyword("tempo") {
                 let keyword = tokens[index - 1]
+                if takeKeyword("ramp") {
+                    guard expectKeyword("to", "Expected 'to' after 'tempo ramp'") != nil,
+                          let target = expectNumber("Expected positive target tempo"),
+                          expectKeyword("over", "Expected 'over' before ramp duration") != nil,
+                          let duration = parseDuration() else { return nil }
+                    var steps: TextToken?
+                    if takeKeyword("steps") { steps = expect(.integerLiteral, "Expected positive ramp step count") }
+                    return .init(kind: .tempoRamp(target: target, duration: duration, steps: steps), range: spanning(keyword, steps ?? tokens[index - 1]))
+                }
                 if current.kind == .integerLiteral || current.kind == .decimalLiteral {
                     guard let bpm = expectNumber("Expected positive tempo") else { return nil }
                     return .init(kind: .tempo(unit: nil, beatsPerMinute: bpm), range: spanning(keyword, bpm))

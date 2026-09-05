@@ -172,13 +172,43 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
+        struct TempoRamp {
+            let offset: MusicalDuration
+            let duration: MusicalDuration
+            let target: Double
+            let steps: Int
+        }
+
         mutating func lowerTempoMap(arrangement: [ArrangementEntry]) -> [TempoChange] {
             var changesBySection: [String: [(MusicalDuration, Double)]] = [:]
             for section in input.sections {
                 let sectionID = section.source.id.rawValue
                 var changes: [(MusicalDuration, Double)] = []
+                var ramps: [TempoRamp] = []
                 for expression in section.parts.flatMap(\.voices).map(\.expression) {
-                    collectTempoChanges(in: expression, into: &changes)
+                    collectTempoChanges(in: expression, points: &changes, ramps: &ramps)
+                }
+                for ramp in ramps.sorted(by: { $0.offset < $1.offset }) {
+                    let end = ramp.offset + ramp.duration
+                    guard end <= section.duration else {
+                        diagnostics.append(.init(.error, path: sectionID, message: "Tempo ramp extends beyond its section"))
+                        continue
+                    }
+                    if changes.contains(where: { ramp.offset < $0.0 && $0.0 < end }) ||
+                        ramps.contains(where: { $0.offset != ramp.offset && ramp.offset < $0.offset && $0.offset < end }) {
+                        diagnostics.append(.init(.error, path: sectionID, message: "Tempo ramps may not overlap another tempo directive"))
+                        continue
+                    }
+                    let start = changes.filter { $0.0 <= ramp.offset }.sorted { $0.0 < $1.0 }.last?.1 ?? composition.tempo
+                    for step in 1...ramp.steps {
+                        guard let scaled = ramp.duration.wholeNotes.multiplied(by: Rational(step, ramp.steps)) else {
+                            diagnostics.append(.init(.error, path: sectionID, message: "Tempo ramp timing exceeds the supported rational range"))
+                            break
+                        }
+                        let offset = ramp.offset + MusicalDuration(scaled.numerator, scaled.denominator)
+                        let progress = Double(step) / Double(ramp.steps)
+                        changes.append((offset, start + (ramp.target - start) * progress))
+                    }
                 }
                 let grouped = Dictionary(grouping: changes, by: { $0.0 })
                 for (offset, values) in grouped where Set(values.map(\.1)).count > 1 {
@@ -199,13 +229,19 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
-        func collectTempoChanges(in expression: RealizedExpression, into changes: inout [(MusicalDuration, Double)]) {
+        func collectTempoChanges(in expression: RealizedExpression, points: inout [(MusicalDuration, Double)], ramps: inout [TempoRamp]) {
             if case .decimal(let bpm)? = expression.annotations.metadata["tempoQuarterNotesPerMinute"] {
-                changes.append((expression.offset, bpm))
+                points.append((expression.offset, bpm))
+            }
+            if case .decimal(let target)? = expression.annotations.metadata["tempoRampTarget"],
+               case .integer(let numerator)? = expression.annotations.metadata["tempoRampDurationNumerator"],
+               case .integer(let denominator)? = expression.annotations.metadata["tempoRampDurationDenominator"],
+               case .integer(let steps)? = expression.annotations.metadata["tempoRampSteps"] {
+                ramps.append(.init(offset: expression.offset, duration: .init(numerator, denominator), target: target, steps: steps))
             }
             switch expression.kind {
-            case .sequence(let children), .parallel(let children): children.forEach { collectTempoChanges(in: $0, into: &changes) }
-            case .technique(let application): application.operands.forEach { collectTempoChanges(in: $0, into: &changes) }
+            case .sequence(let children), .parallel(let children): children.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps) }
+            case .technique(let application): application.operands.forEach { collectTempoChanges(in: $0, points: &points, ramps: &ramps) }
             case .note, .rest, .actuator: break
             }
         }

@@ -439,3 +439,39 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(!conflict.succeeded)
     #expect(conflict.diagnostics.contains { $0.message.contains("Conflicting tempo") })
 }
+
+@Test func tempoRampsResolveToDeterministicUTabAndMIDIMaps() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s : 2 bars { piano { voice v {
+            tempo ramp to 140 over w steps 4
+            C4 w
+            D4 w
+        } } }
+        main { s }
+        """, fileID: "tempo-ramp.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let map = try #require(result.document?.setup.time?.tempoMap)
+    #expect(map.map(\.quarterNotesPerMinute) == [110, 120, 130, 140])
+    #expect(map.first?.at?["beat"] == .number(2))
+    #expect(map.last?.at?["measure"] == .number(2))
+    let bytes = [UInt8](try #require(result.artifact(.midi)?.data))
+    #expect((0..<(bytes.count - 2)).filter { Array(bytes[$0...($0 + 2)]) == [0xFF, 0x51, 0x03] }.count == 5)
+}
+
+@Test func tempoRampsRejectInvalidResolutionAndSectionOverflow() {
+    for directive in ["tempo ramp to 120 over w steps 0; C4 w", "tempo ramp to 120 over [2/1]; C4 w"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(directive) } } }
+            main { s }
+            """, fileID: "invalid-ramp.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded, "\(directive)")
+    }
+}
