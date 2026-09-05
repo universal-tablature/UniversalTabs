@@ -51,13 +51,16 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         var editingOccurrences: [UTabEditingOccurrence] = []
         var editingContainers: [UTabEditingContainer] = []
         var editingMeasures: [UTabEditingMeasure] = []
+        var meterPlans: [String: MeterPlan] = [:]
+        var currentSectionID: String?
 
         var composition: Composition { input.source.source.source.source.source }
 
         mutating func lower() -> CompilerStageResult<UTabDocument> {
             validateTimingRepresentation()
             guard diagnostics.isEmpty else { return .init(output: nil, diagnostics: diagnostics) }
-            let sectionDefinitions = input.sections.map(makeSectionDefinition)
+            var sectionDefinitions: [SectionDefinition] = []
+            for section in input.sections { sectionDefinitions.append(makeSectionDefinition(section)) }
             let arrangement = lowerArrangement()
             for section in input.sections {
                 lower(section)
@@ -265,7 +268,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 guard let section = input.sections.first(where: { $0.source.id.rawValue == entry.section }) else { return [] }
                 let meter = section.source.meter ?? composition.meter
                 return (changesBySection[entry.section] ?? []).map { offset, bpm in
-                    let position = eventTime(offset, meter: meter).musical!
+                    let position = eventTime(offset, meter: meter, sectionID: entry.section).musical!
                     var at: [String: JSONValue] = ["entry": .string(entry.id), "measure": .number(Double(position.measure))]
                     if let beat = position.beat { at["beat"] = .number(Double(beat)) }
                     if let fraction = position.offset { at["offset"] = fraction }
@@ -313,7 +316,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 return [.init(
                     id: expression.provenance.occurrenceID.rawValue,
                     section: sectionID,
-                    at: eventTime(expression.offset, meter: meter),
+                    at: eventTime(expression.offset, meter: meter, sectionID: sectionID),
                     duration: .init(quarterNotes: .string((expression.duration * 4).description)),
                     value: .init(
                         symbol: root + qualitySuffix(chord.authored.quality),
@@ -362,6 +365,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         mutating func lower(_ section: RealizedSection) {
+            currentSectionID = section.source.id.rawValue
             let meter = section.source.meter ?? composition.meter
             for part in section.parts {
                 let instanceID = part.instrumentInstance.id.rawValue
@@ -508,6 +512,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                             continuations: continuations[entry.id] ?? []
                         )
                         var events: [PerformanceEvent] = []
+                        currentSectionID = section.source.id.rawValue
                         lower(rewritten, instrument: instanceID, meter: section.source.meter ?? composition.meter, inheritedTechniques: [], into: &events)
                         events.sort {
                             if timeKey($0.at) != timeKey($1.at) { return timeKey($0.at) < timeKey($1.at) }
@@ -765,7 +770,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 kind: kind,
                 trackID: trackID,
                 sectionID: sectionID,
-                at: eventTime(expression.offset, meter: meter),
+                at: eventTime(expression.offset, meter: meter, sectionID: sectionID),
                 duration: .init(quarterNotes: .string((editingDuration * 4).description)),
                 pitchRepresentation: editingPitchRepresentation(expression),
                 source: source
@@ -928,19 +933,75 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             )
         }
 
-        func makeSectionDefinition(_ section: RealizedSection) -> SectionDefinition {
+        struct MeterPlan {
+            let points: [(offset: MusicalDuration, measure: Int, meter: TimeSignature)]
+            let measureCount: Int
+        }
+
+        mutating func makeSectionDefinition(_ section: RealizedSection) -> SectionDefinition {
             let meter = section.source.meter ?? composition.meter
-            let measures = max(1, ceilingRatio(section.duration, meter.duration))
+            var changes: [(MusicalDuration, TimeSignature, SourceRange?)] = []
+            for expression in section.parts.flatMap(\.voices).map(\.expression) {
+                collectMeterChanges(in: expression, into: &changes)
+            }
+            let grouped = Dictionary(grouping: changes, by: { $0.0 })
+            var unique: [(MusicalDuration, TimeSignature, SourceRange?)] = []
+            for (offset, values) in grouped {
+                let meters = Set(values.map { $0.1 })
+                if meters.count > 1 {
+                    diagnostics.append(.init(.error, path: section.source.id.rawValue, message: "Conflicting meter changes at score offset \(offset)", range: values.first?.2))
+                } else if let value = values.first { unique.append(value) }
+            }
+            unique.sort { $0.0 < $1.0 }
+            var points: [(offset: MusicalDuration, measure: Int, meter: TimeSignature)] = [(.zero, 1, meter)]
+            var activeOffset = MusicalDuration.zero
+            var activeMeasure = 1
+            var activeMeter = meter
+            for (offset, nextMeter, range) in unique {
+                if offset == .zero {
+                    points[0] = (.zero, 1, nextMeter)
+                    activeMeter = nextMeter
+                    continue
+                }
+                let delta = subtract(offset, activeOffset)
+                let quotient = Rational(
+                    delta.wholeNotes.numerator * activeMeter.duration.wholeNotes.denominator,
+                    delta.wholeNotes.denominator * activeMeter.duration.wholeNotes.numerator
+                )
+                guard quotient.denominator == 1 else {
+                    diagnostics.append(.init(.error, path: section.source.id.rawValue, message: "Meter changes must occur at a bar boundary", range: range))
+                    continue
+                }
+                activeMeasure += quotient.numerator
+                activeOffset = offset
+                activeMeter = nextMeter
+                points.append((offset, activeMeasure, nextMeter))
+            }
+            let remaining = subtract(section.duration, activeOffset)
+            let measures = max(1, activeMeasure - 1 + ceilingRatio(remaining, activeMeter.duration))
+            meterPlans[section.source.id.rawValue] = .init(points: points, measureCount: measures)
             return .init(
                 id: section.source.id.rawValue,
                 name: section.source.name,
                 length: .init(measures: measures),
-                meterMap: [.init(
-                    at: ["measure": .number(1)],
-                    numerator: meter.numerator,
-                    denominator: meter.denominator
-                )]
+                meterMap: points.map { point in .init(
+                    at: ["measure": .number(Double(point.measure))],
+                    numerator: point.meter.numerator,
+                    denominator: point.meter.denominator
+                ) }
             )
+        }
+
+        func collectMeterChanges(in expression: RealizedExpression, into changes: inout [(MusicalDuration, TimeSignature, SourceRange?)]) {
+            if case .integer(let numerator)? = expression.annotations.metadata["meterNumerator"],
+               case .integer(let denominator)? = expression.annotations.metadata["meterDenominator"] {
+                changes.append((expression.offset, .init(numerator, denominator), expression.annotations.source))
+            }
+            switch expression.kind {
+            case .sequence(let children), .parallel(let children): children.forEach { collectMeterChanges(in: $0, into: &changes) }
+            case .technique(let application): application.operands.forEach { collectMeterChanges(in: $0, into: &changes) }
+            case .note, .rest, .actuator: break
+            }
         }
 
         mutating func lowerArrangement() -> [ArrangementEntry] {
@@ -1082,7 +1143,24 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             }
         }
 
-        func eventTime(_ offset: MusicalDuration, meter: TimeSignature) -> EventTime {
+        func eventTime(_ offset: MusicalDuration, meter: TimeSignature, sectionID: String? = nil) -> EventTime {
+            if let plan = meterPlans[sectionID ?? currentSectionID ?? ""] {
+                let point = plan.points.last(where: { $0.offset <= offset }) ?? plan.points[0]
+                let relative = subtract(offset, point.offset)
+                let measureIndex = floorRatio(relative, point.meter.duration)
+                let measureStart = point.meter.duration * measureIndex
+                let remainder = subtract(relative, measureStart)
+                let beatDuration = MusicalDuration(1, point.meter.denominator)
+                let beatIndex = floorRatio(remainder, beatDuration)
+                let beatStart = beatDuration * beatIndex
+                let beatRemainder = subtract(remainder, beatStart)
+                let beatFraction = divide(beatRemainder, beatDuration)
+                return .init(musical: .init(
+                    measure: point.measure + measureIndex,
+                    beat: beatIndex + 1,
+                    offset: beatFraction.numerator == 0 ? nil : .string(beatFraction.description)
+                ))
+            }
             let measureIndex = floorRatio(offset, meter.duration)
             let measureStart = meter.duration * measureIndex
             let remainder = subtract(offset, measureStart)

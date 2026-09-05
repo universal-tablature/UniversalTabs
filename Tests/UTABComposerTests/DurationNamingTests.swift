@@ -553,6 +553,47 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func inlineMeterChangesControlFollowingBarsAndPartialFinals() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            bar { C4 w }
+            meter 3/4
+            bar { D4 h; E4 q }
+            final { F4 q }
+        } } }
+        main { s }
+        """, fileID: "meter-change.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let section = try #require(result.document?.setup.sections?.first)
+    #expect(section.length.measures == 3)
+    #expect(section.meterMap?.map(\.numerator) == [4, 3])
+    #expect(section.meterMap?.map { $0.at?["measure"] } == [.number(1), .number(2)])
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.last?.at.musical?.measure == 3)
+    #expect(events.last?.at.musical?.beat == 1)
+}
+
+@Test func inlineMeterChangesRequireBoundariesAndValidateTheNewMeter() {
+    for body in [
+        "C4 q; meter 3/4; D4 h; E4 w",
+        "bar { C4 w }; meter 3/4; final { D4 w }",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(body) } } }
+            main { s }
+            """, fileID: "invalid-meter-change.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded, "\(body)")
+    }
+}
+
 @Test func inlineTempoChangesUseSequencePositionAndExplicitBeatUnits() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

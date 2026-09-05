@@ -315,12 +315,19 @@ public struct ReferenceExpansionStage: CompilerStage {
                 return expandExpression(child, path: path + ["proportional:\(factor)"], ancestry: ancestry + [expression.id])
             case .barAssertion(let child):
                 guard let result = expandExpression(child, path: path + ["bar"], ancestry: ancestry + [expression.id]) else { return nil }
+                let expectedMeter: MusicalDuration = {
+                    guard case .integer(let numerator)? = expression.annotations.metadata["expectedMeterNumerator"],
+                          case .integer(let denominator)? = expression.annotations.metadata["expectedMeterDenominator"] else {
+                        return input.source.meter.duration
+                    }
+                    return MusicalDuration(numerator, denominator)
+                }()
                 if case .string(let role)? = expression.annotations.metadata["barRole"] {
-                    if result.duration <= .zero || result.duration >= input.source.meter.duration {
+                    if result.duration <= .zero || result.duration >= expectedMeter {
                         timingError("A \(role) bar must be shorter than the active meter and have positive duration", at: expression)
                     }
-                } else if result.duration != input.source.meter.duration {
-                    timingError("Bar duration is \(result.duration); expected \(input.source.meter.duration)", at: expression)
+                } else if result.duration != expectedMeter {
+                    timingError("Bar duration is \(result.duration); expected \(expectedMeter)", at: expression)
                 }
                 return result
             case .repeated(let count, let child):

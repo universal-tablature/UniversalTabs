@@ -21,7 +21,7 @@ public struct TextSemanticLowerer: Sendable {
 
     public func lower(_ syntax: TextCompositionSyntax) -> TextSemanticResult {
         let definitions = scaleKinds(in: [syntax])
-        var worker = Worker(syntax: syntax, modules: [syntax], scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics)
+        var worker = Worker(syntax: syntax, modules: [syntax], scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics, activeMeter: nil)
         return worker.lower()
     }
 
@@ -30,14 +30,14 @@ public struct TextSemanticLowerer: Sendable {
             return .init(composition: nil, instruments: [], diagnostics: [])
         }
         let definitions = scaleKinds(in: modules.map(\.syntax))
-        var worker = Worker(syntax: root.syntax, modules: modules.map(\.syntax), scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics)
+        var worker = Worker(syntax: root.syntax, modules: modules.map(\.syntax), scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics, activeMeter: nil)
         return worker.lower()
     }
 
     /// Resolves catalogue pitch tokens through the same declaration-site naming rules as notes.
     public func resolvePitch(_ token: TextToken, notation: TextQualifiedNameSyntax, in modules: [TextLoadedModule]) -> (pitch: AbsolutePitch?, diagnostics: [TextDiagnostic]) {
         guard let owner = modules.first(where: { $0.syntax.range.fileID == token.range.fileID }) else { return (nil, []) }
-        var worker = Worker(syntax: owner.syntax, modules: modules.map(\.syntax), scaleKinds: [:], bindings: [:], diagnostics: [])
+        var worker = Worker(syntax: owner.syntax, modules: modules.map(\.syntax), scaleKinds: [:], bindings: [:], diagnostics: [], activeMeter: nil)
         worker.validateNamingSystems()
         guard worker.diagnostics.isEmpty else { return (nil, worker.diagnostics) }
         if let (pitch, _) = worker.namedPitch(token, octave: nil, alteration: 0, notation: notation), case .absolute(let absolute) = pitch {
@@ -74,6 +74,7 @@ public struct TextSemanticLowerer: Sendable {
         let scaleKinds: [String: ScaleKind]
         var bindings: [String: TextConstantSyntax.Value]
         var diagnostics: [TextDiagnostic]
+        var activeMeter: TimeSignature?
 
         mutating func lower() -> TextSemanticResult {
             validateNamingSystems()
@@ -103,7 +104,12 @@ public struct TextSemanticLowerer: Sendable {
                 tempo = 120
             }
             let meter = TimeSignature(numerator, denominator)
-            let phrases = modules.flatMap(\.phrases).map { lowerPhrase($0) }
+            activeMeter = meter
+            let phrases = modules.flatMap(\.phrases).map { phrase in
+                activeMeter = meter
+                return lowerPhrase(phrase)
+            }
+            activeMeter = meter
             let sections = syntax.sections.map { lowerSection($0, meter: meter) }
             let main: MusicalExpression? = syntax.main.isEmpty ? nil : .sequence(syntax.main.map { token in
                 .reference(.named("section", String(token.lexeme)), id: id("section-reference", token.range))
@@ -235,40 +241,70 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         mutating func lowerBoundaryContents(_ expressions: [TextExpressionSyntax], range: SourceRange) -> [VoiceContent] {
-            let lowered = expressions.map { lowerVoiceContent($0) }
+            let inherited = activeMeter
+            defer { activeMeter = inherited }
+            var lowered: [VoiceContent] = []
+            for expression in expressions {
+                lowered.append(lowerVoiceContent(expression))
+                if case .meter(let numerator, let denominator) = expression.kind,
+                   let n = numerator.integerValue, let d = denominator.integerValue, n > 0, d > 0 {
+                    activeMeter = .init(n, d)
+                }
+            }
             let durations = lowered.map { content -> MusicalDuration? in
                 guard case .expression(let expression) = content else { return nil }
                 return expression.duration
             }
-            validateBoundaryBars(expressions, durations: durations, range: range)
+            validateBoundaryBars(expressions, lowered: lowered.map { content in
+                guard case .expression(let expression) = content else { return nil }
+                return expression
+            }, durations: durations, range: range)
             return lowered
         }
 
         mutating func lowerBoundarySequence(_ expressions: [TextExpressionSyntax], range: SourceRange) -> MusicalExpression {
-            let lowered = expressions.map { lowerExpression($0) }
-            validateBoundaryBars(expressions, durations: lowered.map(\.duration), range: range)
+            let lowered = lowerScopedExpressions(expressions)
+            validateBoundaryBars(expressions, lowered: lowered.map(Optional.some), durations: lowered.map(\.duration), range: range)
             return .sequence(lowered, id: id("sequence", range))
         }
 
-        mutating func validateBoundaryBars(_ expressions: [TextExpressionSyntax], durations: [MusicalDuration?], range: SourceRange) {
+        mutating func validateBoundaryBars(_ expressions: [TextExpressionSyntax], lowered: [MusicalExpression?], durations: [MusicalDuration?], range: SourceRange) {
             let pickups = expressions.indices.filter { if case .pickup = expressions[$0].kind { true } else { false } }
             let finals = expressions.indices.filter { if case .finalBar = expressions[$0].kind { true } else { false } }
-            for index in pickups where index != expressions.startIndex { error("A pickup must be the first expression in its scope", at: expressions[index].range) }
-            for index in finals where index != expressions.index(before: expressions.endIndex) { error("An incomplete final bar must be the last expression in its scope", at: expressions[index].range) }
+            let musicalIndices = expressions.indices.filter { if case .meter = expressions[$0].kind { false } else { true } }
+            for index in pickups where index != musicalIndices.first { error("A pickup must be the first musical expression in its scope", at: expressions[index].range) }
+            for index in finals where index != musicalIndices.last { error("An incomplete final bar must be the last musical expression in its scope", at: expressions[index].range) }
             if pickups.count > 1 { error("A scope may contain only one pickup", at: range) }
             if finals.count > 1 { error("A scope may contain only one incomplete final bar", at: range) }
             if let pickup = pickups.first, let final = finals.first,
                let pickupDuration = durations[pickup], let finalDuration = durations[final],
-               let meter = syntax.meter,
-               let numerator = meter.numerator.integerValue,
-               let denominator = meter.denominator.integerValue,
-               pickupDuration + finalDuration != MusicalDuration(numerator, denominator) {
+               case .integer(let pickupNumerator)? = lowered[pickup]?.annotations.metadata["expectedMeterNumerator"],
+               case .integer(let pickupDenominator)? = lowered[pickup]?.annotations.metadata["expectedMeterDenominator"],
+               case .integer(let finalNumerator)? = lowered[final]?.annotations.metadata["expectedMeterNumerator"],
+               case .integer(let finalDenominator)? = lowered[final]?.annotations.metadata["expectedMeterDenominator"],
+               pickupNumerator == finalNumerator, pickupDenominator == finalDenominator,
+               pickupDuration + finalDuration != MusicalDuration(pickupNumerator, pickupDenominator) {
                 error("Pickup and incomplete final bar durations must complement the active meter", at: expressions[final].range)
             }
         }
 
         mutating func expressionSequence(_ expressions: [TextExpressionSyntax], range: SourceRange) -> MusicalExpression {
-            .sequence(expressions.map { lowerExpression($0) }, id: id("sequence", range))
+            .sequence(lowerScopedExpressions(expressions), id: id("sequence", range))
+        }
+
+        mutating func lowerScopedExpressions(_ expressions: [TextExpressionSyntax]) -> [MusicalExpression] {
+            let inherited = activeMeter
+            defer { activeMeter = inherited }
+            var result: [MusicalExpression] = []
+            for expression in expressions {
+                let lowered = lowerExpression(expression)
+                result.append(lowered)
+                if case .meter(let numerator, let denominator) = expression.kind,
+                   let n = numerator.integerValue, let d = denominator.integerValue, n > 0, d > 0 {
+                    activeMeter = .init(n, d)
+                }
+            }
+            return result
         }
 
         mutating func lowerExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
@@ -287,6 +323,7 @@ public struct TextSemanticLowerer: Sendable {
             case .proportional: result = lowerProportionalExpression(expression)
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
+            case .meter: result = lowerMeterExpression(expression)
             case .tempo: result = lowerTempoExpression(expression)
             case .tempoRamp: result = lowerTempoRampExpression(expression)
             case .fermata: result = lowerFermataExpression(expression)
@@ -536,7 +573,8 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerBarExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
             case .bar(let expressions):
-                return .init(id: id("bar", expression.range), kind: .barAssertion(expressionSequence(expressions, range: expression.range)), annotations: .init(source: expression.range))
+                let meter = activeMeter
+                return .init(id: id("bar", expression.range), kind: .barAssertion(expressionSequence(expressions, range: expression.range)), annotations: .init(metadata: meterMetadata(meter), source: expression.range))
             default: preconditionFailure("Mismatched expression dispatch")
             }
         }
@@ -552,8 +590,24 @@ public struct TextSemanticLowerer: Sendable {
             return .init(
                 id: id("bar:\(role)", expression.range),
                 kind: .barAssertion(expressionSequence(expressions, range: expression.range)),
-                annotations: .init(metadata: ["barRole": .string(role)], source: expression.range)
+                annotations: .init(metadata: ["barRole": .string(role)].merging(meterMetadata(activeMeter)) { current, _ in current }, source: expression.range)
             )
+        }
+
+        mutating func lowerMeterExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .meter(let numerator, let denominator) = expression.kind,
+                  let n = numerator.integerValue, let d = denominator.integerValue, n > 0, d > 0 else {
+                error("Meter values must be positive integers", at: expression.range)
+                return .rest(.zero, id: id("invalid-meter", expression.range))
+            }
+            return .init(id: id("meter", expression.range), kind: .rest(.zero), annotations: .init(metadata: [
+                "meterNumerator": .integer(n), "meterDenominator": .integer(d)
+            ], source: expression.range))
+        }
+
+        func meterMetadata(_ meter: TimeSignature?) -> [String: MetadataValue] {
+            guard let meter else { return [:] }
+            return ["expectedMeterNumerator": .integer(meter.numerator), "expectedMeterDenominator": .integer(meter.denominator)]
         }
 
         mutating func lowerTempoExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {

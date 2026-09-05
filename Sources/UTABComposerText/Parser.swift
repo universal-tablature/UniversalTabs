@@ -719,6 +719,13 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after proportional group") ?? current
                 return .init(kind: .proportional(numerator: numerator, denominator: denominator, tuplet: start.lexeme == "tuplet", expressions: children), range: spanning(start, close))
             }
+            if takeKeyword("meter") {
+                let keyword = tokens[index - 1]
+                guard let numerator = expect(.integerLiteral, "Expected meter numerator"),
+                      expect(.slash, "Expected '/' in meter") != nil,
+                      let denominator = expect(.integerLiteral, "Expected meter denominator") else { return nil }
+                return .init(kind: .meter(numerator: numerator, denominator: denominator), range: spanning(keyword, denominator))
+            }
             if takeKeyword("tempo") {
                 let keyword = tokens[index - 1]
                 if takeKeyword("ramp") {

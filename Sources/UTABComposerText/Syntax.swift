@@ -271,6 +271,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case bar([TextExpressionSyntax])
         case pickup([TextExpressionSyntax])
         case finalBar([TextExpressionSyntax])
+        case meter(numerator: TextToken, denominator: TextToken)
         case tempo(unit: TextDurationSyntax?, beatsPerMinute: TextToken)
         case tempoRamp(target: TextToken, duration: TextDurationSyntax, steps: TextToken?)
         case fermata(duration: TextDurationSyntax, factor: TextToken)
