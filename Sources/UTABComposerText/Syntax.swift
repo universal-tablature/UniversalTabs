@@ -259,6 +259,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case chord(root: TextToken, quality: TextToken, duration: TextToken, shape: TextToken?)
         case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextToken, shape: TextToken?)
         case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextToken)
+        case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextToken)
         case rest(duration: TextToken)
         case reference(TextToken)
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])

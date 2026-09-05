@@ -695,6 +695,9 @@ public struct TextParser: Sendable {
                 guard let duration = expect(.identifier, "Expected rest duration") else { return nil }
                 return .init(kind: .rest(duration: duration), range: spanning(restToken, duration))
             }
+            if isActuatorExpressionStart() {
+                return parseActuatorExpression()
+            }
             guard current.kind == .identifier else { diagnose("Expected musical expression"); return nil }
             let first = advance()
             let alteration = parseAlteration()
@@ -710,6 +713,48 @@ public struct TextParser: Sendable {
                 return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, duration))
             }
             return .init(kind: .reference(first), range: first.range)
+        }
+
+        /// Parses a direct instrument interaction such as `pluck strings[2] q`.
+        /// The target uses the canonical actuator path and optional single-member
+        /// selector shared with UTAB JSON.
+        mutating func parseActuatorExpression() -> TextExpressionSyntax? {
+            let action = advance()
+            guard let target = parseQualifiedName() else { return nil }
+            var member: TextToken?
+            if take(.leftBracket) {
+                guard current.kind == .integerLiteral || current.kind == .stringLiteral else {
+                    diagnose("Expected actuator member index or name")
+                    return nil
+                }
+                member = advance()
+                if member?.kind == .integerLiteral, (member?.integerValue ?? 0) < 1 {
+                    diagnostics.append(.init(
+                        .error,
+                        message: "Actuator member indices are one-based positive integers",
+                        range: member?.range ?? current.range
+                    ))
+                    return nil
+                }
+                guard expect(.rightBracket, "Expected ']' after actuator member") != nil else { return nil }
+            }
+            guard let duration = expect(.identifier, "Expected actuator duration") else { return nil }
+            return .init(kind: .actuator(action: action, target: target, member: member, duration: duration), range: spanning(action, duration))
+        }
+
+        func isActuatorExpressionStart() -> Bool {
+            guard current.kind == .identifier, index + 2 < tokens.count,
+                  tokens[index + 1].kind == .identifier else { return false }
+            var cursor = index + 2
+            while cursor + 1 < tokens.count, tokens[cursor].kind == .dot,
+                  tokens[cursor + 1].kind == .identifier { cursor += 2 }
+            if cursor < tokens.count, tokens[cursor].kind == .leftBracket {
+                guard cursor + 3 < tokens.count,
+                      tokens[cursor + 1].kind == .integerLiteral || tokens[cursor + 1].kind == .stringLiteral,
+                      tokens[cursor + 2].kind == .rightBracket else { return false }
+                cursor += 3
+            }
+            return cursor < tokens.count && tokens[cursor].kind == .identifier && isDuration(tokens[cursor])
         }
 
         mutating func parseNameBlock() -> [TextToken] {

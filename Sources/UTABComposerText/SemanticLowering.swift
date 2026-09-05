@@ -277,6 +277,22 @@ public struct TextSemanticLowerer: Sendable {
                 }
             case .rest(let token):
                 return .init(id: id("rest", expression.range), kind: .rest(duration(token)), annotations: .init(source: expression.range))
+            case .actuator(let action, let target, let member, let durationToken):
+                let memberValue: String?
+                if let member {
+                    memberValue = member.stringValue ?? String(member.lexeme)
+                } else {
+                    memberValue = nil
+                }
+                return .init(
+                    id: id("actuator", expression.range),
+                    kind: .actuator(.init(
+                        action: String(action.lexeme),
+                        target: .init(group: target.value, member: memberValue),
+                        duration: duration(durationToken)
+                    )),
+                    annotations: .init(source: expression.range)
+                )
             case .reference(let token):
                 return .reference(.named("phrase", String(token.lexeme)), id: id("phrase-reference", expression.range))
             case .repeated(let count, let expressions):

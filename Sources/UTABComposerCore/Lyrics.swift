@@ -176,7 +176,7 @@ public struct LyricAlignmentStage: CompilerStage {
 
     private func attacks(in expression: TimedExpression) -> [TimedExpression] {
         switch expression.kind {
-        case .note:
+        case .note, .actuator:
             return [expression]
         case .sequence(let children), .parallel(let children):
             return children.flatMap(attacks).sorted {
@@ -185,7 +185,7 @@ public struct LyricAlignmentStage: CompilerStage {
             }
         case .technique(let application):
             return application.operands.flatMap(attacks)
-        case .rest, .chord, .actuator:
+        case .rest, .chord:
             return []
         }
     }

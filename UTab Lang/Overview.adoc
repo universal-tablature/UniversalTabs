@@ -135,6 +135,14 @@ Example for guitar:
     E4 constrained to string 2
     string 2 fret 5
 
+The standalone text language writes a direct interaction as an action, canonical
+actuator target, and duration. For example, an open-string attack is:
+
+    pluck strings[2] q
+
+Numeric actuator indices are one-based and the exact `strings[2]` coordinate
+survives lowering to UTAB JSON.
+
 The exact actuator position must survive lowering rather than being
 discarded after resolving its pitch.
 

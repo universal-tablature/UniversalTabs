@@ -857,7 +857,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(fSharp.isAcousticallyEquivalent(to: gFlat))
 
     let relativeChord = ChordSymbol(scaleDegree: 1, .major)
-    #expect(relativeChord.root == .scaleDegree(1))
+    #expect(relativeChord.root == .scaleDegree(1, alteration: 0))
 }
 
 @Test func microtonalPitchFrequencyAndTranspositionPreserveCents() {
@@ -1914,7 +1914,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(resolved.bindings["rhythm"]?.model == guitar.id)
 }
 
-@Test func hurrianHymnFixtureCompilesWithReconstructedMelodyAndLyrics() throws {
+@Test func hurrianHymnFixtureCompilesWithReconstructedActuatorsAndLyrics() throws {
     let testFile = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -1929,6 +1929,12 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(composition.phrases.first?.bars.count == 9)
     #expect(verse.syllables.count == 34)
     #expect(result.document?.setup.instruments.first?.id == "sammu")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.count == 34)
+    #expect(events.first?.action == "pluck")
+    #expect(events.first?.target == "strings[9]")
+    #expect(events.first?.parameters?["pitch"] != nil)
+    #expect(events.allSatisfy { $0.parameters?["_lyrics"] != nil })
 }
 
 @Test func catalogueLookupUsesSwiftLikeImportedAndQualifiedNames() throws {
@@ -2173,4 +2179,48 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(filesystem.source(for: "instruments.local")?.fileID.hasSuffix("instruments/local.utab") == true)
     #expect(filesystem.source(for: "tunings.local")?.fileID.hasSuffix("tunings.local.utab") == true)
     #expect(layered.source(for: "instruments.local")?.fileID == "override.utab")
+}
+
+@Test func textComposerParsesAndLowersDirectActuatorCoordinates() throws {
+    let source = TextSource(
+        """
+        module examples.direct-actuator
+        import instruments.lyre.sammu
+
+        title "Direct actuator"
+        meter 4/4
+        tempo 60
+        instrument sammu : NineStringSammu
+
+        section verse : 1 bars {
+            sammu {
+                voice strings {
+                    lyrics { "one two three" }
+                    pluck strings[9] q
+                    pluck strings[\"highest\"] q
+                    pluck strings[7] h
+                }
+            }
+        }
+        main { verse }
+        """,
+        fileID: "direct-actuator.utab"
+    )
+
+    let result = UTabTextCompiler().compile(source, modules: StandardTextModuleProvider())
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+
+    #expect(result.succeeded)
+    #expect(result.diagnostics.isEmpty)
+    #expect(events.map(\.action) == ["pluck", "pluck", "pluck"])
+    #expect(events.map(\.target) == ["strings[9]", "strings[\"highest\"]", "strings[7]"])
+    #expect(events.map { $0.duration?.quarterNotes } == [.string("1/1"), .string("1/1"), .string("2/1")])
+    #expect(events.first?.parameters?["pitch"] != nil)
+    #expect(events.allSatisfy { $0.parameters?["_lyrics"] != nil })
+}
+
+@Test func textComposerRejectsZeroBasedActuatorCoordinates() {
+    let result = TextParser().parse(.init("phrase invalid { pluck strings[0] q }", fileID: "invalid-actuator.utab"))
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("one-based positive integers") })
 }

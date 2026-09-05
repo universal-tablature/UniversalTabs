@@ -16,15 +16,15 @@ instrument sammu : NineStringSammu as "Nine-string Sammûm / Lyre"
 // following the high-to-low string numbering used by M. L. West. Strings 1
 // and 2 are rendered with their lower octave partners 8 and 9 where applicable.
 phrase reconstructedPitchSequence {
-    bar { D3 q; F3 q; D3 q; A3 q }
-    bar { G3 q; A3 q; G3 q; A3 q }
-    bar { G3 q; F3 q; F3 q; G3 q }
-    bar { F3 q; E3 q; B3 q; A3 q }
-    bar { G3 q; A3 q; G3 q; F3 q }
-    bar { E3 q; A3 q; G3 q; A3 q }
-    bar { G3 q; A3 q; G3 q; F3 q }
-    bar { C4 q; D3 q; C4 q; D3 q }
-    bar { C4 q; D3 q; rest h }
+    bar { pluck strings[9] q; pluck strings[7] q; pluck strings[9] q; pluck strings[5] q }
+    bar { pluck strings[6] q; pluck strings[5] q; pluck strings[6] q; pluck strings[5] q }
+    bar { pluck strings[6] q; pluck strings[7] q; pluck strings[7] q; pluck strings[6] q }
+    bar { pluck strings[7] q; pluck strings[8] q; pluck strings[4] q; pluck strings[5] q }
+    bar { pluck strings[6] q; pluck strings[5] q; pluck strings[6] q; pluck strings[7] q }
+    bar { pluck strings[8] q; pluck strings[5] q; pluck strings[6] q; pluck strings[5] q }
+    bar { pluck strings[6] q; pluck strings[5] q; pluck strings[6] q; pluck strings[7] q }
+    bar { pluck strings[3] q; pluck strings[9] q; pluck strings[3] q; pluck strings[9] q }
+    bar { pluck strings[3] q; pluck strings[9] q; rest h }
 }
 
 section tablet : 9 bars {

@@ -170,7 +170,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 kind = realizeChord(chord, duration: expression.duration, constraints: constraints, context: context, expression: expression, path: path)
             case .actuator(let actuator):
                 validate(actuator: actuator, context: context, path: path)
-                kind = .actuator(actuator)
+                kind = .actuator(resolveSoundingPitch(for: actuator, context: context))
             case .sequence(let children):
                 kind = .sequence(children.enumerated().map { index, child in
                     realize(child, context: context, path: "\(path).sequence[\(index)]")
@@ -202,6 +202,33 @@ public struct InstrumentRealizationStage: CompilerStage {
                 duration: expression.duration,
                 kind: kind,
                 annotations: expression.annotations
+            )
+        }
+
+        func resolveSoundingPitch(for actuator: ActuatorExpression, context: Context) -> ActuatorExpression {
+            guard actuator.soundingPitch == nil,
+                  actuator.target.group == "strings",
+                  let member = actuator.target.member,
+                  let stringNumber = Int(member), stringNumber > 0,
+                  let tuning = context.tuning,
+                  stringNumber <= tuning.courses.count else { return actuator }
+
+            let stringsGeometry = context.model.geometry.first { $0.id == "strings" }
+            let isHighToLow: Bool
+            if case .text("highToLow")? = stringsGeometry?.properties["numbering"] {
+                isHighToLow = true
+            } else {
+                isHighToLow = false
+            }
+            let courseIndex = isHighToLow ? stringNumber - 1 : tuning.courses.count - stringNumber
+            guard let pitch = tuning.courses[courseIndex].pitches.first else { return actuator }
+            let position = actuator.target.position ?? 0
+            return .init(
+                action: actuator.action,
+                target: actuator.target,
+                duration: actuator.duration,
+                soundingPitch: .absolute(pitch.transposed(cents: position * 100)),
+                parameters: actuator.parameters
             )
         }
 
