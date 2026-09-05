@@ -334,6 +334,14 @@ public struct TextSemanticLowerer: Sendable {
                     kind: .rest(.zero),
                     annotations: .init(metadata: ["damp": .boolean(true)], source: expression.range)
                 )
+            case .dynamic: result = lowerDynamicExpression(expression)
+            case .dynamicEnvelope: result = lowerDynamicEnvelopeExpression(expression)
+            case .pedal(let expressions):
+                result = .technique(.init(
+                    "__sustainPedal",
+                    form: .scoped,
+                    operands: [expressionSequence(expressions, range: expression.range)]
+                ), id: id("pedal", expression.range))
             case .technique: result = lowerTechniqueExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
@@ -366,6 +374,46 @@ public struct TextSemanticLowerer: Sendable {
                 form: .scoped,
                 operands: [expressionSequence(expressions, range: expression.range)]
             ), id: id("technique:\(name.lexeme)", expression.range))
+        }
+
+        mutating func lowerDynamicExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .dynamic(let level, let expressions) = expression.kind else {
+                preconditionFailure("Mismatched expression dispatch")
+            }
+            let intensities: [String: Double] = [
+                "ppp": 0.18, "pp": 0.28, "p": 0.38, "mp": 0.52,
+                "mf": 0.66, "f": 0.78, "ff": 0.90, "fff": 1.0,
+            ]
+            guard let intensity = intensities[String(level.lexeme)] else {
+                error("Unknown dynamic level '\(level.lexeme)'; expected ppp, pp, p, mp, mf, f, ff, or fff", at: level.range)
+                return expressionSequence(expressions, range: expression.range)
+            }
+            return .technique(.init(
+                "__dynamic",
+                form: .scoped,
+                operands: [expressionSequence(expressions, range: expression.range)],
+                parameters: ["level": .string(String(level.lexeme)), "intensity": .decimal(intensity)]
+            ), id: id("dynamic:\(level.lexeme)", expression.range))
+        }
+
+        mutating func lowerDynamicEnvelopeExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
+            guard case .dynamicEnvelope(let direction, let target, let expressions) = expression.kind else {
+                preconditionFailure("Mismatched expression dispatch")
+            }
+            let intensities: [String: Double] = [
+                "ppp": 0.18, "pp": 0.28, "p": 0.38, "mp": 0.52,
+                "mf": 0.66, "f": 0.78, "ff": 0.90, "fff": 1.0,
+            ]
+            guard let intensity = intensities[String(target.lexeme)] else {
+                error("Unknown dynamic level '\(target.lexeme)'; expected ppp, pp, p, mp, mf, f, ff, or fff", at: target.range)
+                return expressionSequence(expressions, range: expression.range)
+            }
+            return .technique(.init(
+                "__dynamicEnvelope",
+                form: .scoped,
+                operands: [expressionSequence(expressions, range: expression.range)],
+                parameters: ["direction": .string(String(direction.lexeme)), "target": .decimal(intensity)]
+            ), id: id("dynamic-envelope:\(direction.lexeme)", expression.range))
         }
 
         mutating func lowerNamedExpression(_ expression: TextExpressionSyntax) -> MusicalExpression? {

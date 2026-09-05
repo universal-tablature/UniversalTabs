@@ -796,8 +796,39 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     lower($0, instrument: instrument, meter: meter, inheritedTechniques: inheritedTechniques, into: &events)
                 }
             case .technique(let application):
-                let techniques = inheritedTechniques + [application.technique]
-                capabilities[instrument, default: .init()].techniques.insert(application.technique)
+                var techniques = inheritedTechniques
+                if application.technique == "__dynamic",
+                   case .decimal(let intensity)? = application.parameters["intensity"] {
+                    techniques.removeAll { $0.hasPrefix("__dynamic:") }
+                    techniques.append("__dynamic:\(intensity)")
+                } else if application.technique == "__dynamicEnvelope",
+                          case .decimal(let target)? = application.parameters["target"],
+                          case .string(let direction)? = application.parameters["direction"] {
+                    let start = resolvedIntensity(at: expression.offset, techniques: techniques) ?? 0.7
+                    if (direction == "crescendo" && target <= start) || (direction == "diminuendo" && target >= start) {
+                        diagnostics.append(.init(.error, path: expression.provenance.expansionPath.joined(separator: "."), message: "A \(direction) target must be \(direction == "crescendo" ? "louder" : "softer") than its starting dynamic", range: expression.annotations.source))
+                    }
+                    let offset = expression.offset.wholeNotes
+                    let duration = expression.duration.wholeNotes
+                    techniques.append("__envelope:\(start),\(target),\(offset.numerator),\(offset.denominator),\(duration.numerator),\(duration.denominator)")
+                } else if application.technique == "__sustainPedal" {
+                    let alreadyDown = techniques.contains("__sustainPedal")
+                    if !alreadyDown {
+                        capabilities[instrument, default: .init()].actions.formUnion(["pedalDown", "pedalUp"])
+                        capabilities[instrument, default: .init()].groups["sustain"] = .init()
+                        events.append(makePedalEvent(expression, meter: meter, down: true))
+                    }
+                    techniques.append("__sustainPedal")
+                    application.operands.forEach {
+                        lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
+                    }
+                    // The matching release is appended after the scoped operands.
+                    if !alreadyDown && expression.duration != .zero { events.append(makePedalEvent(expression, meter: meter, down: false)) }
+                    return
+                } else {
+                    techniques.append(application.technique)
+                    capabilities[instrument, default: .init()].techniques.insert(application.technique)
+                }
                 application.operands.forEach {
                     lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
                 }
@@ -903,6 +934,16 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             techniques: [String]
         ) -> PerformanceEvent {
             var eventParameters = parameters
+            let publicTechniques = techniques.filter { !$0.hasPrefix("__dynamic:") && !$0.hasPrefix("__envelope:") && $0 != "__sustainPedal" }
+            if action != "damp" {
+                let scopedIntensity = resolvedIntensity(at: expression.offset, techniques: techniques)
+                if let scopedIntensity {
+                    eventParameters["intensity"] = .number(min(1, scopedIntensity + (publicTechniques.contains("accent") ? 0.1 : 0)))
+                } else if publicTechniques.contains("accent") {
+                    eventParameters["intensity"] = .number(0.8)
+                }
+                if publicTechniques.contains("accent") { eventParameters["accent"] = .boolean(true) }
+            }
             if let lyrics = lyricsByOccurrence[expression.provenance.occurrenceID], !lyrics.isEmpty {
                 eventParameters["_lyrics"] = .array(lyrics.sorted {
                     $0.verseID.rawValue < $1.verseID.rawValue
@@ -923,13 +964,43 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 action: action,
                 target: target,
                 parameters: eventParameters,
-                techniques: techniques.isEmpty ? nil : techniques,
+                techniques: publicTechniques.isEmpty ? nil : publicTechniques,
                 source: sourceReference(
                     id: expression.provenance.originID,
                     range: expression.annotations.source,
                     ancestry: expression.provenance.ancestry,
                     path: expression.provenance.expansionPath
                 )
+            )
+        }
+
+        func resolvedIntensity(at offset: MusicalDuration, techniques: [String]) -> Double? {
+            var result: Double?
+            for technique in techniques {
+                if technique.hasPrefix("__dynamic:"), let value = Double(technique.dropFirst("__dynamic:".count)) {
+                    result = value
+                } else if technique.hasPrefix("__envelope:") {
+                    let values = technique.dropFirst("__envelope:".count).split(separator: ",").compactMap { Double($0) }
+                    guard values.count == 6, values[3] != 0, values[5] != 0 else { continue }
+                    let position = Double(offset.wholeNotes.numerator) / Double(offset.wholeNotes.denominator)
+                    let startOffset = values[2] / values[3]
+                    let duration = values[4] / values[5]
+                    let progress = duration == 0 ? 1 : min(1, max(0, (position - startOffset) / duration))
+                    result = ((values[0] + (values[1] - values[0]) * progress) * 1_000_000).rounded() / 1_000_000
+                }
+            }
+            return result
+        }
+
+        func makePedalEvent(_ expression: RealizedExpression, meter: TimeSignature, down: Bool) -> PerformanceEvent {
+            let offset = down ? expression.offset : expression.offset + expression.duration
+            return .init(
+                id: "\(expression.provenance.occurrenceID.rawValue):pedal:\(down ? "down" : "up")",
+                at: eventTime(offset, meter: meter),
+                action: down ? "pedalDown" : "pedalUp",
+                target: "sustain",
+                parameters: ["value": .number(down ? 1 : 0)],
+                source: sourceReference(id: expression.provenance.originID, range: expression.annotations.source)
             )
         }
 

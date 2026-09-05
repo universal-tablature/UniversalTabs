@@ -165,6 +165,15 @@ public final class UTabMIDIConverter {
             let target = eventTargets.first
             let parameters = event.parameters ?? [:]
 
+            if action == "pedalDown" || action == "pedalUp" {
+                output.append(MIDIMessage(
+                    tick: tick,
+                    priority: 0,
+                    bytes: [UInt8(0xB0 | midiChannel), 64, action == "pedalDown" ? 127 : 0]
+                ))
+                continue
+            }
+
             if action == "setPosition", let target,
                let index = targetIndex(target, group: "strings"),
                let fret = int(parameters["fret"]) {

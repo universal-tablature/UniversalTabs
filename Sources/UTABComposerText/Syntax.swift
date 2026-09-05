@@ -277,6 +277,9 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case fermata(duration: TextDurationSyntax, factor: TextToken)
         case rubato(duration: TextDurationSyntax, factor: TextToken)
         case damp
+        case dynamic(level: TextToken, expressions: [TextExpressionSyntax])
+        case dynamicEnvelope(direction: TextToken, target: TextToken, expressions: [TextExpressionSyntax])
+        case pedal([TextExpressionSyntax])
         case technique(name: TextToken, expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])

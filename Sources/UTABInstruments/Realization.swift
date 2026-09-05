@@ -325,7 +325,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                     kind = realizePerformancePattern(application, context: context, expression: expression, path: path)
                     break
                 }
-                let universalTechniques: Set<String> = ["legato", "slur", "rearticulate", "letRing"]
+                let universalTechniques: Set<String> = ["legato", "slur", "rearticulate", "letRing", "accent", "__dynamic", "__dynamicEnvelope", "__sustainPedal"]
                 if !universalTechniques.contains(application.technique),
                    !context.profile.techniques.contains(where: { $0.id == application.technique }) {
                     diagnostics.append(.init(.error, path: path, message: "Instrument '\(context.model.name)' does not support technique '\(application.technique)'"))

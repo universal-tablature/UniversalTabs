@@ -11,6 +11,11 @@ public struct TextParser: Sendable {
     }
 
     private struct Parser {
+        enum ScopedUsing {
+            case technique(TextToken)
+            case dynamic(TextToken)
+        }
+
         let tokens: [TextToken]
         var index = 0
         var notation: TextQualifiedNameSyntax?
@@ -636,7 +641,7 @@ public struct TextParser: Sendable {
         mutating func parseExpressions(until end: TextTokenKind) -> [TextExpressionSyntax] {
             let inheritedNotation = notation
             defer { notation = inheritedNotation }
-            let scopedTechniques = scanUsingDirectives(until: end)
+            let scopedPolicies = scanUsingDirectives(until: end)
             var result: [TextExpressionSyntax] = []
             while current.kind != end && current.kind != .endOfFile {
                 if take(.semicolon) { continue }
@@ -649,12 +654,14 @@ public struct TextParser: Sendable {
                 else { synchronizeBlockItem() }
                 requireSequenceSeparator(unlessAt: end)
             }
-            for technique in scopedTechniques.reversed() {
+            for policy in scopedPolicies.reversed() {
                 guard let first = result.first, let last = result.last else { continue }
-                result = [.init(
-                    kind: .technique(name: technique, expressions: result),
-                    range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end)
-                )]
+                let kind: TextExpressionSyntax.Kind
+                switch policy {
+                case .technique(let technique): kind = .technique(name: technique, expressions: result)
+                case .dynamic(let level): kind = .dynamic(level: level, expressions: result)
+                }
+                result = [.init(kind: kind, range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end))]
             }
             return result
         }
@@ -680,7 +687,7 @@ public struct TextParser: Sendable {
             var expression = parseExpressionBody()
             expression?.notation = notation
             var modifiers: [TextToken] = []
-            while isKeyword("letRing") || isKeyword("rearticulate") {
+            while isKeyword("letRing") || isKeyword("rearticulate") || isKeyword("accent") {
                 modifiers.append(advance())
             }
             if take(.tie), let original = expression {
@@ -762,6 +769,30 @@ public struct TextParser: Sendable {
             if takeKeyword("damp") {
                 let keyword = tokens[index - 1]
                 return .init(kind: .damp, range: keyword.range)
+            }
+            if takeKeyword("dynamics") {
+                let keyword = tokens[index - 1]
+                guard let level = expect(.identifier, "Expected dynamic level after 'dynamics'"),
+                      expect(.leftBrace, "Expected '{' after dynamic level") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after dynamics") ?? current
+                return .init(kind: .dynamic(level: level, expressions: children), range: spanning(keyword, close))
+            }
+            if takeKeyword("crescendo") || takeKeyword("diminuendo") {
+                let direction = tokens[index - 1]
+                guard expectKeyword("to", "Expected 'to' after \(direction.lexeme)") != nil,
+                      let target = expect(.identifier, "Expected target dynamic level"),
+                      expect(.leftBrace, "Expected '{' after target dynamic level") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after \(direction.lexeme)") ?? current
+                return .init(kind: .dynamicEnvelope(direction: direction, target: target, expressions: children), range: spanning(direction, close))
+            }
+            if takeKeyword("pedal") {
+                let keyword = tokens[index - 1]
+                guard expect(.leftBrace, "Expected '{' after pedal") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after pedal") ?? current
+                return .init(kind: .pedal(children), range: spanning(keyword, close))
             }
             if (isKeyword("legato") || isKeyword("slur")) && tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace {
                 let technique = advance()
@@ -953,11 +984,12 @@ public struct TextParser: Sendable {
         /// Finds declarations belonging to this sequence without descending into
         /// nested groups. This makes `using` scope-wide rather than source-order
         /// dependent, including when it appears after the first note.
-        mutating func scanUsingDirectives(until end: TextTokenKind) -> [TextToken] {
+        mutating func scanUsingDirectives(until end: TextTokenKind) -> [ScopedUsing] {
             var cursor = index
             var depth = 0
             var foundNotation: TextQualifiedNameSyntax?
             var techniques: [TextToken] = []
+            var dynamic: TextToken?
             while cursor < tokens.count {
                 let token = tokens[cursor]
                 if depth == 0 && token.kind == end { break }
@@ -988,20 +1020,25 @@ public struct TextParser: Sendable {
                         diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using \(policy.lexeme)' declaration", range: token.range))
                     } else { techniques.append(policy) }
                     cursor += 2
+                } else if policy.lexeme == "dynamics", cursor + 2 < tokens.count, tokens[cursor + 2].kind == .identifier {
+                    if dynamic != nil { diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using dynamics' declaration", range: token.range)) }
+                    else { dynamic = tokens[cursor + 2] }
+                    cursor += 3
                 } else { cursor += 1 }
             }
             if let foundNotation {
                 notation = foundNotation
                 notationUses.append(foundNotation)
             }
-            return techniques
+            return techniques.map(ScopedUsing.technique) + (dynamic.map { [.dynamic($0)] } ?? [])
         }
 
         mutating func consumeUsingDirective() {
             _ = advance()
             if takeKeyword("notation") { _ = parseQualifiedName(); return }
             if isKeyword("legato") || isKeyword("slur") { _ = advance(); return }
-            diagnose("Expected notation, legato, or slur after 'using'")
+            if takeKeyword("dynamics") { _ = expect(.identifier, "Expected dynamic level after 'using dynamics'"); return }
+            diagnose("Expected notation, legato, slur, or dynamics after 'using'")
             if current.kind == .identifier { _ = advance() }
         }
 

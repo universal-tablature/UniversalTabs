@@ -423,6 +423,100 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(occurrences.count == 5)
 }
 
+@Test func dynamicsAreScopeWideLocallyOverridableAndAccented() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            bar {
+                C4 q
+                dynamics p { D4 q; E4 q accent }
+                F4 q
+                using dynamics mf
+            }
+        } } }
+        main { s }
+        """, fileID: "dynamics.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events.filter { $0.action == "press" })
+    #expect(events.count == 4)
+    #expect(events[0].parameters?["intensity"] == .number(0.66))
+    #expect(events[1].parameters?["intensity"] == .number(0.38))
+    #expect(events[2].parameters?["intensity"] == .number(0.48))
+    #expect(events[2].parameters?["accent"] == .boolean(true))
+    #expect(events[2].techniques?.contains("accent") == true)
+    #expect(events[3].parameters?["intensity"] == .number(0.66))
+    #expect(events.allSatisfy { !($0.techniques ?? []).contains(where: { $0.hasPrefix("__dynamic") }) })
+}
+
+@Test func dynamicsRejectUnknownLevelsAndDuplicateScopePolicies() {
+    for body in ["using dynamics loud; C4 w", "using dynamics p; using dynamics f; C4 w", "dynamics nope { C4 w }"] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { bar { \(body) } } } }
+            main { s }
+            """, fileID: "invalid-dynamics.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.contains("dynamic") || $0.message.contains("Dynamic") })
+    }
+}
+
+@Test func dynamicEnvelopesInterpolateAtScorePosition() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar {
+            dynamics p { crescendo to f {
+                C4 q; D4 q; E4 q; F4 q
+            } }
+        } } } }
+        main { s }
+        """, fileID: "envelope-pedal.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let notes = events.filter { $0.action == "press" }
+    #expect(notes.map { $0.parameters?["intensity"] } == [.number(0.38), .number(0.48), .number(0.58), .number(0.68)])
+}
+
+@Test func nestedPedalScopesEmitOneBalancedStatePair() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar {
+            pedal { C4 q; pedal { D4 q }; E4 q; F4 q }
+        } } } }
+        main { s }
+        """, fileID: "pedal.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    #expect(events.filter { $0.action == "pedalDown" }.count == 1)
+    #expect(events.filter { $0.action == "pedalUp" }.count == 1)
+}
+
+@Test func dynamicEnvelopeDirectionMustAgreeWithItsTarget() {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar {
+            dynamics f { crescendo to p { C4 w } }
+        } } } }
+        main { s }
+        """, fileID: "invalid-envelope.utab"), modules: StandardTextModuleProvider())
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.message.contains("crescendo target must be louder") })
+}
+
 @Test func invalidTiesProduceSourceDiagnostics() {
     for notes in ["C4 q~; D4 q; rest h", "C4 q; D4 q; E4 q; F4 q~"] {
         let result = UTabTextCompiler().compile(TextSource("""
