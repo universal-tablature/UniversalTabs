@@ -477,6 +477,42 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(result.diagnostics.contains { $0.message.contains("share at least one sounding pitch") })
 }
 
+@Test func tiesAcrossSectionOccurrencesUseEntrySpecificPlayback() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section a { piano { voice v { rest h; C4 h~ } } }
+        section b { piano { voice v { C4 h; D4 h } } }
+        main { a; b }
+        """, fileID: "section-ties.utab"), modules: StandardTextModuleProvider(), options: .init(outputs: [.midi]))
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let arrangement = try #require(result.document?.setup.arrangement)
+    let parts = try #require(result.document?.tracks.flatMap { $0.parts ?? [] })
+    let sourceOverride = try #require(parts.first { $0.entry == arrangement[0].id })
+    let destinationOverride = try #require(parts.first { $0.entry == arrangement[1].id })
+    #expect(sourceOverride.mode == .replace)
+    #expect(sourceOverride.events.first { $0.action == "press" }?.duration?.quarterNotes == .string("4/1"))
+    #expect(destinationOverride.events.filter { $0.action == "press" }.count == 1)
+    #expect(destinationOverride.events.first { $0.action == "press" }?.at.musical?.beat == 3)
+}
+
+@Test func sectionBoundaryTiesValidateEveryActualArrangementOccurrence() {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section a { piano { voice v { rest h; C4 h~ } } }
+        section b { piano { voice v { C4 w } } }
+        section c { piano { voice v { D4 w } } }
+        main { a; b; a; c }
+        """, fileID: "invalid-section-tie.utab"), modules: StandardTextModuleProvider())
+    #expect(!result.succeeded)
+    #expect(result.diagnostics.contains { $0.path == "main[2]" && $0.message.contains("same sounding pitch") })
+}
+
 @Test func pickupAndFinalBarsPreserveTimelineAndCrossBoundaryTies() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

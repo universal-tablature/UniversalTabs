@@ -58,10 +58,11 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             validateTimingRepresentation()
             guard diagnostics.isEmpty else { return .init(output: nil, diagnostics: diagnostics) }
             let sectionDefinitions = input.sections.map(makeSectionDefinition)
+            let arrangement = lowerArrangement()
             for section in input.sections {
                 lower(section)
             }
-            let arrangement = lowerArrangement()
+            lowerCrossSectionTies(arrangement: arrangement)
             let harmony = lowerHarmony()
             let tempos = lowerTempoMap(arrangement: arrangement)
 
@@ -407,6 +408,169 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     tracks[key] = track
                 }
             }
+        }
+
+        struct BoundaryTone {
+            let expression: RealizedExpression
+            let pitch: AbsolutePitch
+        }
+
+        struct BoundaryLane: Hashable {
+            let instrument: String
+            let voice: String
+        }
+
+        struct BoundaryOrigin {
+            let entry: String
+            let occurrence: SemanticID
+            let absoluteOffset: MusicalDuration
+        }
+
+        mutating func lowerCrossSectionTies(arrangement: [ArrangementEntry]) {
+            guard !arrangement.isEmpty else { return }
+            let sections = Dictionary(uniqueKeysWithValues: input.sections.map { ($0.source.id.rawValue, $0) })
+            var entryStarts: [MusicalDuration] = []
+            var cursor = MusicalDuration.zero
+            for entry in arrangement {
+                entryStarts.append(cursor)
+                if let section = sections[entry.section] { cursor = cursor + section.duration }
+            }
+
+            var extensions: [String: [SemanticID: MusicalDuration]] = [:]
+            var continuations: [String: Set<SemanticID>] = [:]
+            var origins: [String: [SemanticID: BoundaryOrigin]] = [:]
+
+            for index in arrangement.indices {
+                let entry = arrangement[index]
+                guard let section = sections[entry.section] else { continue }
+                for part in section.parts {
+                    for voice in part.voices {
+                        let lane = BoundaryLane(instrument: part.source.instrument, voice: voice.source.name)
+                        let sources = boundaryTones(in: voice.expression).filter {
+                            $0.expression.annotations.metadata["tieToNext"] == .boolean(true)
+                                && $0.expression.annotations.metadata["tieResolvedWithinSection"] != .boolean(true)
+                                && !hasResolvedTieSegments($0.expression)
+                                && $0.expression.offset + $0.expression.duration == section.duration
+                        }
+                        guard !sources.isEmpty else { continue }
+                        guard arrangement.indices.contains(index + 1),
+                              let nextSection = sections[arrangement[index + 1].section],
+                              let destinationVoice = boundaryVoice(lane, in: nextSection) else {
+                            diagnostics.append(.init(.error, path: "main[\(index)]", message: "A tie at the end of section '\(section.source.name)' has no matching following voice", range: sources.first?.expression.annotations.source))
+                            continue
+                        }
+                        let destinations = boundaryTones(in: destinationVoice.expression).filter { $0.expression.offset == .zero }
+                        let sourceByPitch = Dictionary(grouping: sources, by: \.pitch)
+                        let destinationByPitch = Dictionary(grouping: destinations, by: \.pitch)
+                        let shared = Set(sourceByPitch.keys).intersection(destinationByPitch.keys)
+                        guard !shared.isEmpty else {
+                            diagnostics.append(.init(.error, path: "main[\(index)]", message: "A section-boundary tie must continue with the same sounding pitch in the following section", range: sources.first?.expression.annotations.source))
+                            continue
+                        }
+                        if sources.count == 1 && destinations.count == 1 && sources[0].pitch != destinations[0].pitch {
+                            diagnostics.append(.init(.error, path: "main[\(index)]", message: "Tied notes across sections must have the same sounding pitch", range: sources.first?.expression.annotations.source))
+                            continue
+                        }
+                        let nextEntry = arrangement[index + 1]
+                        for pitch in shared {
+                            guard sourceByPitch[pitch]?.count == 1, destinationByPitch[pitch]?.count == 1,
+                                  let source = sourceByPitch[pitch]?.first,
+                                  let destination = destinationByPitch[pitch]?.first else {
+                                diagnostics.append(.init(.error, path: "main[\(index)]", message: "A section-boundary tie is ambiguous when a boundary doubles the same sounding pitch", range: sourceByPitch[pitch]?.first?.expression.annotations.source))
+                                continue
+                            }
+                            let sourceID = source.expression.provenance.occurrenceID
+                            let destinationID = destination.expression.provenance.occurrenceID
+                            let origin = origins[entry.id]?[sourceID] ?? .init(
+                                entry: entry.id,
+                                occurrence: sourceID,
+                                absoluteOffset: entryStarts[index] + source.expression.offset
+                            )
+                            let absoluteEnd = entryStarts[index + 1] + destination.expression.offset + destination.expression.duration
+                            guard let value = absoluteEnd.wholeNotes.subtracting(origin.absoluteOffset.wholeNotes) else { continue }
+                            extensions[origin.entry, default: [:]][origin.occurrence] = .init(value.numerator, value.denominator)
+                            continuations[nextEntry.id, default: []].insert(destinationID)
+                            origins[nextEntry.id, default: [:]][destinationID] = origin
+                        }
+                    }
+                }
+            }
+
+            let affectedEntries = Set(extensions.keys).union(continuations.keys)
+            for entry in arrangement where affectedEntries.contains(entry.id) {
+                guard let section = sections[entry.section] else { continue }
+                for part in section.parts {
+                    let instanceID = part.instrumentInstance.id.rawValue
+                    for voice in part.voices {
+                        let rewritten = rewriteBoundaryTies(
+                            voice.expression,
+                            extended: extensions[entry.id] ?? [:],
+                            continuations: continuations[entry.id] ?? []
+                        )
+                        var events: [PerformanceEvent] = []
+                        lower(rewritten, instrument: instanceID, meter: section.source.meter ?? composition.meter, inheritedTechniques: [], into: &events)
+                        events.sort {
+                            if timeKey($0.at) != timeKey($1.at) { return timeKey($0.at) < timeKey($1.at) }
+                            return ($0.id ?? "") < ($1.id ?? "")
+                        }
+                        let key = "\(instanceID)\u{1f}\(voice.source.id.rawValue)"
+                        guard var track = tracks[key] else { continue }
+                        track.parts.append(.init(entry: entry.id, mode: .replace, events: events))
+                        tracks[key] = track
+                    }
+                }
+            }
+        }
+
+        func boundaryVoice(_ lane: BoundaryLane, in section: RealizedSection) -> RealizedVoice? {
+            section.parts.first(where: { $0.source.instrument == lane.instrument })?
+                .voices.first(where: { $0.source.name == lane.voice })
+        }
+
+        func hasResolvedTieSegments(_ expression: RealizedExpression) -> Bool {
+            guard case .list(let segments)? = expression.annotations.metadata["tieSegments"] else { return false }
+            return segments.count > 1
+        }
+
+        func boundaryTones(in expression: RealizedExpression) -> [BoundaryTone] {
+            switch expression.kind {
+            case .note(let pitch, _): return [.init(expression: expression, pitch: pitch.absolute)]
+            case .actuator(let actuator):
+                guard case .absolute(let pitch)? = actuator.soundingPitch else { return [] }
+                return [.init(expression: expression, pitch: pitch)]
+            case .sequence(let children), .parallel(let children): return children.flatMap(boundaryTones)
+            case .technique(let application): return application.operands.flatMap(boundaryTones)
+            case .rest: return []
+            }
+        }
+
+        func rewriteBoundaryTies(
+            _ expression: RealizedExpression,
+            extended: [SemanticID: MusicalDuration],
+            continuations: Set<SemanticID>
+        ) -> RealizedExpression {
+            let kind: RealizedExpression.Kind
+            switch expression.kind {
+            case .sequence(let children): kind = .sequence(children.map { rewriteBoundaryTies($0, extended: extended, continuations: continuations) })
+            case .parallel(let children): kind = .parallel(children.map { rewriteBoundaryTies($0, extended: extended, continuations: continuations) })
+            case .technique(let application): kind = .technique(.init(
+                technique: application.technique,
+                form: application.form,
+                operands: application.operands.map { rewriteBoundaryTies($0, extended: extended, continuations: continuations) },
+                parameters: application.parameters
+            ))
+            default: kind = expression.kind
+            }
+            let occurrence = expression.provenance.occurrenceID
+            var metadata = expression.annotations.metadata
+            if continuations.contains(occurrence) { metadata["tieContinuation"] = .boolean(true) }
+            return .init(
+                provenance: expression.provenance,
+                offset: expression.offset,
+                duration: extended[occurrence] ?? expression.duration,
+                kind: kind,
+                annotations: .init(metadata: metadata, source: expression.annotations.source)
+            )
         }
 
         mutating func collectEditingMap(

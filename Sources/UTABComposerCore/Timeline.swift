@@ -447,8 +447,9 @@ public struct PitchResolutionStage: CompilerStage {
             var valid = true
             while hasTie(leaves[cursor].expression) {
                 guard cursor + 1 < leaves.count else {
-                    tieError("A tie must be followed by another note", at: leaves[cursor].expression, diagnostics: &diagnostics)
-                    valid = false
+                    // The arrangement may place the next attack at the start of
+                    // another section. The final lowering stage validates and
+                    // resolves that occurrence-specific boundary.
                     break
                 }
                 let source = leaves[cursor]

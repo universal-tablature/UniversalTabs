@@ -21,6 +21,13 @@ public struct RealizedTechniqueApplication: Sendable, Hashable {
     public let form: TechniqueForm
     public let operands: [RealizedExpression]
     public let parameters: [String: MetadataValue]
+
+    public init(technique: String, form: TechniqueForm, operands: [RealizedExpression], parameters: [String: MetadataValue]) {
+        self.technique = technique
+        self.form = form
+        self.operands = operands
+        self.parameters = parameters
+    }
 }
 
 /// A performance tree with no abstract chord case. Every chord has been converted
@@ -40,6 +47,14 @@ public struct RealizedExpression: Sendable, Hashable {
     public let duration: MusicalDuration
     public let kind: Kind
     public let annotations: SemanticAnnotations
+
+    public init(provenance: ExpressionProvenance, offset: MusicalDuration, duration: MusicalDuration, kind: Kind, annotations: SemanticAnnotations) {
+        self.provenance = provenance
+        self.offset = offset
+        self.duration = duration
+        self.kind = kind
+        self.annotations = annotations
+    }
 }
 
 public struct RealizedVoice: Sendable, Hashable {
@@ -243,6 +258,7 @@ public struct InstrumentRealizationStage: CompilerStage {
             if extended[occurrence] != nil {
                 metadata["writtenDurationNumerator"] = .integer(expression.duration.wholeNotes.numerator)
                 metadata["writtenDurationDenominator"] = .integer(expression.duration.wholeNotes.denominator)
+                metadata["tieResolvedWithinSection"] = .boolean(true)
             }
             return .init(
                 provenance: expression.provenance,
