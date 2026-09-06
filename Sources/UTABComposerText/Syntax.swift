@@ -247,7 +247,20 @@ public struct TextPerformanceStepSyntax: Sendable, Hashable {
 
 public struct TextPhraseSyntax: Sendable, Hashable {
     public let name: TextToken
+    public let parameters: [TextPhraseParameterSyntax]
     public let expressions: [TextExpressionSyntax]
+    public let range: SourceRange
+}
+
+public struct TextPhraseParameterSyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let type: TextToken
+    public let range: SourceRange
+}
+
+public struct TextPhraseArgumentSyntax: Sendable, Hashable {
+    public let label: TextToken
+    public let value: TextToken
     public let range: SourceRange
 }
 
@@ -281,7 +294,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextDurationSyntax)
         case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextDurationSyntax)
         case rest(duration: TextDurationSyntax)
-        case reference(TextToken)
+        case reference(TextToken, arguments: [TextPhraseArgumentSyntax])
         case repeated(count: TextToken, expressions: [TextExpressionSyntax])
         case bar([TextExpressionSyntax])
         case pickup([TextExpressionSyntax])

@@ -607,10 +607,22 @@ public struct TextParser: Sendable {
         }
 
         mutating func parsePhrase() -> TextPhraseSyntax? {
-            guard let name = expect(.identifier, "Expected phrase name"), let open = expect(.leftBrace, "Expected '{' after phrase name") else { return nil }
+            guard let name = expect(.identifier, "Expected phrase name") else { return nil }
+            var parameters: [TextPhraseParameterSyntax] = []
+            if take(.leftParen) {
+                while current.kind != .rightParen && current.kind != .endOfFile {
+                    guard let parameter = expect(.identifier, "Expected parameter name"),
+                          expect(.colon, "Expected ':' after parameter name") != nil,
+                          let type = expect(.identifier, "Expected parameter type") else { return nil }
+                    parameters.append(.init(name: parameter, type: type, range: spanning(parameter, type)))
+                    if !take(.comma) { break }
+                }
+                guard expect(.rightParen, "Expected ')' after phrase parameters") != nil else { return nil }
+            }
+            guard let open = expect(.leftBrace, "Expected '{' after phrase declaration") else { return nil }
             let expressions = parseExpressions(until: .rightBrace)
             let close = expect(.rightBrace, "Expected '}' after phrase") ?? current
-            return .init(name: name, expressions: expressions, range: spanning(open, close))
+            return .init(name: name, parameters: parameters, expressions: expressions, range: spanning(open, close))
         }
 
         mutating func parseSection() -> TextSectionSyntax? {
@@ -1030,6 +1042,18 @@ public struct TextParser: Sendable {
                 }
                 first = .init(kind: .identifier, lexeme: Substring(name), range: spanning(first, tokens[index - 1]))
             }
+            if take(.leftParen) {
+                var arguments: [TextPhraseArgumentSyntax] = []
+                while current.kind != .rightParen && current.kind != .endOfFile {
+                    guard let label = expect(.identifier, "Expected argument label"),
+                          expect(.colon, "Expected ':' after argument label") != nil,
+                          let value = expect(.identifier, "Expected pitch argument") else { return nil }
+                    arguments.append(.init(label: label, value: value, range: spanning(label, value)))
+                    if !take(.comma) { break }
+                }
+                let close = expect(.rightParen, "Expected ')' after phrase arguments") ?? current
+                return .init(kind: .reference(first, arguments: arguments), range: spanning(first, close))
+            }
             let alteration = parseAlteration()
             if current.kind == .leftBracket && tokens[min(index + 2, tokens.count - 1)].kind != .slash, take(.leftBracket) {
                 guard let octave = expect(.integerLiteral, "Expected octave"),
@@ -1042,7 +1066,7 @@ public struct TextParser: Sendable {
                 let isConcretePitch = first.lexeme.contains(where: \.isNumber)
                 return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, tokens[index - 1]))
             }
-            return .init(kind: .reference(first), range: first.range)
+            return .init(kind: .reference(first, arguments: []), range: first.range)
         }
 
         /// Parses a direct instrument interaction such as `pluck strings[2] q`.

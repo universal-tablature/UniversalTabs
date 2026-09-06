@@ -348,6 +348,17 @@ public struct ReferenceExpansionStage: CompilerStage {
                 }
                 expandedKind = .sequence(repetitions)
             case .technique(let application):
+                if application.technique == "__phraseApplication",
+                   let operand = application.operands.first {
+                    let phrase: String
+                    if case .string(let value)? = application.parameters["phrase"] { phrase = value }
+                    else { phrase = expression.id.rawValue }
+                    return expandExpression(
+                        operand,
+                        path: path + ["phrase-call:\(phrase)"],
+                        ancestry: ancestry + [expression.id]
+                    )
+                }
                 if application.technique == "__transposePitch",
                    case .integer(let semitones)? = application.parameters["semitones"],
                    let operand = application.operands.first {

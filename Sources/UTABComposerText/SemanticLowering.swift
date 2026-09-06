@@ -105,9 +105,12 @@ public struct TextSemanticLowerer: Sendable {
         var diagnostics: [TextDiagnostic]
         var activeMeter: TimeSignature?
         var pitchTransformDepth = 0
+        var pitchParameters: [String: MusicalPitch] = [:]
+        var phraseCallStack: [SemanticID] = []
 
         mutating func lower() -> TextSemanticResult {
             validateNamingSystems()
+            validatePhraseParameters()
             guard !diagnostics.contains(where: { $0.severity == .error }) else {
                 return .init(composition: nil, instruments: lowerInstruments(), diagnostics: diagnostics)
             }
@@ -135,7 +138,7 @@ public struct TextSemanticLowerer: Sendable {
             }
             let meter = TimeSignature(numerator, denominator)
             activeMeter = meter
-            let phrases = modules.flatMap(\.phrases).map { phrase in
+            let phrases = modules.flatMap(\.phrases).filter(\.parameters.isEmpty).map { phrase in
                 activeMeter = meter
                 return lowerPhrase(phrase)
             }
@@ -178,6 +181,21 @@ public struct TextSemanticLowerer: Sendable {
             }
         }
 
+        mutating func validatePhraseParameters() {
+            for phrase in modules.flatMap(\.phrases) {
+                var names: Set<String> = []
+                for parameter in phrase.parameters {
+                    let name = String(parameter.name.lexeme)
+                    if !names.insert(name).inserted {
+                        error("Duplicate phrase parameter '\(name)'", at: parameter.name.range)
+                    }
+                    if parameter.type.lexeme != "pitch" {
+                        error("Unsupported phrase parameter type '\(parameter.type.lexeme)'; expected 'pitch'", at: parameter.type.range)
+                    }
+                }
+            }
+        }
+
         func phraseID(_ phrase: TextPhraseSyntax) -> SemanticID {
             let module = modules.first { $0.range.fileID == phrase.range.fileID }
             let name = String(phrase.name.lexeme)
@@ -185,18 +203,23 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         mutating func resolvePhrase(_ token: TextToken) -> SemanticID {
+            guard let phrase = resolvePhraseSyntax(token) else { return .named("phrase", String(token.lexeme)) }
+            return phraseID(phrase)
+        }
+
+        mutating func resolvePhraseSyntax(_ token: TextToken) -> TextPhraseSyntax? {
             let owner = modules.first { $0.range.fileID == token.range.fileID } ?? syntax
             let local = owner.phrases.filter { $0.name.lexeme == token.lexeme }
-            if local.count == 1 { return phraseID(local[0]) }
+            if local.count == 1 { return local[0] }
             let imports = Set(owner.imports.map { $0.name.value })
             let candidates = modules.filter { $0.range.fileID == owner.range.fileID || imports.contains($0.module?.value ?? "") }.flatMap { module in
                 module.phrases.filter { phrase in
                     token.lexeme.contains(".") ? (module.module?.value ?? "") + "." + phrase.name.lexeme == token.lexeme : phrase.name.lexeme == token.lexeme
                 }
             }
-            if candidates.count == 1 { return phraseID(candidates[0]) }
+            if candidates.count == 1 { return candidates[0] }
             error(candidates.isEmpty ? "Unknown phrase '\(token.lexeme)'" : "Ambiguous phrase '\(token.lexeme)'", at: token.range)
-            return .named("phrase", String(token.lexeme))
+            return nil
         }
 
         mutating func lowerPhrase(_ phrase: TextPhraseSyntax) -> Phrase {
@@ -266,7 +289,11 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         mutating func lowerVoiceContent(_ expression: TextExpressionSyntax) -> VoiceContent {
-            if case .reference(let token) = expression.kind { return .reference(resolvePhrase(token)) }
+            if case .reference(let token, let arguments) = expression.kind,
+               arguments.isEmpty,
+               resolvePhraseSyntax(token)?.parameters.isEmpty == true {
+                return .reference(resolvePhrase(token))
+            }
             return .expression(lowerExpression(expression))
         }
 
@@ -714,6 +741,12 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerSymbolExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
             case .symbol(let name, let useAlteration, let octave, let durationToken):
+                if let pitch = pitchParameters[String(name.lexeme)] {
+                    if octave != nil || useAlteration != 0 {
+                        error("Pitch parameters already carry their octave and accidental", at: expression.range)
+                    }
+                    return .init(id: id("pitch-parameter:\(name.lexeme)", expression.range), kind: .note(pitch, duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                }
                 if let octave, let register = octave.integerValue, lookupBinding(String(name.lexeme), at: name.range) == nil,
                    let spelling = parsePitchClass(String(name.lexeme)) {
                     return .init(id: id("bracketed-note", expression.range), kind: .note(.absolute(.init(.init(spelling.letter, accidental: spelling.accidental + useAlteration), octave: register)), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
@@ -790,8 +823,51 @@ public struct TextSemanticLowerer: Sendable {
 
         mutating func lowerReferenceExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
-            case .reference(let token):
-                return .reference(.named("phrase", String(token.lexeme)), id: id("phrase-reference", expression.range))
+            case .reference(let token, let arguments):
+                guard let phrase = resolvePhraseSyntax(token) else {
+                    return .rest(.zero, id: id("invalid-phrase-call", expression.range))
+                }
+                if phrase.parameters.isEmpty {
+                    if !arguments.isEmpty { error("Phrase '\(token.lexeme)' does not accept arguments", at: expression.range) }
+                    return .reference(phraseID(phrase), id: id("phrase-reference", expression.range))
+                }
+                let parameterNames = phrase.parameters.map { String($0.name.lexeme) }
+                var supplied: [String: MusicalPitch] = [:]
+                for argument in arguments {
+                    let label = String(argument.label.lexeme)
+                    guard parameterNames.contains(label) else {
+                        error("Unexpected argument label '\(label)' in call to '\(token.lexeme)'", at: argument.label.range)
+                        continue
+                    }
+                    if supplied[label] != nil {
+                        error("Duplicate argument label '\(label)' in call to '\(token.lexeme)'", at: argument.label.range)
+                        continue
+                    }
+                    let valueName = String(argument.value.lexeme)
+                    if let inherited = pitchParameters[valueName] { supplied[label] = inherited }
+                    else if let pitch = parsePitch(argument.value) { supplied[label] = .absolute(pitch) }
+                    else { error("Argument '\(label)' requires a pitch value", at: argument.value.range) }
+                }
+                for name in parameterNames where supplied[name] == nil {
+                    error("Missing argument label '\(name)' in call to '\(token.lexeme)'", at: expression.range)
+                }
+                let targetID = phraseID(phrase)
+                if phraseCallStack.contains(targetID) {
+                    error("Recursive parameterized phrase call '\(token.lexeme)' is not allowed", at: expression.range)
+                    return .rest(.zero, id: id("recursive-phrase-call", expression.range))
+                }
+                let previousParameters = pitchParameters
+                pitchParameters.merge(supplied) { _, supplied in supplied }
+                phraseCallStack.append(targetID)
+                let operand = lowerBoundarySequence(phrase.expressions, range: phrase.range)
+                phraseCallStack.removeLast()
+                pitchParameters = previousParameters
+                return .technique(.init(
+                    "__phraseApplication",
+                    form: .scoped,
+                    operands: [operand],
+                    parameters: ["phrase": .string(targetID.rawValue)]
+                ), id: id("phrase-call:\(token.lexeme)", expression.range))
             default: preconditionFailure("Mismatched expression dispatch")
             }
         }

@@ -1031,6 +1031,64 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func parameterizedPhrasesUseLabeledPitchArgumentsAndForwardParameters() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        phrase echo(value: pitch) { value h }
+        phrase cadence(first: pitch, last: pitch) {
+            first q
+            echo(value: last)
+            first q
+        }
+        section s { piano { voice v {
+            cadence(first: C4, last: G4)
+            cadence(first: D4, last: A4)
+        } } }
+        main { s }
+        """, fileID: "parameterized-phrases.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }
+    #expect(pitches == [60, 67, 60, 62, 69, 62])
+    #expect(events.count == 6)
+}
+
+@Test func invalidParameterizedPhraseDeclarationsAndCallsAreDiagnosed() {
+    let cases = [
+        "phrase motif(value: pitch) { value w }; section s { piano { voice v { motif } } }",
+        "phrase motif(value: pitch) { value w }; section s { piano { voice v { motif(note: C4) } } }",
+        "phrase motif(value: pitch) { value w }; section s { piano { voice v { motif(value: C4, value: D4) } } }",
+        "phrase motif(value: pitch) { value w }; section s { piano { voice v { motif(value: nope) } } }",
+        "phrase plain { C4 w }; section s { piano { voice v { plain(value: C4) } } }",
+        "phrase motif(value: duration) { C4 w }; section s { piano { voice v { C4 w } } }",
+        "phrase motif(value: pitch, value: pitch) { value w }; section s { piano { voice v { C4 w } } }",
+        "phrase motif(value: pitch) { motif(value: value) }; section s { piano { voice v { motif(value: C4) } } }",
+    ]
+    for body in cases {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            \(body)
+            main { s }
+            """, fileID: "invalid-parameterized-phrase.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains {
+            let message = $0.message.lowercased()
+            return message.contains("argument") || message.contains("parameter") || message.contains("recursive")
+        }, "\(result.diagnostics)")
+    }
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano
