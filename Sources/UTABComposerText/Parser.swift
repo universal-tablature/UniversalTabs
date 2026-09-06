@@ -819,6 +819,17 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after ornament") ?? current
                 return .init(kind: .ornament(name: name, subdivision: subdivision, expressions: children), range: spanning(keyword, close))
             }
+            if takeKeyword("bass") {
+                let keyword = tokens[index - 1]
+                guard let pattern = expect(.identifier, "Expected bass pattern"),
+                      let subdivision = parseDuration(),
+                      expectKeyword("octave", "Expected 'octave' after bass subdivision") != nil,
+                      let octave = expect(.integerLiteral, "Expected bass octave"),
+                      expect(.leftBrace, "Expected '{' after bass octave") != nil else { return nil }
+                let chords = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after bass pattern") ?? current
+                return .init(kind: .bass(pattern: pattern, subdivision: subdivision, octave: octave, chords: chords), range: spanning(keyword, close))
+            }
             if (isKeyword("legato") || isKeyword("slur")) && tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace {
                 let technique = advance()
                 _ = advance()
@@ -851,16 +862,34 @@ public struct TextParser: Sendable {
                     let alteration = parseAlteration()
                     guard let quality = expect(.identifier, "Expected chord quality"),
                           let duration = parseDuration() else { return nil }
-                    var shape: TextToken?
-                    if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
-                    return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? tokens[index - 1]))
+                    var shape: TextToken?; var bass: TextToken?; var inversion: TextToken?; var omissions: [TextToken] = []; var doublings: [TextToken] = []; var additions: [TextChordToneSyntax] = []; var alterations: [TextChordToneSyntax] = []; var range: TextPitchRangeSyntax?
+                    while ["using", "bass", "inversion", "omit", "double", "add", "alter", "range"].contains(String(current.lexeme)) {
+                        if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
+                        else if takeKeyword("bass") { bass = expect(.identifier, "Expected chord bass pitch") }
+                        else if takeKeyword("inversion") { inversion = expect(.integerLiteral, "Expected inversion number") }
+                        else if takeKeyword("omit"), let value = expectChordMember() { omissions.append(value) }
+                        else if takeKeyword("double"), let value = expectChordMember() { doublings.append(value) }
+                        else if takeKeyword("add"), let value = expect(.integerLiteral, "Expected chord degree to add") { additions.append(.init(degree: value, alteration: parseAlteration())) }
+                        else if takeKeyword("alter"), let value = expect(.integerLiteral, "Expected chord degree to alter") { alterations.append(.init(degree: value, alteration: parseAlteration())) }
+                        else if takeKeyword("range"), let low = expect(.identifier, "Expected low pitch"), let high = expect(.identifier, "Expected high pitch") { range = .init(low: low, high: high) }
+                    }
+                    return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape, bass: bass, inversion: inversion, omissions: omissions, doublings: doublings, additions: additions, alterations: alterations, range: range), range: spanning(start, tokens[index - 1]))
                 }
                 guard let root = expect(.identifier, "Expected chord root"),
                       let quality = expect(.identifier, "Expected chord quality"),
                       let duration = parseDuration() else { return nil }
-                var shape: TextToken?
-                if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
-                return .init(kind: .chord(root: root, quality: quality, duration: duration, shape: shape), range: spanning(start, shape ?? tokens[index - 1]))
+                var shape: TextToken?; var bass: TextToken?; var inversion: TextToken?; var omissions: [TextToken] = []; var doublings: [TextToken] = []; var additions: [TextChordToneSyntax] = []; var alterations: [TextChordToneSyntax] = []; var range: TextPitchRangeSyntax?
+                while ["using", "bass", "inversion", "omit", "double", "add", "alter", "range"].contains(String(current.lexeme)) {
+                    if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
+                    else if takeKeyword("bass") { bass = expect(.identifier, "Expected chord bass pitch") }
+                    else if takeKeyword("inversion") { inversion = expect(.integerLiteral, "Expected inversion number") }
+                    else if takeKeyword("omit"), let value = expectChordMember() { omissions.append(value) }
+                    else if takeKeyword("double"), let value = expectChordMember() { doublings.append(value) }
+                    else if takeKeyword("add"), let value = expect(.integerLiteral, "Expected chord degree to add") { additions.append(.init(degree: value, alteration: parseAlteration())) }
+                    else if takeKeyword("alter"), let value = expect(.integerLiteral, "Expected chord degree to alter") { alterations.append(.init(degree: value, alteration: parseAlteration())) }
+                    else if takeKeyword("range"), let low = expect(.identifier, "Expected low pitch"), let high = expect(.identifier, "Expected high pitch") { range = .init(low: low, high: high) }
+                }
+                return .init(kind: .chord(root: root, quality: quality, duration: duration, shape: shape, bass: bass, inversion: inversion, omissions: omissions, doublings: doublings, additions: additions, alterations: alterations, range: range), range: spanning(start, tokens[index - 1]))
             }
             if takeKeyword("perform") {
                 let start = tokens[index - 1]
@@ -1130,6 +1159,12 @@ public struct TextParser: Sendable {
         mutating func expect(_ kind: TextTokenKind, _ message: String) -> TextToken? {
             guard current.kind == kind else { diagnose(message); return nil }
             return advance()
+        }
+
+        mutating func expectChordMember() -> TextToken? {
+            if current.kind == .integerLiteral || current.kind == .identifier { return advance() }
+            diagnose("Expected root, 3, or 5")
+            return nil
         }
         mutating func take(_ kind: TextTokenKind) -> Bool {
             guard current.kind == kind else { return false }; advance(); return true

@@ -373,6 +373,33 @@ public struct TextSemanticLowerer: Sendable {
                         "subdivisionDenominator": .integer(subdivision.denominator),
                     ]
                 ), id: id("ornament:\(name.lexeme)", expression.range))
+            case .bass(let pattern, let subdivisionSyntax, let octaveToken, let chords):
+                let supported = ["roots", "rootFifth", "arpeggio"]
+                guard supported.contains(String(pattern.lexeme)) else {
+                    error("Unknown bass pattern '\(pattern.lexeme)'; expected roots, rootFifth, or arpeggio", at: pattern.range)
+                    result = expressionSequence(chords, range: expression.range)
+                    break
+                }
+                guard let octave = octaveToken.integerValue, (0...9).contains(octave) else {
+                    error("Bass octave must be in 0...9", at: octaveToken.range)
+                    result = expressionSequence(chords, range: expression.range)
+                    break
+                }
+                if !chords.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
+                    error("A bass pattern requires a chord progression", at: expression.range)
+                }
+                let subdivision = duration(subdivisionSyntax).wholeNotes
+                result = .technique(.init(
+                    "__bassPattern",
+                    form: .scoped,
+                    operands: [.sequence(chords.map { lowerExpression($0) }, id: id("bass-chords", expression.range))],
+                    parameters: [
+                        "pattern": .string(String(pattern.lexeme)),
+                        "octave": .integer(octave),
+                        "subdivisionNumerator": .integer(subdivision.numerator),
+                        "subdivisionDenominator": .integer(subdivision.denominator),
+                    ]
+                ), id: id("bass:\(pattern.lexeme)", expression.range))
             case .technique: result = lowerTechniqueExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
@@ -460,12 +487,12 @@ public struct TextSemanticLowerer: Sendable {
                         return lowerSymbolExpression(expression)
                     }
                     return namedNote(name, octave: octave, alteration: alteration, duration: duration, notation: notation, expression: expression)
-                case .chord(let root, let quality, let durationToken, let shape):
+                case .chord(let root, let quality, let durationToken, let shape, let bass, let inversion, _, _, _, _, _):
                     guard let entry = namingEntry(String(root.lexeme), notation: notation, at: root.range),
                           let quality = chordQuality(quality) else { return .rest(.zero) }
                     let chord: ChordSymbol
                     switch entry.target {
-                    case .letter(let letter, let alteration): chord = .init(.init(letter, accidental: alteration), quality)
+                    case .letter(let letter, let alteration): chord = .init(.init(letter, accidental: alteration), quality, bass: bass.flatMap { parsePitchClass(String($0.lexeme)) }, inversion: inversion?.integerValue)
                     case .degree(let degree, let alteration): chord = .init(scaleDegree: degree, alteration: alteration, quality)
                     }
                     return .init(id: id("named-chord", expression.range), kind: .chord(chord, duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []), annotations: namingAnnotations(root, system: entry.system, range: expression.range))
@@ -506,7 +533,7 @@ public struct TextSemanticLowerer: Sendable {
 
         mutating func lowerChordExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
-            case .chord(let root, let quality, let durationToken, let shape):
+            case .chord(let root, let quality, let durationToken, let shape, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
                 guard let spelling = parsePitchClass(String(root.lexeme)) else {
                     error("Invalid chord root '\(root.lexeme)'", at: root.range)
                     return .rest(.zero, id: id("invalid", expression.range))
@@ -515,9 +542,31 @@ public struct TextSemanticLowerer: Sendable {
                     error("Unsupported chord quality '\(quality.lexeme)'", at: quality.range)
                     return .rest(.zero, id: id("invalid", expression.range))
                 }
+                let bassPitch = bass.flatMap { parsePitchClass(String($0.lexeme)) }
+                if bass != nil && bassPitch == nil { error("Invalid chord bass '\(bass!.lexeme)'", at: bass!.range) }
+                if let bassPitch, !chordQuality.intervals.contains(where: { (spelling.pitchClass.rawValue + $0) % 12 == bassPitch.pitchClass.rawValue }) {
+                    error("Explicit chord bass must be a chord tone", at: bass!.range)
+                }
+                let inversionValue = inversion?.integerValue
+                if let inversionValue, !chordQuality.intervals.indices.contains(inversionValue) {
+                    error("Chord inversion must be in 0...\(chordQuality.intervals.count - 1)", at: inversion!.range)
+                }
+                if let bassPitch, let inversionValue,
+                   (spelling.pitchClass.rawValue + chordQuality.intervals[inversionValue]) % 12 != bassPitch.pitchClass.rawValue {
+                    error("Explicit chord bass and inversion disagree", at: bass!.range)
+                }
+                var constraints: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+                let availableDegrees = Set(chordQuality.degrees).union(additions.compactMap { $0.degree.integerValue })
+                constraints.append(contentsOf: chordMemberConstraints(omissions, kind: "omit", availableDegrees: availableDegrees))
+                constraints.append(contentsOf: chordMemberConstraints(doublings, kind: "double", availableDegrees: availableDegrees))
+                constraints.append(contentsOf: chordToneConstraints(additions, alterations: alterations, quality: chordQuality))
+                if let range, let low = parsePitch(range.low), let high = parsePitch(range.high) {
+                    if low.chromaticIndex >= high.chromaticIndex { error("Chord range must ascend from low to high", at: range.low.range) }
+                    else { constraints.append(.pitchRange(low, high)) }
+                }
                 return .init(
                     id: id("chord", expression.range),
-                    kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []),
+                    kind: .chord(.init(spelling, chordQuality, bass: bassPitch, inversion: inversionValue), duration: duration(durationToken), constraints: constraints),
                     annotations: .init(source: expression.range)
                 )
             default: preconditionFailure("Mismatched expression dispatch")
@@ -526,14 +575,29 @@ public struct TextSemanticLowerer: Sendable {
 
         mutating func lowerRelativechordExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
-            case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape):
+            case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
                 guard let chordQuality = chordQuality(quality) else {
                     error("Unsupported chord quality '\(quality.lexeme)'", at: quality.range)
                     return .rest(.zero, id: id("invalid", expression.range))
                 }
+                let bassPitch = bass.flatMap { parsePitchClass(String($0.lexeme)) }
+                if bass != nil && bassPitch == nil { error("Invalid chord bass '\(bass!.lexeme)'", at: bass!.range) }
+                let inversionValue = inversion?.integerValue
+                if let inversionValue, !chordQuality.intervals.indices.contains(inversionValue) {
+                    error("Chord inversion must be in 0...\(chordQuality.intervals.count - 1)", at: inversion!.range)
+                }
+                var constraints: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+                let availableDegrees = Set(chordQuality.degrees).union(additions.compactMap { $0.degree.integerValue })
+                constraints.append(contentsOf: chordMemberConstraints(omissions, kind: "omit", availableDegrees: availableDegrees))
+                constraints.append(contentsOf: chordMemberConstraints(doublings, kind: "double", availableDegrees: availableDegrees))
+                constraints.append(contentsOf: chordToneConstraints(additions, alterations: alterations, quality: chordQuality))
+                if let range, let low = parsePitch(range.low), let high = parsePitch(range.high) {
+                    if low.chromaticIndex >= high.chromaticIndex { error("Chord range must ascend from low to high", at: range.low.range) }
+                    else { constraints.append(.pitchRange(low, high)) }
+                }
                 return .init(
                     id: id("relative-chord", expression.range),
-                    kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: alteration, chordQuality), duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []),
+                    kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: alteration, chordQuality, bass: bassPitch, inversion: inversionValue), duration: duration(durationToken), constraints: constraints),
                     annotations: .init(source: expression.range)
                 )
             default: preconditionFailure("Mismatched expression dispatch")
@@ -1069,8 +1133,43 @@ public struct TextSemanticLowerer: Sendable {
             case "minor": .minor
             case "diminished": .diminished
             case "sus4": .suspendedFourth
+            case "major7": .majorSeventh
+            case "minor7": .minorSeventh
+            case "dominant7": .dominantSeventh
             default: nil
             }
+        }
+
+        mutating func chordMemberConstraints(_ tokens: [TextToken], kind: String, availableDegrees: Set<Int>) -> [PerformanceConstraint] {
+            tokens.compactMap { token in
+                let degree = token.lexeme == "root" ? 1 : token.integerValue
+                guard let degree, availableDegrees.contains(degree) else {
+                    error("Chord \(kind) expects a tone present in the chord", at: token.range)
+                    return nil
+                }
+                return kind == "omit" ? .chordOmit(degree) : .chordDouble(degree)
+            }
+        }
+
+        mutating func chordToneConstraints(_ additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], quality: ChordQuality) -> [PerformanceConstraint] {
+            var result: [PerformanceConstraint] = []
+            var available = Set(quality.degrees)
+            for addition in additions {
+                guard let degree = addition.degree.integerValue, (2...13).contains(degree) else {
+                    error("Chord add expects a degree in 2...13", at: addition.degree.range)
+                    continue
+                }
+                available.insert(degree)
+                result.append(.chordAdd(degree: degree, alteration: addition.alteration))
+            }
+            for alteration in alterations {
+                guard let degree = alteration.degree.integerValue, available.contains(degree), alteration.alteration != 0 else {
+                    error("Chord alter expects an existing chord degree followed by # or b", at: alteration.degree.range)
+                    continue
+                }
+                result.append(.chordAlter(degree: degree, semitones: alteration.alteration))
+            }
+            return result
         }
 
         func noteLetter(_ character: Character) -> NoteLetter? {

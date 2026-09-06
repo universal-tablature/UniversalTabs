@@ -508,6 +508,9 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             case "minor": .minor
             case "diminished": .diminished
             case "sus4", "suspendedFourth": .suspendedFourth
+            case "major7", "majorSeventh": .majorSeventh
+            case "minor7", "minorSeventh": .minorSeventh
+            case "dominant7", "dominantSeventh": .dominantSeventh
             default: nil
             }
         }

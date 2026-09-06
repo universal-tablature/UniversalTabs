@@ -194,6 +194,7 @@ public enum MusicalPitch: Sendable, Hashable {
 
 public enum ChordQuality: Sendable, Hashable {
     case major, minor, diminished, suspendedFourth
+    case majorSeventh, minorSeventh, dominantSeventh
 
     public var intervals: [Int] {
         switch self {
@@ -201,7 +202,14 @@ public enum ChordQuality: Sendable, Hashable {
         case .minor: [0, 3, 7]
         case .diminished: [0, 3, 6]
         case .suspendedFourth: [0, 5, 7]
+        case .majorSeventh: [0, 4, 7, 11]
+        case .minorSeventh: [0, 3, 7, 10]
+        case .dominantSeventh: [0, 4, 7, 10]
         }
+    }
+
+    public var degrees: [Int] {
+        intervals.count == 4 ? [1, 3, 5, 7] : [1, 3, 5]
     }
 }
 
@@ -213,25 +221,35 @@ public struct ChordSymbol: Sendable, Hashable {
 
     public let root: Root
     public let quality: ChordQuality
+    public let bass: SpelledPitchClass?
+    public let inversion: Int?
 
-    public init(_ root: PitchClass, _ quality: ChordQuality) {
+    public init(_ root: PitchClass, _ quality: ChordQuality, bass: SpelledPitchClass? = nil, inversion: Int? = nil) {
         self.root = .absolute(.canonical(root))
         self.quality = quality
+        self.bass = bass
+        self.inversion = inversion
     }
 
-    public init(_ root: SpelledPitchClass, _ quality: ChordQuality) {
+    public init(_ root: SpelledPitchClass, _ quality: ChordQuality, bass: SpelledPitchClass? = nil, inversion: Int? = nil) {
         self.root = .absolute(root)
         self.quality = quality
+        self.bass = bass
+        self.inversion = inversion
     }
 
     public init(scaleDegree: Int, _ quality: ChordQuality) {
         self.root = .scaleDegree(scaleDegree, alteration: 0)
         self.quality = quality
+        self.bass = nil
+        self.inversion = nil
     }
 
-    public init(scaleDegree: Int, alteration: Int, _ quality: ChordQuality) {
+    public init(scaleDegree: Int, alteration: Int, _ quality: ChordQuality, bass: SpelledPitchClass? = nil, inversion: Int? = nil) {
         self.root = .scaleDegree(scaleDegree, alteration: alteration)
         self.quality = quality
+        self.bass = bass
+        self.inversion = inversion
     }
 }
 
@@ -240,4 +258,9 @@ public enum PerformanceConstraint: Sendable, Hashable {
     case actuator(group: String, position: Int)
     case fingering(Int)
     case chordShape(String)
+    case chordOmit(Int)
+    case chordDouble(Int)
+    case chordAdd(degree: Int, alteration: Int)
+    case chordAlter(degree: Int, semitones: Int)
+    case pitchRange(AbsolutePitch, AbsolutePitch)
 }

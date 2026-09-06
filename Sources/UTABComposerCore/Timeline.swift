@@ -387,6 +387,25 @@ public struct PitchResolutionStage: CompilerStage {
                     message: "Scale-relative chord cannot be resolved without a valid active scale"
                 ))
             }
+            if let root, let bass = chord.bass {
+                let intervals = chord.quality.intervals
+                let matchingInversion = intervals.firstIndex {
+                    (root.rawValue + $0) % 12 == bass.pitchClass.rawValue
+                }
+                if matchingInversion == nil {
+                    diagnostics.append(.init(
+                        .error,
+                        path: expression.provenance.expansionPath.joined(separator: "."),
+                        message: "Explicit chord bass must be a chord tone"
+                    ))
+                } else if let inversion = chord.inversion, inversion != matchingInversion {
+                    diagnostics.append(.init(
+                        .error,
+                        path: expression.provenance.expansionPath.joined(separator: "."),
+                        message: "Explicit chord bass and inversion disagree"
+                    ))
+                }
+            }
             kind = .chord(.init(authored: chord, rootPitchClass: root ?? .c), constraints: constraints)
         case .actuator(let actuator):
             kind = .actuator(actuator)

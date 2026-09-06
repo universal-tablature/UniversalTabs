@@ -352,6 +352,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             case .minor: "minor"
             case .diminished: "diminished"
             case .suspendedFourth: "suspendedFourth"
+            case .majorSeventh: "majorSeventh"
+            case .minorSeventh: "minorSeventh"
+            case .dominantSeventh: "dominantSeventh"
             }
         }
 
@@ -361,6 +364,9 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             case .minor: "m"
             case .diminished: "dim"
             case .suspendedFourth: "sus4"
+            case .majorSeventh: "maj7"
+            case .minorSeventh: "m7"
+            case .dominantSeventh: "7"
             }
         }
 

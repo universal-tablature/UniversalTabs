@@ -261,8 +261,8 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
         case note(pitch: TextToken, duration: TextDurationSyntax)
         case relativeNote(degree: TextToken, alteration: Int, octave: TextToken, duration: TextDurationSyntax)
-        case chord(root: TextToken, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?)
-        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?)
+        case chord(root: TextToken, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
+        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
         case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextDurationSyntax)
         case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextDurationSyntax)
         case rest(duration: TextDurationSyntax)
@@ -282,6 +282,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case pedal([TextExpressionSyntax])
         case grace(policy: TextToken, budget: TextDurationSyntax?, expressions: [TextExpressionSyntax])
         case ornament(name: TextToken, subdivision: TextDurationSyntax, expressions: [TextExpressionSyntax])
+        case bass(pattern: TextToken, subdivision: TextDurationSyntax, octave: TextToken, chords: [TextExpressionSyntax])
         case technique(name: TextToken, expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
@@ -294,6 +295,16 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public var notation: TextQualifiedNameSyntax? = nil
     public var tieToNext = false
     public var modifiers: [TextToken] = []
+}
+
+public struct TextPitchRangeSyntax: Sendable, Hashable {
+    public let low: TextToken
+    public let high: TextToken
+}
+
+public struct TextChordToneSyntax: Sendable, Hashable {
+    public let degree: TextToken
+    public let alteration: Int
 }
 
 public struct TextParseResult: Sendable {

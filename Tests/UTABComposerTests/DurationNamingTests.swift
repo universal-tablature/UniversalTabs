@@ -3,6 +3,7 @@ import UTABComposerCore
 import UTABComposerText
 import UTABInstrumentLibrary
 import UTABLowering
+import UniversalTabs
 
 private func semantic(_ body: String, provider: any TextModuleProvider = StandardTextModuleProvider()) throws -> Composition {
     let loaded = TextModuleLoader().load(root: TextSource(body, fileID: "duration-naming.utab"), provider: provider)
@@ -599,6 +600,172 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
             """, fileID: "invalid-ornament.utab"), modules: StandardTextModuleProvider())
         #expect(!result.succeeded)
         #expect(result.diagnostics.contains { $0.message.lowercased().contains("ornament") })
+    }
+}
+
+@Test func bassPatternsGenerateRootsFifthsAndArpeggiosFromHarmony() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section roots { piano { voice v {
+            bass roots q octave 2 { chord C major h; chord F major h }
+        } } }
+        section fifths { piano { voice v {
+            bass rootFifth q octave 2 { chord C minor w }
+        } } }
+        section arp { piano { voice v {
+            bass arpeggio q octave 2 { chord C minor w }
+        } } }
+        main { roots; fifths; arp }
+        """, fileID: "bass-patterns.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let parts = try #require(result.document?.tracks.flatMap { $0.parts ?? [] })
+    func degrees(_ section: String) -> [Int] {
+        parts.first { $0.section == "section:\(section)" }?.events.compactMap { event in
+            guard case .object(let pitch)? = event.parameters?["pitch"],
+                  case .number(let degree)? = pitch["degree"] else { return nil }
+            return Int(degree)
+        } ?? []
+    }
+    #expect(degrees("roots") == [0, 0, 5, 5])
+    #expect(degrees("fifths") == [0, 7, 0, 7])
+    #expect(degrees("arp") == [0, 3, 7, 3])
+    for expression in [
+        "bass walking q octave 2 { chord C major w }",
+        "bass roots q octave 12 { chord C major w }",
+        "bass roots q octave 2 { C3 w }",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(expression) } } }
+            main { s }
+            """, fileID: "invalid-bass.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.lowercased().contains("bass") })
+    }
+}
+
+@Test func chordBassAndInversionProduceDeterministicKeyboardVoicings() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord C major h inversion 1
+            chord C major q bass G
+            chord C major q omit 5 double root range C3 C5
+        } } }
+        main { s }
+        """, fileID: "chord-bass.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    func chromatic(_ event: PerformanceEvent) -> Int? {
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }
+    let first = events.filter { $0.at.musical?.beat == 1 }.compactMap(chromatic).sorted()
+    let second = events.filter { $0.at.musical?.beat == 3 }.compactMap(chromatic).sorted()
+    let constrained = events.filter { $0.at.musical?.beat == 4 }.compactMap(chromatic).sorted()
+    #expect(first == [64, 67, 72])
+    #expect(second == [67, 72, 76])
+    #expect(constrained == [60, 64, 72])
+
+    for suffix in ["bass D", "bass E inversion 2", "inversion 4", "omit 7", "range C4 E4"] {
+        let invalid = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { chord C major w \(suffix) } } }
+            main { s }
+            """, fileID: "invalid-chord-bass.utab"), modules: StandardTextModuleProvider())
+        #expect(!invalid.succeeded)
+        #expect(invalid.diagnostics.contains {
+            let message = $0.message.lowercased()
+            return message.contains("bass")
+                || message.contains("inversion")
+                || message.contains("omit")
+                || message.contains("range")
+                || message.contains("chord")
+        })
+    }
+}
+
+@Test func scaleRelativeChordsAcceptTheSameKeyboardVoicingConstraints() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord @2 minor w bass F inversion 1 omit 5 double 3 range C4 C6
+        } } }
+        main { s }
+        """, fileID: "relative-chord-voicing.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }.sorted()
+    #expect(pitches == [65, 74, 77])
+
+    let invalid = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        section s { piano { voice v { chord @2 minor w bass G } } }
+        main { s }
+        """, fileID: "invalid-relative-chord-bass.utab"), modules: StandardTextModuleProvider())
+    #expect(!invalid.succeeded)
+    #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("bass") })
+}
+
+@Test func chordExtensionsAndAlterationsRealizeDeterministically() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord C dominant7 w alter 5b add 9#
+        } } }
+        main { s }
+        """, fileID: "altered-chord.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }.sorted()
+    #expect(pitches == [60, 64, 66, 70, 75])
+
+    for suffix in ["alter 9#", "alter 5", "add 14"] {
+        let invalid = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { chord C major w \(suffix) } } }
+            main { s }
+            """, fileID: "invalid-altered-chord.utab"), modules: StandardTextModuleProvider())
+        #expect(!invalid.succeeded)
+        #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("chord") })
     }
 }
 
