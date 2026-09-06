@@ -224,6 +224,13 @@ public struct ChordSymbol: Sendable, Hashable {
     public let bass: SpelledPitchClass?
     public let inversion: Int?
 
+    public init(root: Root, quality: ChordQuality, bass: SpelledPitchClass? = nil, inversion: Int? = nil) {
+        self.root = root
+        self.quality = quality
+        self.bass = bass
+        self.inversion = inversion
+    }
+
     public init(_ root: PitchClass, _ quality: ChordQuality, bass: SpelledPitchClass? = nil, inversion: Int? = nil) {
         self.root = .absolute(.canonical(root))
         self.quality = quality

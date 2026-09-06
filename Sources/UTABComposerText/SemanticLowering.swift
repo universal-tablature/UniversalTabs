@@ -104,6 +104,7 @@ public struct TextSemanticLowerer: Sendable {
         var bindings: [String: TextConstantSyntax.Value]
         var diagnostics: [TextDiagnostic]
         var activeMeter: TimeSignature?
+        var pitchTransformDepth = 0
 
         mutating func lower() -> TextSemanticResult {
             validateNamingSystems()
@@ -350,6 +351,26 @@ public struct TextSemanticLowerer: Sendable {
             case .reference: result = lowerReferenceExpression(expression)
             case .repeated: result = lowerRepeatedExpression(expression)
             case .proportional: result = lowerProportionalExpression(expression)
+            case .transposePitch(let semitones, let expressions):
+                if pitchTransformDepth > 0 {
+                    error("Nested pitch transforms require the parameter expression evaluator", at: expression.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                guard let amount = semitones.integerValue, (-127...127).contains(amount) else {
+                    error("Pitch transposition requires an integer semitone count in -127...127", at: semitones.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                pitchTransformDepth += 1
+                let operand = expressionSequence(expressions, range: expression.range)
+                pitchTransformDepth -= 1
+                result = .technique(.init(
+                    "__transposePitch",
+                    form: .scoped,
+                    operands: [operand],
+                    parameters: ["semitones": .integer(amount)]
+                ), id: id("transpose-pitch:\(amount)", expression.range))
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .meter: result = lowerMeterExpression(expression)

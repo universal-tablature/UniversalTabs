@@ -875,6 +875,48 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func chromaticPitchTranspositionTransformsExpandedPhrasesAndChords() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        phrase motif { C4 q; @2[4] q; chord A/G major h }
+        section s { piano { voice v { bar { transpose pitch 2 semitones { motif } } } } }
+        main { s }
+        """, fileID: "pitch-transpose.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    func pitches(at beat: Int) -> [Int] {
+        events.filter { $0.at.musical?.beat == beat }.compactMap { event -> Int? in
+            guard case .object(let pitch)? = event.parameters?["pitch"],
+                  case .number(let degree)? = pitch["degree"],
+                  case .number(let period)? = pitch["period"] else { return nil }
+            return (Int(period) + 1) * 12 + Int(degree)
+        }.sorted()
+    }
+    #expect(pitches(at: 1) == [62])
+    #expect(pitches(at: 2) == [64])
+    #expect(pitches(at: 3) == [69, 71, 75, 78])
+
+}
+
+@Test func invalidChromaticPitchTranspositionsAreDiagnosed() {
+    for transform in ["transpose pitch 1.5 semitones { C4 w }", "transpose pitch 128 semitones { C4 w }", "transpose pitch 1 semitone { transpose pitch 2 semitones { C4 w } }"] {
+        let invalid = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(transform) } } }
+            main { s }
+            """, fileID: "invalid-pitch-transpose.utab"), modules: StandardTextModuleProvider())
+        #expect(!invalid.succeeded)
+        #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("transposition") || $0.message.lowercased().contains("pitch transform") })
+    }
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

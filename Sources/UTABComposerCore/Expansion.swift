@@ -124,6 +124,7 @@ public struct ReferenceExpansionStage: CompilerStage {
         let input: NameResolvedComposition
         var diagnostics: [ComposerDiagnostic] = []
         var timeFactor = Rational(1)
+        var pitchTransposition = 0
 
         var phrasesByID: [SemanticID: Phrase] {
             Dictionary(uniqueKeysWithValues: input.source.phrases.map { ($0.id, $0) })
@@ -281,13 +282,13 @@ public struct ReferenceExpansionStage: CompilerStage {
 
             switch expression.kind {
             case .note(let pitch, let duration, let constraints):
-                expandedKind = .note(pitch, duration: scaled(duration, at: expression), constraints: constraints)
+                expandedKind = .note(transposedPitch(pitch), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
             case .rest(let duration):
                 expandedKind = .rest(scaled(duration, at: expression))
             case .chord(let chord, let duration, let constraints):
-                expandedKind = .chord(chord, duration: scaled(duration, at: expression), constraints: constraints)
+                expandedKind = .chord(transposedChord(chord), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
             case .actuator(let actuator):
-                expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch, parameters: actuator.parameters))
+                expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch.map(transposedPitch), parameters: actuator.parameters))
             case .sequence(let children):
                 expandedKind = .sequence(children.enumerated().compactMap { index, child in
                     expandExpression(child, path: path + ["sequence:\(index)"], ancestry: ancestry)
@@ -346,6 +347,18 @@ public struct ReferenceExpansionStage: CompilerStage {
                 }
                 expandedKind = .sequence(repetitions)
             case .technique(let application):
+                if application.technique == "__transposePitch",
+                   case .integer(let semitones)? = application.parameters["semitones"],
+                   let operand = application.operands.first {
+                    let previous = pitchTransposition
+                    pitchTransposition += semitones
+                    defer { pitchTransposition = previous }
+                    return expandExpression(
+                        operand,
+                        path: path + ["transpose-pitch:\(semitones)"],
+                        ancestry: ancestry + [expression.id]
+                    )
+                }
                 let operands = application.operands.enumerated().compactMap { index, operand in
                     expandExpression(
                         operand,
@@ -366,6 +379,33 @@ public struct ReferenceExpansionStage: CompilerStage {
                 return nil
             }
             return result
+        }
+
+        func transposedPitch(_ value: MusicalPitch) -> MusicalPitch {
+            switch value {
+            case .absolute(let absolute): .absolute(absolute.transposed(cents: pitchTransposition * 100))
+            case .scaleDegree(let degree, let octave, let alteration): .scaleDegree(degree, octave: octave, alteration: alteration + pitchTransposition)
+            }
+        }
+
+        func transposedSpelling(_ value: SpelledPitchClass) -> SpelledPitchClass {
+            let raw = ((value.pitchClass.rawValue + pitchTransposition) % 12 + 12) % 12
+            let canonical = SpelledPitchClass.canonical(PitchClass(rawValue: raw)!)
+            return .init(canonical.letter, accidental: canonical.accidental, tuningOffsetCents: value.tuningOffsetCents)
+        }
+
+        func transposedChord(_ chord: ChordSymbol) -> ChordSymbol {
+            let root: ChordSymbol.Root
+            switch chord.root {
+            case .absolute(let value): root = .absolute(transposedSpelling(value))
+            case .scaleDegree(let degree, let alteration): root = .scaleDegree(degree, alteration: alteration + pitchTransposition)
+            }
+            return .init(root: root, quality: chord.quality, bass: chord.bass.map(transposedSpelling), inversion: chord.inversion)
+        }
+
+        func transposedConstraint(_ value: PerformanceConstraint) -> PerformanceConstraint {
+            guard case .pitchRange(let low, let high) = value else { return value }
+            return .pitchRange(low.transposed(cents: pitchTransposition * 100), high.transposed(cents: pitchTransposition * 100))
         }
 
         func sourceRange(_ expression: MusicalExpression) -> SourceRange? {

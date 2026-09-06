@@ -303,6 +303,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])
+        case transposePitch(semitones: TextToken, expressions: [TextExpressionSyntax])
         case performed(pattern: TextToken, chords: [TextExpressionSyntax])
     }
 
