@@ -125,6 +125,7 @@ public struct ReferenceExpansionStage: CompilerStage {
         var diagnostics: [ComposerDiagnostic] = []
         var timeFactor = Rational(1)
         var pitchTransposition = 0
+        var degreeTransposition = 0
 
         var phrasesByID: [SemanticID: Phrase] {
             Dictionary(uniqueKeysWithValues: input.source.phrases.map { ($0.id, $0) })
@@ -282,13 +283,13 @@ public struct ReferenceExpansionStage: CompilerStage {
 
             switch expression.kind {
             case .note(let pitch, let duration, let constraints):
-                expandedKind = .note(transposedPitch(pitch), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
+                expandedKind = .note(transposedPitch(pitch, at: expression, path: path), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
             case .rest(let duration):
                 expandedKind = .rest(scaled(duration, at: expression))
             case .chord(let chord, let duration, let constraints):
-                expandedKind = .chord(transposedChord(chord), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
+                expandedKind = .chord(transposedChord(chord, at: expression, path: path), duration: scaled(duration, at: expression), constraints: constraints.map(transposedConstraint))
             case .actuator(let actuator):
-                expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch.map(transposedPitch), parameters: actuator.parameters))
+                expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch.map { transposedPitch($0, at: expression, path: path) }, parameters: actuator.parameters))
             case .sequence(let children):
                 expandedKind = .sequence(children.enumerated().compactMap { index, child in
                     expandExpression(child, path: path + ["sequence:\(index)"], ancestry: ancestry)
@@ -359,6 +360,18 @@ public struct ReferenceExpansionStage: CompilerStage {
                         ancestry: ancestry + [expression.id]
                     )
                 }
+                if application.technique == "__transposeDegree",
+                   case .integer(let degrees)? = application.parameters["degrees"],
+                   let operand = application.operands.first {
+                    let previous = degreeTransposition
+                    degreeTransposition += degrees
+                    defer { degreeTransposition = previous }
+                    return expandExpression(
+                        operand,
+                        path: path + ["transpose-degree:\(degrees)"],
+                        ancestry: ancestry + [expression.id]
+                    )
+                }
                 let operands = application.operands.enumerated().compactMap { index, operand in
                     expandExpression(
                         operand,
@@ -381,10 +394,13 @@ public struct ReferenceExpansionStage: CompilerStage {
             return result
         }
 
-        func transposedPitch(_ value: MusicalPitch) -> MusicalPitch {
+        mutating func transposedPitch(_ value: MusicalPitch, at expression: MusicalExpression, path: [String]) -> MusicalPitch {
             switch value {
-            case .absolute(let absolute): .absolute(absolute.transposed(cents: pitchTransposition * 100))
-            case .scaleDegree(let degree, let octave, let alteration): .scaleDegree(degree, octave: octave, alteration: alteration + pitchTransposition)
+            case .absolute(let absolute):
+                if degreeTransposition != 0 { degreeTranspositionError("Degree transposition requires scale-relative pitches", at: expression, path: path) }
+                return .absolute(absolute.transposed(cents: pitchTransposition * 100))
+            case .scaleDegree(let degree, let octave, let alteration):
+                return .scaleDegree(degree + degreeTransposition, octave: octave, alteration: alteration + pitchTransposition)
             }
         }
 
@@ -394,13 +410,23 @@ public struct ReferenceExpansionStage: CompilerStage {
             return .init(canonical.letter, accidental: canonical.accidental, tuningOffsetCents: value.tuningOffsetCents)
         }
 
-        func transposedChord(_ chord: ChordSymbol) -> ChordSymbol {
+        mutating func transposedChord(_ chord: ChordSymbol, at expression: MusicalExpression, path: [String]) -> ChordSymbol {
             let root: ChordSymbol.Root
             switch chord.root {
-            case .absolute(let value): root = .absolute(transposedSpelling(value))
-            case .scaleDegree(let degree, let alteration): root = .scaleDegree(degree, alteration: alteration + pitchTransposition)
+            case .absolute(let value):
+                if degreeTransposition != 0 { degreeTranspositionError("Degree transposition requires scale-relative chord roots", at: expression, path: path) }
+                root = .absolute(transposedSpelling(value))
+            case .scaleDegree(let degree, let alteration):
+                root = .scaleDegree(degree + degreeTransposition, alteration: alteration + pitchTransposition)
+            }
+            if degreeTransposition != 0, chord.bass != nil {
+                degreeTranspositionError("Degree transposition cannot move an absolute slash-chord bass", at: expression, path: path)
             }
             return .init(root: root, quality: chord.quality, bass: chord.bass.map(transposedSpelling), inversion: chord.inversion)
+        }
+
+        mutating func degreeTranspositionError(_ message: String, at expression: MusicalExpression, path: [String]) {
+            diagnostics.append(.init(.error, path: path.joined(separator: "."), message: message, range: sourceRange(expression)))
         }
 
         func transposedConstraint(_ value: PerformanceConstraint) -> PerformanceConstraint {

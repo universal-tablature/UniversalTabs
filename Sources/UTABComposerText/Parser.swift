@@ -764,16 +764,24 @@ public struct TextParser: Sendable {
             }
             if takeKeyword("transpose") {
                 let start = tokens[index - 1]
-                guard expectKeyword("pitch", "Expected 'pitch' after 'transpose'") != nil,
-                      let semitones = expectNumber("Expected signed semitone count") else { return nil }
-                guard takeKeyword("semitones") || takeKeyword("semitone") else {
-                    diagnose("Expected semitone or semitones after pitch transposition")
-                    return nil
+                if takeKeyword("pitch") {
+                    guard let semitones = expectNumber("Expected signed semitone count") else { return nil }
+                    guard takeKeyword("semitones") || takeKeyword("semitone") else {
+                        diagnose("Expected semitone or semitones after pitch transposition")
+                        return nil
+                    }
+                    guard expect(.leftBrace, "Expected '{' after pitch transposition") != nil else { return nil }
+                    let children = parseExpressions(until: .rightBrace)
+                    let close = expect(.rightBrace, "Expected '}' after pitch transposition") ?? current
+                    return .init(kind: .transposePitch(semitones: semitones, expressions: children), range: spanning(start, close))
                 }
-                guard expect(.leftBrace, "Expected '{' after pitch transposition") != nil else { return nil }
+                guard expectKeyword("degree", "Expected 'pitch' or 'degree' after 'transpose'") != nil,
+                      let degrees = expectNumber("Expected signed scale-degree count") else { return nil }
+                _ = takeKeyword("degrees") || takeKeyword("degree")
+                guard expect(.leftBrace, "Expected '{' after degree transposition") != nil else { return nil }
                 let children = parseExpressions(until: .rightBrace)
-                let close = expect(.rightBrace, "Expected '}' after pitch transposition") ?? current
-                return .init(kind: .transposePitch(semitones: semitones, expressions: children), range: spanning(start, close))
+                let close = expect(.rightBrace, "Expected '}' after degree transposition") ?? current
+                return .init(kind: .transposeDegree(degrees: degrees, expressions: children), range: spanning(start, close))
             }
             if isKeyword("tuplet") || isKeyword("stretch") {
                 let start = advance()

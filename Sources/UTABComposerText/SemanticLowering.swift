@@ -371,6 +371,26 @@ public struct TextSemanticLowerer: Sendable {
                     operands: [operand],
                     parameters: ["semitones": .integer(amount)]
                 ), id: id("transpose-pitch:\(amount)", expression.range))
+            case .transposeDegree(let degrees, let expressions):
+                if pitchTransformDepth > 0 {
+                    error("Nested pitch transforms require the parameter expression evaluator", at: expression.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                guard let amount = degrees.integerValue, (-127...127).contains(amount) else {
+                    error("Degree transposition requires an integer scale-degree count in -127...127", at: degrees.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                pitchTransformDepth += 1
+                let operand = expressionSequence(expressions, range: expression.range)
+                pitchTransformDepth -= 1
+                result = .technique(.init(
+                    "__transposeDegree",
+                    form: .scoped,
+                    operands: [operand],
+                    parameters: ["degrees": .integer(amount)]
+                ), id: id("transpose-degree:\(amount)", expression.range))
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .meter: result = lowerMeterExpression(expression)
@@ -594,6 +614,9 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerRelativenoteExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
             case .relativeNote(let degree, let alteration, let octave, let durationToken):
+                if (degree.integerValue ?? 0) <= 0 {
+                    error("Scale-relative note degrees must be positive", at: degree.range)
+                }
                 return .init(
                     id: id("relative-note", expression.range),
                     kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0, alteration: alteration), duration: duration(durationToken), constraints: []),
@@ -645,6 +668,9 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerRelativechordExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
             case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
+                if (degree.integerValue ?? 0) <= 0 {
+                    error("Scale-relative chord degrees must be positive", at: degree.range)
+                }
                 guard let chordQuality = chordQuality(quality) else {
                     error("Unsupported chord quality '\(quality.lexeme)'", at: quality.range)
                     return .rest(.zero, id: id("invalid", expression.range))

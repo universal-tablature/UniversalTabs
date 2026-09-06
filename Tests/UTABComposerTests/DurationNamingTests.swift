@@ -917,6 +917,76 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func scaleDegreeTranspositionTransformsExpandedPhrasesAndCrossesTheTonic() throws {
+    let upward = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        phrase motif { @1#[4] q; @6[3] q; chord @5 minor h }
+        section s { piano { voice v { bar { transpose degree 2 { motif } } } } }
+        main { s }
+        """, fileID: "degree-transpose.utab"), modules: StandardTextModuleProvider())
+    #expect(upward.succeeded, "\(upward.diagnostics)")
+    let events = try #require(upward.document?.tracks.first?.parts?.first?.events)
+    func pitches(at beat: Int) -> [Int] {
+        events.filter { $0.at.musical?.beat == beat }.compactMap { event -> Int? in
+            guard case .object(let pitch)? = event.parameters?["pitch"],
+                  case .number(let degree)? = pitch["degree"],
+                  case .number(let period)? = pitch["period"] else { return nil }
+            return (Int(period) + 1) * 12 + Int(degree)
+        }.sorted()
+    }
+    #expect(pitches(at: 1) == [65])
+    #expect(pitches(at: 2) == [60])
+    #expect(pitches(at: 3) == [71, 74, 78])
+
+    let downward = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 1/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        section s { piano { voice v { transpose degree -1 degree { @1[4] q } } } }
+        main { s }
+        """, fileID: "degree-transpose-down.utab"), modules: StandardTextModuleProvider())
+    #expect(downward.succeeded, "\(downward.diagnostics)")
+    let event = try #require(downward.document?.tracks.first?.parts?.first?.events.first)
+    guard case .object(let pitch)? = event.parameters?["pitch"],
+          case .number(let degree)? = pitch["degree"],
+          case .number(let period)? = pitch["period"] else {
+        Issue.record("Expected a resolved pitch")
+        return
+    }
+    #expect((Int(period) + 1) * 12 + Int(degree) == 59)
+}
+
+@Test func invalidScaleDegreeTranspositionsAreDiagnosed() {
+    for (scale, transform) in [
+        ("scale C major", "transpose degree 1 { C4 w }"),
+        ("scale C major", "transpose degree 1 { chord @1 major w bass G }"),
+        ("scale C major", "transpose degree 1.5 { @1[4] w }"),
+        ("scale C major", "transpose degree 1 { transpose pitch 2 semitones { @1[4] w } }"),
+        ("", "transpose degree 1 { @1[4] w }"),
+    ] {
+        let invalid = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            \(scale)
+            instrument piano : Piano
+            section s { piano { voice v { \(transform) } } }
+            main { s }
+            """, fileID: "invalid-degree-transpose.utab"), modules: StandardTextModuleProvider())
+        #expect(!invalid.succeeded)
+        #expect(invalid.diagnostics.contains {
+            let message = $0.message.lowercased()
+            return message.contains("degree transposition") || message.contains("pitch transform") || message.contains("active scale")
+        }, "\(invalid.diagnostics)")
+    }
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

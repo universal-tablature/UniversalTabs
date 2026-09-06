@@ -158,10 +158,11 @@ public struct Scale: Sendable, Hashable {
 
     public func resolve(degree: Int, octave: Int) -> AbsolutePitch? {
         let intervals = kind.centIntervals
-        guard degree > 0, !intervals.isEmpty else { return nil }
+        guard !intervals.isEmpty else { return nil }
         let zeroBased = degree - 1
-        let scaleOctave = zeroBased / intervals.count
-        let intervalCents = intervals[zeroBased % intervals.count] + scaleOctave * 1_200
+        let scaleOctave = Int(floor(Double(zeroBased) / Double(intervals.count)))
+        let degreeIndex = ((zeroBased % intervals.count) + intervals.count) % intervals.count
+        let intervalCents = intervals[degreeIndex] + scaleOctave * 1_200
         let targetCents = AbsolutePitch(tonicSpelling, octave: octave).acousticCents + intervalCents
 
         // Seven-degree scales retain the authored tonic's diatonic spelling. This
@@ -171,8 +172,9 @@ public struct Scale: Sendable, Hashable {
             return AbsolutePitch(acousticCents: targetCents)
         }
         let letterIndex = tonicSpelling.letter.rawValue + zeroBased
-        let letter = NoteLetter.allCases[letterIndex % NoteLetter.allCases.count]
-        let resolvedOctave = octave + letterIndex / NoteLetter.allCases.count
+        let normalizedLetterIndex = ((letterIndex % NoteLetter.allCases.count) + NoteLetter.allCases.count) % NoteLetter.allCases.count
+        let letter = NoteLetter.allCases[normalizedLetterIndex]
+        let resolvedOctave = octave + Int(floor(Double(letterIndex) / Double(NoteLetter.allCases.count)))
         let naturalCents = ((resolvedOctave + 1) * 12 + letter.naturalPitchClass) * 100
         let displacement = targetCents - naturalCents
         let accidental = Int((Double(displacement) / 100).rounded())
