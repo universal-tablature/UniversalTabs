@@ -192,25 +192,25 @@ public enum MusicalPitch: Sendable, Hashable {
     }
 }
 
-public enum ChordQuality: Sendable, Hashable {
-    case major, minor, diminished, suspendedFourth
-    case majorSeventh, minorSeventh, dominantSeventh
+public struct ChordQuality: Sendable, Hashable {
+    public let name: String
+    public let degrees: [Int]
+    public let intervals: [Int]
 
-    public var intervals: [Int] {
-        switch self {
-        case .major: [0, 4, 7]
-        case .minor: [0, 3, 7]
-        case .diminished: [0, 3, 6]
-        case .suspendedFourth: [0, 5, 7]
-        case .majorSeventh: [0, 4, 7, 11]
-        case .minorSeventh: [0, 3, 7, 10]
-        case .dominantSeventh: [0, 4, 7, 10]
-        }
+    public init(name: String, degrees: [Int], intervals: [Int]) {
+        precondition(!name.isEmpty && !degrees.isEmpty && degrees.count == intervals.count)
+        self.name = name
+        self.degrees = degrees
+        self.intervals = intervals
     }
 
-    public var degrees: [Int] {
-        intervals.count == 4 ? [1, 3, 5, 7] : [1, 3, 5]
-    }
+    public static let major = Self(name: "major", degrees: [1, 3, 5], intervals: [0, 4, 7])
+    public static let minor = Self(name: "minor", degrees: [1, 3, 5], intervals: [0, 3, 7])
+    public static let diminished = Self(name: "diminished", degrees: [1, 3, 5], intervals: [0, 3, 6])
+    public static let suspendedFourth = Self(name: "sus4", degrees: [1, 4, 5], intervals: [0, 5, 7])
+    public static let majorSeventh = Self(name: "major7", degrees: [1, 3, 5, 7], intervals: [0, 4, 7, 11])
+    public static let minorSeventh = Self(name: "minor7", degrees: [1, 3, 5, 7], intervals: [0, 3, 7, 10])
+    public static let dominantSeventh = Self(name: "dominant7", degrees: [1, 3, 5, 7], intervals: [0, 4, 7, 10])
 }
 
 public struct ChordSymbol: Sendable, Hashable {

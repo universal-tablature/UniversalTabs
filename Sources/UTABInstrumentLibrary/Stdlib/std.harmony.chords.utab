@@ -1,0 +1,9 @@
+module std.harmony.chords
+
+chordQuality major { degrees 1, 3, 5; semitones 0, 4, 7 }
+chordQuality minor { degrees 1, 3, 5; semitones 0, 3, 7 }
+chordQuality diminished { degrees 1, 3, 5; semitones 0, 3, 6 }
+chordQuality sus4 { degrees 1, 4, 5; semitones 0, 5, 7 }
+chordQuality major7 { degrees 1, 3, 5, 7; semitones 0, 4, 7, 11 }
+chordQuality minor7 { degrees 1, 3, 5, 7; semitones 0, 3, 7, 10 }
+chordQuality dominant7 { degrees 1, 3, 5, 7; semitones 0, 4, 7, 10 }

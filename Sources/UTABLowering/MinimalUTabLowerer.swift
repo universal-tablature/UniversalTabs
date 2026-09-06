@@ -347,26 +347,19 @@ public struct MinimalUTabLoweringStage: CompilerStage {
         }
 
         func qualityName(_ quality: ChordQuality) -> String {
-            switch quality {
-            case .major: "major"
-            case .minor: "minor"
-            case .diminished: "diminished"
-            case .suspendedFourth: "suspendedFourth"
-            case .majorSeventh: "majorSeventh"
-            case .minorSeventh: "minorSeventh"
-            case .dominantSeventh: "dominantSeventh"
-            }
+            quality.name
         }
 
         func qualitySuffix(_ quality: ChordQuality) -> String {
-            switch quality {
-            case .major: ""
-            case .minor: "m"
-            case .diminished: "dim"
-            case .suspendedFourth: "sus4"
-            case .majorSeventh: "maj7"
-            case .minorSeventh: "m7"
-            case .dominantSeventh: "7"
+            switch quality.name {
+            case "major": ""
+            case "minor": "m"
+            case "diminished": "dim"
+            case "sus4": "sus4"
+            case "major7": "maj7"
+            case "minor7": "m7"
+            case "dominant7": "7"
+            default: quality.name
             }
         }
 

@@ -21,7 +21,8 @@ public struct TextSemanticLowerer: Sendable {
 
     public func lower(_ syntax: TextCompositionSyntax) -> TextSemanticResult {
         let definitions = scaleKinds(in: [syntax])
-        var worker = Worker(syntax: syntax, modules: [syntax], scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics, activeMeter: nil)
+        let qualities = chordQualities(in: [syntax])
+        var worker = Worker(syntax: syntax, modules: [syntax], scaleKinds: definitions.kinds, chordQualities: qualities.qualities, bindings: [:], diagnostics: definitions.diagnostics + qualities.diagnostics, activeMeter: nil)
         return worker.lower()
     }
 
@@ -30,14 +31,15 @@ public struct TextSemanticLowerer: Sendable {
             return .init(composition: nil, instruments: [], diagnostics: [])
         }
         let definitions = scaleKinds(in: modules.map(\.syntax))
-        var worker = Worker(syntax: root.syntax, modules: modules.map(\.syntax), scaleKinds: definitions.kinds, bindings: [:], diagnostics: definitions.diagnostics, activeMeter: nil)
+        let qualities = chordQualities(in: modules.map(\.syntax))
+        var worker = Worker(syntax: root.syntax, modules: modules.map(\.syntax), scaleKinds: definitions.kinds, chordQualities: qualities.qualities, bindings: [:], diagnostics: definitions.diagnostics + qualities.diagnostics, activeMeter: nil)
         return worker.lower()
     }
 
     /// Resolves catalogue pitch tokens through the same declaration-site naming rules as notes.
     public func resolvePitch(_ token: TextToken, notation: TextQualifiedNameSyntax, in modules: [TextLoadedModule]) -> (pitch: AbsolutePitch?, diagnostics: [TextDiagnostic]) {
         guard let owner = modules.first(where: { $0.syntax.range.fileID == token.range.fileID }) else { return (nil, []) }
-        var worker = Worker(syntax: owner.syntax, modules: modules.map(\.syntax), scaleKinds: [:], bindings: [:], diagnostics: [], activeMeter: nil)
+        var worker = Worker(syntax: owner.syntax, modules: modules.map(\.syntax), scaleKinds: [:], chordQualities: [:], bindings: [:], diagnostics: [], activeMeter: nil)
         worker.validateNamingSystems()
         guard worker.diagnostics.isEmpty else { return (nil, worker.diagnostics) }
         if let (pitch, _) = worker.namedPitch(token, octave: nil, alteration: 0, notation: notation), case .absolute(let absolute) = pitch {
@@ -68,10 +70,37 @@ public struct TextSemanticLowerer: Sendable {
         return (result, diagnostics)
     }
 
+    private func chordQualities(in syntaxes: [TextCompositionSyntax]) -> (qualities: [String: ChordQuality], diagnostics: [TextDiagnostic]) {
+        var result: [String: ChordQuality] = [
+            "major": .major, "minor": .minor, "diminished": .diminished, "sus4": .suspendedFourth,
+            "major7": .majorSeventh, "minor7": .minorSeventh, "dominant7": .dominantSeventh,
+        ]
+        var declared: Set<String> = []
+        var diagnostics: [TextDiagnostic] = []
+        for definition in syntaxes.flatMap(\.chordQualityDefinitions) {
+            let name = String(definition.symbol.lexeme)
+            let degrees = definition.degrees.compactMap(\.integerValue)
+            let semitones = definition.semitones.compactMap(\.integerValue)
+            guard !declared.contains(name) else {
+                diagnostics.append(.init(.error, message: "Duplicate chord quality '\(name)'", range: definition.range)); continue
+            }
+            declared.insert(name)
+            guard degrees.first == 1, semitones.first == 0, degrees.count == semitones.count,
+                  zip(degrees, degrees.dropFirst()).allSatisfy(<),
+                  zip(semitones, semitones.dropFirst()).allSatisfy(<),
+                  degrees.allSatisfy({ (1...13).contains($0) }), semitones.allSatisfy({ (0..<24).contains($0) }) else {
+                diagnostics.append(.init(.error, message: "Chord quality '\(name)' requires matching ascending degrees/semitones beginning with 1 and 0", range: definition.range)); continue
+            }
+            result[name] = .init(name: name, degrees: degrees, intervals: semitones)
+        }
+        return (result, diagnostics)
+    }
+
     private struct Worker {
         let syntax: TextCompositionSyntax
         let modules: [TextCompositionSyntax]
         let scaleKinds: [String: ScaleKind]
+        let chordQualities: [String: ChordQuality]
         var bindings: [String: TextConstantSyntax.Value]
         var diagnostics: [TextDiagnostic]
         var activeMeter: TimeSignature?
@@ -1147,16 +1176,7 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         func chordQuality(_ token: TextToken) -> ChordQuality? {
-            switch token.lexeme {
-            case "major": .major
-            case "minor": .minor
-            case "diminished": .diminished
-            case "sus4": .suspendedFourth
-            case "major7": .majorSeventh
-            case "minor7": .minorSeventh
-            case "dominant7": .dominantSeventh
-            default: nil
-            }
+            chordQualities[String(token.lexeme)]
         }
 
         mutating func chordMemberConstraints(_ tokens: [TextToken], kind: String, availableDegrees: Set<Int>) -> [PerformanceConstraint] {

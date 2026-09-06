@@ -776,7 +776,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 return .parallel(children)
             }
             if context.isFrettedStrings {
-                guard let assignments = chordStringAssignments(chord, constraints: constraints, context: context, path: path) else {
+                guard let assignments = chordStringAssignments(chord, constraints: constraints, context: context, path: path, voiceLeadingFrom: reference) else {
                     diagnostics.append(.init(.error, path: path, message: "No deterministic string/fret realization for chord on '\(context.model.name)'"))
                     return .parallel([])
                 }
@@ -947,14 +947,14 @@ public struct InstrumentRealizationStage: CompilerStage {
             let chordShape: String?
         }
 
-        mutating func chordStringAssignments(_ chord: ResolvedTimelineChord, constraints: [PerformanceConstraint], context: Context, path: String) -> [StringAssignment]? {
+        mutating func chordStringAssignments(_ chord: ResolvedTimelineChord, constraints: [PerformanceConstraint], context: Context, path: String, voiceLeadingFrom reference: [AbsolutePitch]? = nil) -> [StringAssignment]? {
             if let shapeName = constraints.compactMap({ constraint -> String? in
                 guard case .chordShape(let name) = constraint else { return nil }
                 return name
             }).first {
                 return explicitChordShapeAssignments(named: shapeName, chord: chord, context: context, path: path)
             }
-            return automaticChordStringAssignments(chord, context: context)
+            return automaticChordStringAssignments(chord, constraints: constraints, context: context, voiceLeadingFrom: reference)
         }
 
         mutating func explicitChordShapeAssignments(named name: String, chord: ResolvedTimelineChord, context: Context, path: String) -> [StringAssignment]? {
@@ -990,22 +990,54 @@ public struct InstrumentRealizationStage: CompilerStage {
             return assignments.sorted { $0.stringNumber > $1.stringNumber }
         }
 
-        func automaticChordStringAssignments(_ chord: ResolvedTimelineChord, context: Context) -> [StringAssignment]? {
+        func automaticChordStringAssignments(_ chord: ResolvedTimelineChord, constraints: [PerformanceConstraint], context: Context, voiceLeadingFrom reference: [AbsolutePitch]?) -> [StringAssignment]? {
             guard let tuning = context.tuning, let fretCount = context.fretCount else { return nil }
-            let tones = chord.authored.quality.intervals.map { (chord.rootPitchClass.rawValue + $0) % 12 }
+            let omissions = Set(constraints.compactMap { if case .chordOmit(let degree) = $0 { degree } else { nil } })
+            var tones = Array(zip(chord.authored.quality.degrees, chord.authored.quality.intervals))
+            for constraint in constraints {
+                if case .chordAdd(let degree, let alteration) = constraint {
+                    let majorScale = [0, 2, 4, 5, 7, 9, 11]
+                    tones.append((degree, majorScale[(degree - 1) % 7] + 12 * ((degree - 1) / 7) + alteration))
+                }
+            }
+            for constraint in constraints {
+                if case .chordAlter(let degree, let semitones) = constraint,
+                   let index = tones.firstIndex(where: { $0.0 == degree }) { tones[index].1 += semitones }
+            }
+            tones.removeAll { omissions.contains($0.0) }
+            for degree in constraints.compactMap({ if case .chordDouble(let degree) = $0 { degree } else { nil } }) {
+                if let tone = tones.first(where: { $0.0 == degree }) { tones.append(tone) }
+            }
+            var pitchClasses = tones.map { ((chord.rootPitchClass.rawValue + $0.1) % 12 + 12) % 12 }
+            let requestedBass: Int?
+            if let bass = chord.authored.bass { requestedBass = bass.pitchClass.rawValue }
+            else if let inversion = chord.authored.inversion, chord.authored.quality.intervals.indices.contains(inversion) {
+                requestedBass = (chord.rootPitchClass.rawValue + chord.authored.quality.intervals[inversion]) % 12
+            } else { requestedBass = nil }
+            if let requestedBass, !pitchClasses.contains(requestedBass) { pitchClasses.append(requestedBass) }
+            let range = constraints.compactMap { constraint -> (Int, Int)? in
+                guard case .pitchRange(let low, let high) = constraint else { return nil }
+                return (low.chromaticIndex, high.chromaticIndex)
+            }.first
             var best: (cost: Int, values: [StringAssignment])?
 
             func search(_ toneIndex: Int, used: Set<Int>, values: [StringAssignment], cost: Int) {
-                if toneIndex == tones.count {
-                    if best == nil || cost < best!.cost || (cost == best!.cost && lexical(values) < lexical(best!.values)) {
-                        best = (cost, values)
+                if toneIndex == pitchClasses.count {
+                    if let requestedBass, values.min(by: { $0.pitch.chromaticIndex < $1.pitch.chromaticIndex })?.pitch.pitchClass.rawValue != requestedBass { return }
+                    let movement = reference?.reduce(0) { total, prior in
+                        total + (values.map { abs($0.pitch.chromaticIndex - prior.chromaticIndex) }.min() ?? 0)
+                    } ?? 0
+                    let finalCost = cost + movement
+                    if best == nil || finalCost < best!.cost || (finalCost == best!.cost && lexical(values) < lexical(best!.values)) {
+                        best = (finalCost, values)
                     }
                     return
                 }
                 for (course, tuningCourse) in tuning.courses.enumerated() {
                     guard !used.contains(course), let open = tuningCourse.pitches.first else { continue }
-                    for fret in 0...min(fretCount, 12) where (open.pitchClass.rawValue + fret) % 12 == tones[toneIndex] {
+                    for fret in 0...min(fretCount, 12) where (open.pitchClass.rawValue + fret) % 12 == pitchClasses[toneIndex] {
                         let pitch = open.transposed(cents: fret * 100)
+                        if let range, !(range.0...range.1).contains(pitch.chromaticIndex) { continue }
                         let assignment = StringAssignment(
                             course: course,
                             stringNumber: tuning.courses.count - course,

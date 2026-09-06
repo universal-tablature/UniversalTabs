@@ -8,6 +8,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public var namingSystems: [TextNamingSyntax] = []
     public let constants: [TextConstantSyntax]
     public let scaleDefinitions: [TextScaleDefinitionSyntax]
+    public let chordQualityDefinitions: [TextChordQualityDefinitionSyntax]
     public let profiles: [TextInstrumentProfileSyntax]
     public let models: [TextInstrumentModelSyntax]
     public let extensions: [TextInstrumentExtensionSyntax]
@@ -24,7 +25,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let range: SourceRange
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.notationUses == rhs.notationUses && lhs.defaultNotation == rhs.defaultNotation && lhs.namingSystems == rhs.namingSystems && lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.constants == rhs.constants && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
+        lhs.notationUses == rhs.notationUses && lhs.defaultNotation == rhs.defaultNotation && lhs.namingSystems == rhs.namingSystems && lhs.module == rhs.module && lhs.imports == rhs.imports && lhs.constants == rhs.constants && lhs.scaleDefinitions == rhs.scaleDefinitions && lhs.chordQualityDefinitions == rhs.chordQualityDefinitions && lhs.profiles == rhs.profiles && lhs.models == rhs.models && lhs.extensions == rhs.extensions
             && lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
@@ -32,7 +33,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(notationUses); hasher.combine(defaultNotation); hasher.combine(namingSystems); hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
+        hasher.combine(notationUses); hasher.combine(defaultNotation); hasher.combine(namingSystems); hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(chordQualityDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
         hasher.combine(instruments); hasher.combine(performancePatterns); hasher.combine(bassPatterns); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
@@ -57,6 +58,13 @@ public struct TextConstantSyntax: Sendable, Hashable {
 public struct TextScaleDefinitionSyntax: Sendable, Hashable {
     public let symbol: TextToken
     public let centIntervals: [TextToken]
+    public let range: SourceRange
+}
+
+public struct TextChordQualityDefinitionSyntax: Sendable, Hashable {
+    public let symbol: TextToken
+    public let degrees: [TextToken]
+    public let semitones: [TextToken]
     public let range: SourceRange
 }
 

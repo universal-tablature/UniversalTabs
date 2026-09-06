@@ -33,6 +33,7 @@ public struct TextParser: Sendable {
             var constants: [TextConstantSyntax] = []
             var namingSystems: [TextNamingSyntax] = []
             var scaleDefinitions: [TextScaleDefinitionSyntax] = []
+            var chordQualityDefinitions: [TextChordQualityDefinitionSyntax] = []
             var profiles: [TextInstrumentProfileSyntax] = []
             var models: [TextInstrumentModelSyntax] = []
             var extensions: [TextInstrumentExtensionSyntax] = []
@@ -94,6 +95,8 @@ public struct TextParser: Sendable {
                         let mode = expect(.identifier, "Expected scale mode")
                         if let first, let mode { scale = (first, mode) }
                     }
+                } else if takeKeyword("chordQuality") {
+                    if let definition = parseChordQualityDefinition() { chordQualityDefinitions.append(definition) }
                 } else if takeKeyword("instrument") {
                     if let instrument = parseInstrumentInstance() { instruments.append(instrument) }
                 } else if takeKeyword("performancePattern") {
@@ -104,7 +107,7 @@ public struct TextParser: Sendable {
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
                 else {
-                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, performancePattern, bassPattern, phrase, section, or main declaration")
+                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, chordQuality, instrument, performancePattern, bassPattern, phrase, section, or main declaration")
                     advance()
                 }
                 _ = take(.semicolon)
@@ -118,6 +121,7 @@ public struct TextParser: Sendable {
                 namingSystems: namingSystems,
                 constants: constants,
                 scaleDefinitions: scaleDefinitions,
+                chordQualityDefinitions: chordQualityDefinitions,
                 profiles: profiles,
                 models: models,
                 extensions: extensions,
@@ -133,6 +137,27 @@ public struct TextParser: Sendable {
                 main: main,
                 range: .init(fileID: current.range.fileID, start: start, end: current.range.end)
             )
+        }
+
+        mutating func parseChordQualityDefinition() -> TextChordQualityDefinitionSyntax? {
+            guard let symbol = expect(.identifier, "Expected chord-quality name"),
+                  let open = expect(.leftBrace, "Expected '{' after chord-quality name") else { return nil }
+            var degrees: [TextToken] = []
+            var semitones: [TextToken] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) { continue }
+                let destination: Bool
+                if takeKeyword("degrees") { destination = true }
+                else if takeKeyword("semitones") { destination = false }
+                else { diagnose("Expected degrees or semitones in chord quality"); synchronizeBlockItem(); continue }
+                while current.kind == .integerLiteral || current.kind == .comma {
+                    if take(.comma) { continue }
+                    if destination { degrees.append(advance()) } else { semitones.append(advance()) }
+                }
+                _ = take(.semicolon)
+            }
+            let close = expect(.rightBrace, "Expected '}' after chord quality") ?? current
+            return .init(symbol: symbol, degrees: degrees, semitones: semitones, range: spanning(open, close))
         }
 
         mutating func parseConstantValue() -> (value: TextConstantSyntax.Value, end: TextToken)? {

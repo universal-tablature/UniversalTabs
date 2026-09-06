@@ -802,6 +802,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
 @Test func chordExtensionsAndAlterationsRealizeDeterministically() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano
+        import std.harmony.chords
         meter 4/4
         tempo 100
         instrument piano : Piano
@@ -831,6 +832,46 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
             """, fileID: "invalid-altered-chord.utab"), modules: StandardTextModuleProvider())
         #expect(!invalid.succeeded)
         #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("chord") })
+    }
+}
+
+@Test func chordQualitiesAreImportableOpenIntervalCollections() throws {
+    let provider = LayeredTextModuleProvider([
+        DictionaryTextModuleProvider([
+            "harmony.custom": TextSource("""
+                module harmony.custom
+                chordQuality quartal { degrees 1, 4, 7; semitones 0, 5, 10 }
+                """, fileID: "harmony.custom.utab")
+        ]),
+        StandardTextModuleProvider(),
+    ])
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        import harmony.custom
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { chord C quartal w } } }
+        main { s }
+        """, fileID: "custom-chord-quality.utab"), modules: provider)
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }.sorted()
+    #expect(pitches == [60, 65, 70])
+
+    for definition in [
+        "chordQuality broken { degrees 1, 3; semitones 0 }",
+        "chordQuality broken { degrees 3, 5; semitones 0, 7 }",
+        "chordQuality broken { degrees 1, 5, 3; semitones 0, 7, 4 }",
+    ] {
+        let invalid = TextSemanticLowerer().lower(try #require(TextParser().parse(.init("meter 4/4; tempo 100; \(definition)")).syntax))
+        #expect(!invalid.succeeded)
+        #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("chord quality") })
     }
 }
 
@@ -874,6 +915,43 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         """, fileID: "invalid-voice-leading.utab"), modules: StandardTextModuleProvider())
     #expect(!invalid.succeeded)
     #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("voice-leading") })
+}
+
+@Test func frettedStringAutomaticVoicingHonorsChordConstraints() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.guitar
+        meter 4/4
+        tempo 100
+        instrument guitar : Guitar
+        section s { guitar { voice v {
+            chord C dominant7 w bass E omit 5 double root range C3 C5
+        } } }
+        main { s }
+        """, fileID: "constrained-guitar-chord.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }.sorted()
+    #expect(events.count == 4)
+    #expect(Set(events.compactMap(\.target)).count == 4)
+    #expect(pitches.allSatisfy { (48...72).contains($0) })
+    #expect(pitches.first.map { $0 % 12 } == 4)
+    #expect(pitches.map { $0 % 12 }.sorted() == [0, 0, 4, 10])
+
+    let impossible = UTabTextCompiler().compile(TextSource("""
+        import instruments.guitar
+        meter 4/4
+        tempo 100
+        instrument guitar : Guitar
+        section s { guitar { voice v { chord C major w range C6 C7 } } }
+        main { s }
+        """, fileID: "impossible-guitar-range.utab"), modules: StandardTextModuleProvider())
+    #expect(!impossible.succeeded)
+    #expect(impossible.diagnostics.contains { $0.message.lowercased().contains("realization") })
 }
 
 @Test func invalidTiesProduceSourceDiagnostics() {
