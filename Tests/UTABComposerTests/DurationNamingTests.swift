@@ -606,6 +606,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
 @Test func bassPatternsGenerateRootsFifthsAndArpeggiosFromHarmony() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano
+        import std.harmony.bass
         meter 4/4
         tempo 100
         instrument piano : Piano
@@ -639,6 +640,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     ] {
         let result = UTabTextCompiler().compile(TextSource("""
             import instruments.piano
+            import std.harmony.bass
             meter 4/4
             tempo 100
             instrument piano : Piano
@@ -648,6 +650,32 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(!result.succeeded)
         #expect(result.diagnostics.contains { $0.message.lowercased().contains("bass") })
     }
+}
+
+@Test func bassPatternsAreImportableAndUserDefinable() throws {
+    let custom = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        bassPattern walking { degrees root, 3, 5, 3 }
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bass walking q octave 2 { chord C minor w } } } }
+        main { s }
+        """, fileID: "custom-bass-pattern.utab"), modules: StandardTextModuleProvider())
+    #expect(custom.succeeded, "\(custom.diagnostics)")
+
+    let missingImport = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bass roots q octave 2 { chord C major w } } } }
+        main { s }
+        """, fileID: "missing-bass-pattern-import.utab"), modules: StandardTextModuleProvider())
+    #expect(!missingImport.succeeded)
+    #expect(missingImport.diagnostics.contains {
+        $0.message.lowercased().contains("bass pattern") && $0.message.lowercased().contains("import")
+    })
 }
 
 @Test func chordBassAndInversionProduceDeterministicKeyboardVoicings() throws {
@@ -678,7 +706,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(second == [67, 72, 76])
     #expect(constrained == [60, 64, 72])
 
-    for suffix in ["bass D", "bass E inversion 2", "inversion 4", "omit 7", "range C4 E4"] {
+    for suffix in ["bass D inversion 1", "bass E inversion 2", "inversion 4", "omit 7", "range C4 E4"] {
         let invalid = UTabTextCompiler().compile(TextSource("""
             import instruments.piano
             meter 4/4
@@ -697,6 +725,43 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
                 || message.contains("chord")
         })
     }
+}
+
+@Test func slashChordsAreDirectSyntaxForExplicitBass() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            chord A/G major h
+            chord A major h bass G
+        } } }
+        main { s }
+        """, fileID: "slash-chord.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    func pitches(at beat: Int) -> [Int] {
+        events.filter { $0.at.musical?.beat == beat }.compactMap { event -> Int? in
+            guard case .object(let pitch)? = event.parameters?["pitch"],
+                  case .number(let degree)? = pitch["degree"],
+                  case .number(let period)? = pitch["period"] else { return nil }
+            return (Int(period) + 1) * 12 + Int(degree)
+        }.sorted()
+    }
+    #expect(pitches(at: 1) == [67, 69, 73, 76])
+    #expect(pitches(at: 3) == pitches(at: 1))
+
+    let conflict = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { chord A/G major w bass E } } }
+        main { s }
+        """, fileID: "conflicting-slash-chord.utab"), modules: StandardTextModuleProvider())
+    #expect(!conflict.succeeded)
+    #expect(conflict.diagnostics.contains { $0.message.lowercased().contains("bass") })
 }
 
 @Test func scaleRelativeChordsAcceptTheSameKeyboardVoicingConstraints() throws {
@@ -727,7 +792,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         tempo 100
         scale C major
         instrument piano : Piano
-        section s { piano { voice v { chord @2 minor w bass G } } }
+        section s { piano { voice v { chord @2 minor w bass G inversion 1 } } }
         main { s }
         """, fileID: "invalid-relative-chord-bass.utab"), modules: StandardTextModuleProvider())
     #expect(!invalid.succeeded)
@@ -767,6 +832,48 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         #expect(!invalid.succeeded)
         #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("chord") })
     }
+}
+
+@Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 6/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v {
+            bar {
+                chord C major h
+                using voiceLeading nearest
+                chord G major h
+                chord G major h inversion 0
+            }
+        } } }
+        main { s }
+        """, fileID: "voice-leading.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    func pitches(at beat: Int) -> [Int] {
+        events.filter { $0.at.musical?.beat == beat }.compactMap { event -> Int? in
+            guard case .object(let pitch)? = event.parameters?["pitch"],
+                  case .number(let degree)? = pitch["degree"],
+                  case .number(let period)? = pitch["period"] else { return nil }
+            return (Int(period) + 1) * 12 + Int(degree)
+        }.sorted()
+    }
+    #expect(pitches(at: 1) == [60, 64, 67])
+    #expect(pitches(at: 3) == [59, 62, 67])
+    #expect(pitches(at: 5) == [67, 71, 74])
+
+    let invalid = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        section s { piano { voice v { bar { using voiceLeading smooth; chord C major w } } } }
+        main { s }
+        """, fileID: "invalid-voice-leading.utab"), modules: StandardTextModuleProvider())
+    #expect(!invalid.succeeded)
+    #expect(invalid.diagnostics.contains { $0.message.lowercased().contains("voice-leading") })
 }
 
 @Test func invalidTiesProduceSourceDiagnostics() {

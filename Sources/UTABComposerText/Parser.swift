@@ -14,6 +14,7 @@ public struct TextParser: Sendable {
         enum ScopedUsing {
             case technique(TextToken)
             case dynamic(TextToken)
+            case voiceLeading(TextToken)
         }
 
         let tokens: [TextToken]
@@ -40,6 +41,7 @@ public struct TextParser: Sendable {
             var scale: (TextToken, TextToken)?
             var instruments: [TextInstrumentInstanceSyntax] = []
             var performancePatterns: [TextPerformancePatternSyntax] = []
+            var bassPatterns: [TextBassPatternSyntax] = []
             var phrases: [TextPhraseSyntax] = []
             var sections: [TextSectionSyntax] = []
             var main: [TextToken] = []
@@ -96,11 +98,13 @@ public struct TextParser: Sendable {
                     if let instrument = parseInstrumentInstance() { instruments.append(instrument) }
                 } else if takeKeyword("performancePattern") {
                     if let pattern = parsePerformancePattern() { performancePatterns.append(pattern) }
+                } else if takeKeyword("bassPattern") {
+                    if let pattern = parseBassPattern() { bassPatterns.append(pattern) }
                 } else if takeKeyword("phrase") { if let value = parsePhrase() { phrases.append(value) } }
                 else if takeKeyword("section") { if let value = parseSection() { sections.append(value) } }
                 else if takeKeyword("main") { main = parseNameBlock() }
                 else {
-                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, performancePattern, phrase, section, or main declaration")
+                    diagnose("Expected module, import, profile, model, extension, title, meter, tempo, scale, instrument, performancePattern, bassPattern, phrase, section, or main declaration")
                     advance()
                 }
                 _ = take(.semicolon)
@@ -123,6 +127,7 @@ public struct TextParser: Sendable {
                 scale: scale,
                 instruments: instruments,
                 performancePatterns: performancePatterns,
+                bassPatterns: bassPatterns,
                 phrases: phrases,
                 sections: sections,
                 main: main,
@@ -534,6 +539,21 @@ public struct TextParser: Sendable {
             return .init(name: name, subdivision: subdivision, steps: steps, range: spanning(open, close))
         }
 
+        mutating func parseBassPattern() -> TextBassPatternSyntax? {
+            guard let name = expect(.identifier, "Expected bass pattern name"),
+                  let open = expect(.leftBrace, "Expected '{' after bass pattern name"),
+                  expectKeyword("degrees", "Expected degrees in bass pattern") != nil else { return nil }
+            var degrees: [TextToken] = []
+            while current.kind != .rightBrace && current.kind != .endOfFile {
+                if take(.semicolon) || take(.comma) { continue }
+                if current.kind == .integerLiteral || (current.kind == .identifier && current.lexeme == "root") { degrees.append(advance()) }
+                else { diagnose("Expected root or chord degree in bass pattern"); advance() }
+            }
+            let close = expect(.rightBrace, "Expected '}' after bass pattern") ?? current
+            if degrees.isEmpty { diagnose("Bass pattern requires at least one degree") }
+            return .init(name: name, degrees: degrees, range: spanning(open, close))
+        }
+
         mutating func parsePerformanceSteps(until end: TextTokenKind) -> [TextPerformanceStepSyntax] {
             var result: [TextPerformanceStepSyntax] = []
             while current.kind != end && current.kind != .endOfFile {
@@ -660,6 +680,7 @@ public struct TextParser: Sendable {
                 switch policy {
                 case .technique(let technique): kind = .technique(name: technique, expressions: result)
                 case .dynamic(let level): kind = .dynamic(level: level, expressions: result)
+                case .voiceLeading(let policy): kind = .voiceLeading(policy: policy, expressions: result)
                 }
                 result = [.init(kind: kind, range: .init(fileID: first.range.fileID, start: first.range.start, end: last.range.end))]
             }
@@ -875,13 +896,21 @@ public struct TextParser: Sendable {
                     }
                     return .init(kind: .relativeChord(degree: degree, alteration: alteration, quality: quality, duration: duration, shape: shape, bass: bass, inversion: inversion, omissions: omissions, doublings: doublings, additions: additions, alterations: alterations, range: range), range: spanning(start, tokens[index - 1]))
                 }
-                guard let root = expect(.identifier, "Expected chord root"),
-                      let quality = expect(.identifier, "Expected chord quality"),
+                guard let root = expect(.identifier, "Expected chord root") else { return nil }
+                var slashBass: TextToken?
+                if take(.slash) {
+                    slashBass = expect(.identifier, "Expected bass pitch after '/'")
+                }
+                guard let quality = expect(.identifier, "Expected chord quality"),
                       let duration = parseDuration() else { return nil }
-                var shape: TextToken?; var bass: TextToken?; var inversion: TextToken?; var omissions: [TextToken] = []; var doublings: [TextToken] = []; var additions: [TextChordToneSyntax] = []; var alterations: [TextChordToneSyntax] = []; var range: TextPitchRangeSyntax?
+                var shape: TextToken?; var bass = slashBass; var inversion: TextToken?; var omissions: [TextToken] = []; var doublings: [TextToken] = []; var additions: [TextChordToneSyntax] = []; var alterations: [TextChordToneSyntax] = []; var range: TextPitchRangeSyntax?
                 while ["using", "bass", "inversion", "omit", "double", "add", "alter", "range"].contains(String(current.lexeme)) {
                     if takeKeyword("using") { shape = expect(.identifier, "Expected chord shape name") }
-                    else if takeKeyword("bass") { bass = expect(.identifier, "Expected chord bass pitch") }
+                    else if takeKeyword("bass") {
+                        let explicitBass = expect(.identifier, "Expected chord bass pitch")
+                        if bass != nil { diagnose("Chord bass is already specified by slash notation") }
+                        else { bass = explicitBass }
+                    }
                     else if takeKeyword("inversion") { inversion = expect(.integerLiteral, "Expected inversion number") }
                     else if takeKeyword("omit"), let value = expectChordMember() { omissions.append(value) }
                     else if takeKeyword("double"), let value = expectChordMember() { doublings.append(value) }
@@ -1044,6 +1073,7 @@ public struct TextParser: Sendable {
             var foundNotation: TextQualifiedNameSyntax?
             var techniques: [TextToken] = []
             var dynamic: TextToken?
+            var voiceLeading: TextToken?
             while cursor < tokens.count {
                 let token = tokens[cursor]
                 if depth == 0 && token.kind == end { break }
@@ -1078,13 +1108,17 @@ public struct TextParser: Sendable {
                     if dynamic != nil { diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using dynamics' declaration", range: token.range)) }
                     else { dynamic = tokens[cursor + 2] }
                     cursor += 3
+                } else if policy.lexeme == "voiceLeading", cursor + 2 < tokens.count, tokens[cursor + 2].kind == .identifier {
+                    if voiceLeading != nil { diagnostics.append(.init(.error, message: "A musical scope may contain only one 'using voiceLeading' declaration", range: token.range)) }
+                    else { voiceLeading = tokens[cursor + 2] }
+                    cursor += 3
                 } else { cursor += 1 }
             }
             if let foundNotation {
                 notation = foundNotation
                 notationUses.append(foundNotation)
             }
-            return techniques.map(ScopedUsing.technique) + (dynamic.map { [.dynamic($0)] } ?? [])
+            return techniques.map(ScopedUsing.technique) + (dynamic.map { [.dynamic($0)] } ?? []) + (voiceLeading.map { [.voiceLeading($0)] } ?? [])
         }
 
         mutating func consumeUsingDirective() {
@@ -1092,7 +1126,8 @@ public struct TextParser: Sendable {
             if takeKeyword("notation") { _ = parseQualifiedName(); return }
             if isKeyword("legato") || isKeyword("slur") { _ = advance(); return }
             if takeKeyword("dynamics") { _ = expect(.identifier, "Expected dynamic level after 'using dynamics'"); return }
-            diagnose("Expected notation, legato, slur, or dynamics after 'using'")
+            if takeKeyword("voiceLeading") { _ = expect(.identifier, "Expected policy after 'using voiceLeading'"); return }
+            diagnose("Expected notation, legato, slur, dynamics, or voiceLeading after 'using'")
             if current.kind == .identifier { _ = advance() }
         }
 

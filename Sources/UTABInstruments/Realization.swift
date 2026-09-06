@@ -329,6 +329,10 @@ public struct InstrumentRealizationStage: CompilerStage {
                     kind = realizeBassPattern(application, context: context, expression: expression, path: path)
                     break
                 }
+                if application.technique == "__voiceLeading" {
+                    kind = realizeVoiceLeading(application, context: context, path: path)
+                    break
+                }
                 let universalTechniques: Set<String> = ["legato", "slur", "rearticulate", "letRing", "accent", "__dynamic", "__dynamicEnvelope", "__sustainPedal", "__grace", "__ornament"]
                 if !universalTechniques.contains(application.technique),
                    !context.profile.techniques.contains(where: { $0.id == application.technique }) {
@@ -391,6 +395,7 @@ public struct InstrumentRealizationStage: CompilerStage {
         ) -> RealizedExpression.Kind {
             guard case .string(let pattern)? = application.parameters["pattern"],
                   case .integer(let octave)? = application.parameters["octave"],
+                  case .list(let encodedDegrees)? = application.parameters["degrees"],
                   let subdivision = patternSubdivision(application.parameters),
                   let container = application.operands.first else {
                 diagnostics.append(.init(.error, path: path, message: "Malformed bass pattern"))
@@ -401,21 +406,24 @@ public struct InstrumentRealizationStage: CompilerStage {
             var notes: [RealizedExpression] = []
             for chordExpression in chords {
                 guard case .chord(let chord, let constraints) = chordExpression.kind else { continue }
-                let third: Int
-                let fifth: Int
-                switch chord.authored.quality {
-                case .major: third = 4; fifth = 7
-                case .minor: third = 3; fifth = 7
-                case .diminished: third = 3; fifth = 6
-                case .suspendedFourth: third = 5; fifth = 7
-                case .majorSeventh, .dominantSeventh: third = 4; fifth = 7
-                case .minorSeventh: third = 3; fifth = 7
+                let degrees = encodedDegrees.compactMap { value -> Int? in
+                    guard case .integer(let degree) = value else { return nil }
+                    return degree
                 }
-                let intervals: [Int]
-                switch pattern {
-                case "roots": intervals = [0]
-                case "rootFifth": intervals = [0, fifth]
-                default: intervals = [0, third, fifth, third]
+                var tones = Dictionary(uniqueKeysWithValues: zip(chord.authored.quality.degrees, chord.authored.quality.intervals))
+                for constraint in constraints {
+                    if case .chordAdd(let degree, let alteration) = constraint {
+                        let majorScale = [0, 2, 4, 5, 7, 9, 11]
+                        tones[degree] = majorScale[(degree - 1) % 7] + 12 * ((degree - 1) / 7) + alteration
+                    }
+                }
+                for constraint in constraints {
+                    if case .chordAlter(let degree, let semitones) = constraint, let interval = tones[degree] { tones[degree] = interval + semitones }
+                }
+                let intervals = degrees.compactMap { tones[$0] }
+                guard intervals.count == degrees.count, !intervals.isEmpty else {
+                    diagnostics.append(.init(.error, path: path, message: "Bass pattern '\(pattern)' requests a degree absent from the chord", range: chordExpression.annotations.source))
+                    continue
                 }
                 var cursor = MusicalDuration.zero
                 var step = 0
@@ -721,14 +729,15 @@ public struct InstrumentRealizationStage: CompilerStage {
             constraints: [PerformanceConstraint],
             context: Context,
             expression: PitchResolvedExpression,
-            path: String
+            path: String,
+            voiceLeadingFrom reference: [AbsolutePitch]? = nil
         ) -> RealizedExpression.Kind {
             if context.isKeyboard {
                 let octave = constraints.contains(where: {
                     guard case .group(let value) = $0 else { return false }
                     return value.lowercased() == "left" || value.lowercased() == "left hand"
                 }) ? 3 : 4
-                var pitches = chordPitches(chord, rootOctave: octave, constraints: constraints)
+                var pitches = chordPitches(chord, rootOctave: octave, constraints: constraints, voiceLeadingFrom: reference)
                 if let range = constraints.compactMap({ constraint -> (AbsolutePitch, AbsolutePitch)? in
                     guard case .pitchRange(let low, let high) = constraint else { return nil }
                     return (low, high)
@@ -789,6 +798,56 @@ public struct InstrumentRealizationStage: CompilerStage {
             return .parallel([])
         }
 
+        mutating func realizeVoiceLeading(
+            _ application: PitchResolvedTechniqueApplication,
+            context: Context,
+            path: String
+        ) -> RealizedExpression.Kind {
+            guard case .string("nearest")? = application.parameters["policy"],
+                  let operand = application.operands.first,
+                  case .sequence(let children) = operand.kind else {
+                diagnostics.append(.init(.error, path: path, message: "Malformed nearest voice-leading scope"))
+                return .sequence([])
+            }
+            var previous: [AbsolutePitch] = []
+            let realized = children.enumerated().map { index, child -> RealizedExpression in
+                let childPath = "\(path).voiceLeading[\(index)]"
+                guard case .chord(let chord, let constraints) = child.kind else {
+                    return realize(child, context: context, path: childPath)
+                }
+                let kind = realizeChord(
+                    chord,
+                    duration: child.duration,
+                    constraints: constraints,
+                    context: context,
+                    expression: child,
+                    path: childPath,
+                    voiceLeadingFrom: previous.isEmpty ? nil : previous
+                )
+                let result = RealizedExpression(
+                    provenance: child.provenance,
+                    offset: child.offset,
+                    duration: child.duration,
+                    kind: kind,
+                    annotations: child.annotations
+                )
+                previous = realizedPitches(in: result)
+                return result
+            }
+            return .sequence(realized)
+        }
+
+        func realizedPitches(in expression: RealizedExpression) -> [AbsolutePitch] {
+            switch expression.kind {
+            case .note(let pitch, _): [pitch.absolute]
+            case .actuator(let actuator):
+                if case .absolute(let pitch)? = actuator.soundingPitch { [pitch] } else { [] }
+            case .sequence(let children), .parallel(let children): children.flatMap(realizedPitches)
+            case .technique(let application): application.operands.flatMap(realizedPitches)
+            case .rest: []
+            }
+        }
+
         func realizedChild(
             from parent: PitchResolvedExpression,
             discriminator: String,
@@ -808,7 +867,7 @@ public struct InstrumentRealizationStage: CompilerStage {
             )
         }
 
-        func chordPitches(_ chord: ResolvedTimelineChord, rootOctave: Int, constraints: [PerformanceConstraint] = []) -> [AbsolutePitch] {
+        func chordPitches(_ chord: ResolvedTimelineChord, rootOctave: Int, constraints: [PerformanceConstraint] = [], voiceLeadingFrom reference: [AbsolutePitch]? = nil) -> [AbsolutePitch] {
             let omissions = Set(constraints.compactMap { if case .chordOmit(let degree) = $0 { degree } else { nil } })
             let doublings = constraints.compactMap { if case .chordDouble(let degree) = $0 { degree } else { nil } }
             var tones = Array(zip(chord.authored.quality.degrees, chord.authored.quality.intervals))
@@ -847,6 +906,35 @@ public struct InstrumentRealizationStage: CompilerStage {
                 if let source = pitches.first(where: { $0.pitchClass.rawValue == pitchClass }) {
                     pitches.append(source.transposed(cents: 1_200))
                 }
+            }
+            if let bass = chord.authored.bass,
+               !pitches.contains(where: { $0.pitchClass == bass.pitchClass }),
+               let lowest = pitches.min(by: { $0.chromaticIndex < $1.chromaticIndex }) {
+                var bassPitch = AbsolutePitch(bass.pitchClass, octave: rootOctave)
+                while bassPitch.chromaticIndex >= lowest.chromaticIndex {
+                    bassPitch = bassPitch.transposed(cents: -1_200)
+                }
+                pitches.append(bassPitch)
+            }
+            if chord.authored.bass == nil, chord.authored.inversion == nil, let reference, !reference.isEmpty {
+                let root = AbsolutePitch(chord.rootPitchClass, octave: rootOctave)
+                var candidates: [[AbsolutePitch]] = []
+                for inversion in tones.indices {
+                    let voiced = tones.indices.map { position -> AbsolutePitch in
+                        let sourceIndex = (inversion + position) % tones.count
+                        let octaveLift = inversion + position >= tones.count ? 12 : 0
+                        return root.transposed(cents: (tones[sourceIndex].1 + octaveLift) * 100)
+                    }
+                    for octave in -2...2 { candidates.append(voiced.map { $0.transposed(cents: octave * 1_200) }) }
+                }
+                func cost(_ candidate: [AbsolutePitch]) -> Int {
+                    candidate.reduce(0) { total, pitch in
+                        total + (reference.map { abs($0.chromaticIndex - pitch.chromaticIndex) }.min() ?? 0)
+                    } + reference.reduce(0) { total, pitch in
+                        total + (candidate.map { abs($0.chromaticIndex - pitch.chromaticIndex) }.min() ?? 0)
+                    }
+                }
+                if let nearest = candidates.min(by: { cost($0) < cost($1) }) { pitches = nearest }
             }
             return pitches.sorted { $0.chromaticIndex < $1.chromaticIndex }
         }

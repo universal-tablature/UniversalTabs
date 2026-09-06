@@ -392,13 +392,7 @@ public struct PitchResolutionStage: CompilerStage {
                 let matchingInversion = intervals.firstIndex {
                     (root.rawValue + $0) % 12 == bass.pitchClass.rawValue
                 }
-                if matchingInversion == nil {
-                    diagnostics.append(.init(
-                        .error,
-                        path: expression.provenance.expansionPath.joined(separator: "."),
-                        message: "Explicit chord bass must be a chord tone"
-                    ))
-                } else if let inversion = chord.inversion, inversion != matchingInversion {
+                if let inversion = chord.inversion, inversion != matchingInversion {
                     diagnostics.append(.init(
                         .error,
                         path: expression.provenance.expansionPath.joined(separator: "."),

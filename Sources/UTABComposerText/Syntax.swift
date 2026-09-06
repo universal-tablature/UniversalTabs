@@ -17,6 +17,7 @@ public struct TextCompositionSyntax: Sendable, Hashable {
     public let scale: (tonic: TextToken, mode: TextToken)?
     public let instruments: [TextInstrumentInstanceSyntax]
     public let performancePatterns: [TextPerformancePatternSyntax]
+    public let bassPatterns: [TextBassPatternSyntax]
     public let phrases: [TextPhraseSyntax]
     public let sections: [TextSectionSyntax]
     public let main: [TextToken]
@@ -27,14 +28,14 @@ public struct TextCompositionSyntax: Sendable, Hashable {
             && lhs.title == rhs.title && lhs.meter?.numerator == rhs.meter?.numerator
             && lhs.meter?.denominator == rhs.meter?.denominator && lhs.tempo == rhs.tempo
             && lhs.scale?.tonic == rhs.scale?.tonic && lhs.scale?.mode == rhs.scale?.mode
-            && lhs.instruments == rhs.instruments && lhs.performancePatterns == rhs.performancePatterns && lhs.phrases == rhs.phrases && lhs.sections == rhs.sections && lhs.main == rhs.main && lhs.range == rhs.range
+            && lhs.instruments == rhs.instruments && lhs.performancePatterns == rhs.performancePatterns && lhs.bassPatterns == rhs.bassPatterns && lhs.phrases == rhs.phrases && lhs.sections == rhs.sections && lhs.main == rhs.main && lhs.range == rhs.range
     }
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(notationUses); hasher.combine(defaultNotation); hasher.combine(namingSystems); hasher.combine(module); hasher.combine(imports); hasher.combine(constants); hasher.combine(scaleDefinitions); hasher.combine(profiles); hasher.combine(models); hasher.combine(extensions)
         hasher.combine(title); hasher.combine(meter?.numerator); hasher.combine(meter?.denominator)
         hasher.combine(tempo); hasher.combine(scale?.tonic); hasher.combine(scale?.mode)
-        hasher.combine(instruments); hasher.combine(performancePatterns); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
+        hasher.combine(instruments); hasher.combine(performancePatterns); hasher.combine(bassPatterns); hasher.combine(phrases); hasher.combine(sections); hasher.combine(main); hasher.combine(range)
     }
 }
 
@@ -221,6 +222,12 @@ public struct TextPerformancePatternSyntax: Sendable, Hashable {
     public let range: SourceRange
 }
 
+public struct TextBassPatternSyntax: Sendable, Hashable {
+    public let name: TextToken
+    public let degrees: [TextToken]
+    public let range: SourceRange
+}
+
 public struct TextPerformanceStepSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
         case interaction([TextToken])
@@ -283,6 +290,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case grace(policy: TextToken, budget: TextDurationSyntax?, expressions: [TextExpressionSyntax])
         case ornament(name: TextToken, subdivision: TextDurationSyntax, expressions: [TextExpressionSyntax])
         case bass(pattern: TextToken, subdivision: TextDurationSyntax, octave: TextToken, chords: [TextExpressionSyntax])
+        case voiceLeading(policy: TextToken, expressions: [TextExpressionSyntax])
         case technique(name: TextToken, expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])

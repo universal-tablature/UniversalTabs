@@ -374,11 +374,20 @@ public struct TextSemanticLowerer: Sendable {
                     ]
                 ), id: id("ornament:\(name.lexeme)", expression.range))
             case .bass(let pattern, let subdivisionSyntax, let octaveToken, let chords):
-                let supported = ["roots", "rootFifth", "arpeggio"]
-                guard supported.contains(String(pattern.lexeme)) else {
-                    error("Unknown bass pattern '\(pattern.lexeme)'; expected roots, rootFifth, or arpeggio", at: pattern.range)
+                let matches = modules.flatMap(\.bassPatterns).filter { $0.name.lexeme == pattern.lexeme }
+                guard let definition = matches.first else {
+                    error("Unknown bass pattern '\(pattern.lexeme)'; import or define it before use", at: pattern.range)
                     result = expressionSequence(chords, range: expression.range)
                     break
+                }
+                if matches.count > 1 { error("Ambiguous bass pattern '\(pattern.lexeme)'", at: pattern.range) }
+                let degrees = definition.degrees.compactMap { token -> Int? in
+                    let degree = token.lexeme == "root" ? 1 : token.integerValue
+                    guard let degree, [1, 3, 5, 7, 9, 11, 13].contains(degree) else {
+                        error("Bass-pattern degrees must be root or an odd chord degree through 13", at: token.range)
+                        return nil
+                    }
+                    return degree
                 }
                 guard let octave = octaveToken.integerValue, (0...9).contains(octave) else {
                     error("Bass octave must be in 0...9", at: octaveToken.range)
@@ -395,11 +404,24 @@ public struct TextSemanticLowerer: Sendable {
                     operands: [.sequence(chords.map { lowerExpression($0) }, id: id("bass-chords", expression.range))],
                     parameters: [
                         "pattern": .string(String(pattern.lexeme)),
+                        "degrees": .list(degrees.map(MetadataValue.integer)),
                         "octave": .integer(octave),
                         "subdivisionNumerator": .integer(subdivision.numerator),
                         "subdivisionDenominator": .integer(subdivision.denominator),
                     ]
                 ), id: id("bass:\(pattern.lexeme)", expression.range))
+            case .voiceLeading(let policy, let expressions):
+                guard policy.lexeme == "nearest" else {
+                    error("Unknown voice-leading policy '\(policy.lexeme)'; expected nearest", at: policy.range)
+                    result = expressionSequence(expressions, range: expression.range)
+                    break
+                }
+                result = .technique(.init(
+                    "__voiceLeading",
+                    form: .scoped,
+                    operands: [expressionSequence(expressions, range: expression.range)],
+                    parameters: ["policy": .string("nearest")]
+                ), id: id("voice-leading:nearest", expression.range))
             case .technique: result = lowerTechniqueExpression(expression)
             case .sequence: result = lowerSequenceExpression(expression)
             case .parallel: result = lowerParallelExpression(expression)
@@ -544,14 +566,11 @@ public struct TextSemanticLowerer: Sendable {
                 }
                 let bassPitch = bass.flatMap { parsePitchClass(String($0.lexeme)) }
                 if bass != nil && bassPitch == nil { error("Invalid chord bass '\(bass!.lexeme)'", at: bass!.range) }
-                if let bassPitch, !chordQuality.intervals.contains(where: { (spelling.pitchClass.rawValue + $0) % 12 == bassPitch.pitchClass.rawValue }) {
-                    error("Explicit chord bass must be a chord tone", at: bass!.range)
-                }
                 let inversionValue = inversion?.integerValue
                 if let inversionValue, !chordQuality.intervals.indices.contains(inversionValue) {
                     error("Chord inversion must be in 0...\(chordQuality.intervals.count - 1)", at: inversion!.range)
                 }
-                if let bassPitch, let inversionValue,
+                if let bassPitch, let inversionValue, chordQuality.intervals.indices.contains(inversionValue),
                    (spelling.pitchClass.rawValue + chordQuality.intervals[inversionValue]) % 12 != bassPitch.pitchClass.rawValue {
                     error("Explicit chord bass and inversion disagree", at: bass!.range)
                 }

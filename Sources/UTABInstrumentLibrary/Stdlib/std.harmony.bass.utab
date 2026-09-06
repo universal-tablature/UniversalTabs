@@ -1,0 +1,13 @@
+module std.harmony.bass
+
+bassPattern roots {
+    degrees root
+}
+
+bassPattern rootFifth {
+    degrees root, 5
+}
+
+bassPattern arpeggio {
+    degrees root, 3, 5, 3
+}
