@@ -357,6 +357,35 @@ public struct InstrumentModelDefinition: Sendable, Hashable {
         self.fingerings = fingerings; self.defaultFingering = defaultFingering; self.defaults = defaults
         self.realization = realization
     }
+
+    /// The acoustic displacement from an authored (written) pitch to the pitch
+    /// produced by this model. An exact middle-C anchor takes precedence over
+    /// legacy pitch-class metadata so octave-transposing instruments are explicit.
+    public var writtenToSoundingCents: Int {
+        for geometry in geometry {
+            if case .pitch(let soundingMiddleC)? = geometry.properties["writtenMiddleCSounds"] {
+                return soundingMiddleC.acousticCents - AbsolutePitch(.c, octave: 4).acousticCents
+            }
+        }
+        for geometry in geometry {
+            guard case .text(let transposition)? = geometry.properties["transposition"] else { continue }
+            let base: Int
+            switch transposition {
+            case "C": base = 0
+            case "Bb": base = -200
+            case "A": base = -300
+            case "Eb": base = -900
+            case "F": base = -700
+            default: continue
+            }
+            let octave: Int
+            if case .boolean(true)? = geometry.properties["soundsOctaveLower"] { octave = -1_200 }
+            else if case .boolean(true)? = geometry.properties["soundsOctaveHigher"] { octave = 1_200 }
+            else { octave = 0 }
+            return base + octave
+        }
+        return 0
+    }
 }
 
 /// A configured instrument used by a project or arrangement.

@@ -140,7 +140,7 @@ public struct InstrumentRealizationStage: CompilerStage {
             let tuning: InstrumentTuningDefinition?
             let fretCount: Int?
 
-            var isKeyboard: Bool { profile.actuators.contains { $0.id == "keys" } }
+            var isKeyboard: Bool { model.geometry.contains { $0.id == "keyboard" } }
             var isFrettedStrings: Bool { fretCount != nil && profile.actuators.contains { $0.id == "strings" } }
         }
 
@@ -306,9 +306,9 @@ public struct InstrumentRealizationStage: CompilerStage {
             case .rest:
                 kind = .rest
             case .note(let pitch, let constraints):
-                kind = realizeNote(pitch, duration: expression.duration, constraints: constraints, context: context, path: path)
+                kind = realizeNote(soundingPitch(pitch, context: context), duration: expression.duration, constraints: constraints, context: context, path: path)
             case .chord(let chord, let constraints):
-                kind = realizeChord(chord, duration: expression.duration, constraints: constraints, context: context, expression: expression, path: path)
+                kind = realizeChord(soundingChord(chord, context: context), duration: expression.duration, constraints: constraints, context: context, expression: expression, path: path)
             case .actuator(let actuator):
                 validate(actuator: actuator, context: context, path: path)
                 kind = .actuator(resolveSoundingPitch(for: actuator, context: context))
@@ -353,6 +353,25 @@ public struct InstrumentRealizationStage: CompilerStage {
                 duration: expression.duration,
                 kind: kind,
                 annotations: expression.annotations
+            )
+        }
+
+        func soundingPitch(_ pitch: ResolvedTimelinePitch, context: Context) -> ResolvedTimelinePitch {
+            .init(authored: pitch.authored, absolute: pitch.absolute.transposed(cents: context.model.writtenToSoundingCents))
+        }
+
+        func soundingChord(_ chord: ResolvedTimelineChord, context: Context) -> ResolvedTimelineChord {
+            let semitones = context.model.writtenToSoundingCents / 100
+            guard semitones != 0 else { return chord }
+            let rawRoot = ((chord.rootPitchClass.rawValue + semitones) % 12 + 12) % 12
+            let root = PitchClass(rawValue: rawRoot)!
+            let bass = chord.authored.bass.map { value -> SpelledPitchClass in
+                let raw = ((value.pitchClass.rawValue + semitones) % 12 + 12) % 12
+                return SpelledPitchClass.canonical(PitchClass(rawValue: raw)!)
+            }
+            return .init(
+                authored: .init(root: chord.authored.root, quality: chord.authored.quality, bass: bass, inversion: chord.authored.inversion),
+                rootPitchClass: root
             )
         }
 
@@ -816,7 +835,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                     return realize(child, context: context, path: childPath)
                 }
                 let kind = realizeChord(
-                    chord,
+                    soundingChord(chord, context: context),
                     duration: child.duration,
                     constraints: constraints,
                     context: context,

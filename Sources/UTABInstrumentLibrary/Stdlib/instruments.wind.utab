@@ -39,7 +39,7 @@ model ConcertFlute : KeyedAirColumnWind {
 model BbTrumpet : ValvedBrass {
     id "instrument:trumpet:b-flat"
     name "B-flat Trumpet"
-    geometry bore { shape cylindricalThenConical; material brass; transposition "Bb" }
+    geometry bore { shape cylindricalThenConical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
     geometry valves { count 3; type piston; firstValveSemitones 2; secondValveSemitones 1; thirdValveSemitones 3; typicalWrittenRange "F#3-D6" }
     geometry harmonics { lowestPartial 2; highestPartial 10; pedalPartial 1; registerRequired true; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68; thirteenthPartialOffsetCents 40.53 }
     geometry tuningSlides { firstValve true; thirdValve true; continuous true }
@@ -182,14 +182,14 @@ model BbClarinet : SingleReedWind {
 model AltoSaxophone : Saxophone {
     id "instrument:saxophone:alto-e-flat"
     name "E-flat Alto Saxophone"
-    geometry bore { shape conical; material brass; transposition "Eb" }
+    geometry bore { shape conical; material brass; transposition "Eb"; writtenMiddleCSounds Eb3 }
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
 
 model TenorSaxophone : Saxophone {
     id "instrument:saxophone:tenor-b-flat"
     name "B-flat Tenor Saxophone"
-    geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true }
+    geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
 

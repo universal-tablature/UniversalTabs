@@ -1145,6 +1145,36 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func transposingInstrumentsSeparateWrittenSpellingFromSoundingPitch() throws {
+    let models = StandardInstruments.catalog.models
+    #expect(models.first { $0.name == "B-flat Clarinet" }?.writtenToSoundingCents == -200)
+    #expect(models.first { $0.name == "B-flat Trumpet" }?.writtenToSoundingCents == -200)
+    #expect(models.first { $0.name == "E-flat Alto Saxophone" }?.writtenToSoundingCents == -900)
+    #expect(models.first { $0.name == "B-flat Tenor Saxophone" }?.writtenToSoundingCents == -1_400)
+    #expect(models.first { $0.name == "Oboe" }?.writtenToSoundingCents == 0)
+
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.wind
+        meter 2/4
+        tempo 100
+        instrument clarinet : BbClarinet
+        section s { clarinet { voice v { C#4 q; C5 q } } }
+        main { s }
+        """, fileID: "written-sounding-pitch.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let sounding = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }
+    #expect(sounding == [59, 70])
+    let written = try #require(result.document?.editingMap).occurrences.compactMap(\.pitchRepresentation)
+    #expect(written.contains { $0.kind == .absolute && $0.letter == "C" && $0.accidental == 1 && $0.octave == 4 })
+    #expect(written.contains { $0.kind == .absolute && $0.letter == "C" && $0.accidental == 0 && $0.octave == 5 })
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano
