@@ -987,6 +987,50 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     }
 }
 
+@Test func augmentationAndDiminutionScaleExpandedPhrasesExactly() throws {
+    let events = try timed("""
+        meter 4/4
+        tempo 120
+        phrase motif { C4 e; D4 e }
+        section test { piano { voice melody {
+            augment 3/2 { motif }
+            diminish 2/1 { motif }
+            augment 2/1 { diminish 4/1 { motif } }
+        } } }
+        """)
+    #expect(events.map(\.duration) == [
+        MusicalDuration(3, 16), MusicalDuration(3, 16),
+        MusicalDuration(1, 16), MusicalDuration(1, 16),
+        MusicalDuration(1, 16), MusicalDuration(1, 16),
+    ])
+    #expect(events[2].offset == MusicalDuration(3, 8))
+    #expect(events[4].offset == MusicalDuration(1, 2))
+    #expect(events.allSatisfy { $0.provenance.expansionPath.contains { $0.contains("proportional") } })
+}
+
+@Test func invalidRhythmicTransformRatiosAreDiagnosed() {
+    for transform in [
+        "augment 0/1 { C4 q }",
+        "diminish 2/0 { C4 q }",
+        "augment 1.5/1 { C4 q }",
+        "augment 9223372036854775807/1 { augment 2/1 { C4 q } }",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            section s { piano { voice v { \(transform) } } }
+            main { s }
+            """, fileID: "invalid-rhythmic-transform.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains {
+            let message = $0.message.lowercased()
+            return message.contains("ratio") || message.contains("overflow") || message.contains("positive ratio")
+        }, "\(result.diagnostics)")
+    }
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

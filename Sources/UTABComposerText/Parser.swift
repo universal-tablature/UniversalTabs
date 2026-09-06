@@ -793,6 +793,16 @@ public struct TextParser: Sendable {
                 let close = expect(.rightBrace, "Expected '}' after proportional group") ?? current
                 return .init(kind: .proportional(numerator: numerator, denominator: denominator, tuplet: start.lexeme == "tuplet", expressions: children), range: spanning(start, close))
             }
+            if isKeyword("augment") || isKeyword("diminish") {
+                let kind = advance()
+                guard let numerator = expect(.integerLiteral, "Expected positive ratio numerator"),
+                      expect(.slash, "Expected '/' in rhythmic transform ratio") != nil,
+                      let denominator = expect(.integerLiteral, "Expected positive ratio denominator"),
+                      expect(.leftBrace, "Expected '{' after rhythmic transform ratio") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after rhythmic transform") ?? current
+                return .init(kind: .rhythmicTransform(kind: kind, numerator: numerator, denominator: denominator, expressions: children), range: spanning(kind, close))
+            }
             if takeKeyword("meter") {
                 let keyword = tokens[index - 1]
                 guard let numerator = expect(.integerLiteral, "Expected meter numerator"),

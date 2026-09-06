@@ -351,6 +351,18 @@ public struct TextSemanticLowerer: Sendable {
             case .reference: result = lowerReferenceExpression(expression)
             case .repeated: result = lowerRepeatedExpression(expression)
             case .proportional: result = lowerProportionalExpression(expression)
+            case .rhythmicTransform(let kind, let numerator, let denominator, let expressions):
+                guard let n = numerator.integerValue, let d = denominator.integerValue, n > 0, d > 0 else {
+                    error("Rhythmic transform ratios require positive representable integers", at: expression.range)
+                    result = .rest(.zero)
+                    break
+                }
+                let factor = kind.lexeme == "augment" ? Rational(n, d) : Rational(d, n)
+                result = .init(
+                    id: id("\(kind.lexeme):\(n)/\(d)", expression.range),
+                    kind: .proportional(factor, expressionSequence(expressions, range: expression.range)),
+                    annotations: .init(metadata: ["rhythmicTransform": .string(String(kind.lexeme)), "ratio": .string("\(n)/\(d)")], source: expression.range)
+                )
             case .transposePitch(let semitones, let expressions):
                 if pitchTransformDepth > 0 {
                     error("Nested pitch transforms require the parameter expression evaluator", at: expression.range)
