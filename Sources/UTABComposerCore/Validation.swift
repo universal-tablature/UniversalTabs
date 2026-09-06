@@ -30,7 +30,9 @@ public struct CompositionValidator: Sendable {
                 diagnostics.append(.init(.error, path: "phrases[\(index)].name", message: "Duplicate phrase '\(phrase.name)'"))
             }
             for (barIndex, bar) in phrase.bars.enumerated() {
-                let expectedDuration = bar.meter?.duration ?? composition.meter.duration
+                // An unqualified phrase bar inherits meter from each use site, so
+                // its duration can only be checked during reference expansion.
+                guard let expectedDuration = bar.meter?.duration else { continue }
                 guard let actualDuration = bar.expression.duration else {
                     diagnostics.append(.init(
                         .error,

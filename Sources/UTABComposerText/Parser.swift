@@ -527,13 +527,15 @@ public struct TextParser: Sendable {
                   expect(.colon, "Expected ':' after instrument instance name") != nil else { return nil }
             guard let model = parseSymbolReference("Expected instrument model name") else { return nil }
             var displayName: TextToken?
+            var tuning: TextSymbolReferenceSyntax?
             var fingering: TextSymbolReferenceSyntax?
-            while current.kind == .identifier, current.lexeme == "as" || current.lexeme == "fingering" {
+            while current.kind == .identifier, current.lexeme == "as" || current.lexeme == "tuning" || current.lexeme == "fingering" {
                 if takeKeyword("as") { displayName = expect(.stringLiteral, "Expected quoted instrument display name") }
+                else if takeKeyword("tuning") { tuning = parseSymbolReference("Expected tuning name or stable ID") }
                 else if takeKeyword("fingering") { fingering = parseSymbolReference("Expected fingering name or stable ID") }
             }
-            let end = displayName?.range.end ?? fingering?.range.end ?? model.range.end
-            return .init(name: name, model: model, fingering: fingering, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
+            let end = displayName?.range.end ?? fingering?.range.end ?? tuning?.range.end ?? model.range.end
+            return .init(name: name, model: model, tuning: tuning, fingering: fingering, displayName: displayName, range: .init(fileID: name.range.fileID, start: name.range.start, end: end))
         }
 
         mutating func parsePerformancePattern() -> TextPerformancePatternSyntax? {
@@ -821,6 +823,12 @@ public struct TextParser: Sendable {
                       expect(.slash, "Expected '/' in meter") != nil,
                       let denominator = expect(.integerLiteral, "Expected meter denominator") else { return nil }
                 return .init(kind: .meter(numerator: numerator, denominator: denominator), range: spanning(keyword, denominator))
+            }
+            if takeKeyword("scale") {
+                let keyword = tokens[index - 1]
+                guard let tonic = expect(.identifier, "Expected scale tonic"),
+                      let mode = expect(.identifier, "Expected scale name") else { return nil }
+                return .init(kind: .scale(tonic: tonic, mode: mode), range: spanning(keyword, mode))
             }
             if takeKeyword("tempo") {
                 let keyword = tokens[index - 1]

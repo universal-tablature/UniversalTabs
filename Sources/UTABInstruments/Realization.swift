@@ -283,7 +283,7 @@ public struct InstrumentRealizationStage: CompilerStage {
                 diagnostics.append(.init(.error, path: "\(path).instrument", message: "Model '\(modelID)' has no resolvable capability profile"))
                 return nil
             }
-            let tuningID = model.defaultTuning ?? model.tunings.first
+            let tuningID = instance.tuning ?? model.defaultTuning ?? model.tunings.first
             let tuning = tuningID.flatMap { id in request.catalog.tunings.first { $0.id == id } }
             if tuningID != nil && tuning == nil {
                 diagnostics.append(.init(.error, path: "\(path).instrument", message: "Model '\(modelID)' has an unresolved tuning"))

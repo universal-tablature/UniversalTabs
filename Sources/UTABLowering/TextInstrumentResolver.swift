@@ -36,6 +36,21 @@ public struct TextInstrumentResolver: Sendable {
                 diagnostics.append(.init(.error, message: "Duplicate instrument instance '\(declaration.name)'", range: declaration.range))
                 continue
             }
+            let tuning: InstrumentID?
+            if let requested = declaration.tuning {
+                let candidates = catalog.tunings.filter {
+                    model.tunings.contains($0.id) && (
+                        $0.id.rawValue == requested
+                            || $0.id.rawValue.split(separator: ":").last.map(String.init) == requested
+                            || $0.name.caseInsensitiveCompare(requested) == .orderedSame
+                    )
+                }
+                guard candidates.count == 1, let selected = candidates.first else {
+                    diagnostics.append(.init(.error, message: candidates.isEmpty ? "Unknown tuning '\(requested)' for '\(model.name)'" : "Ambiguous tuning '\(requested)' for '\(model.name)'", range: declaration.range))
+                    continue
+                }
+                tuning = selected.id
+            } else { tuning = model.defaultTuning }
             let fingering: InstrumentID?
             if let requested = declaration.fingering {
                 let candidates = catalog.fingerings.filter {
@@ -51,6 +66,7 @@ public struct TextInstrumentResolver: Sendable {
                 id: .init(rawValue: declaration.name),
                 name: declaration.displayName ?? declaration.name,
                 model: model.id,
+                tuning: tuning,
                 fingering: fingering
             )
         }

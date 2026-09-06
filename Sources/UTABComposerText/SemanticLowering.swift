@@ -11,6 +11,7 @@ public struct TextSemanticResult: Sendable {
 public struct TextInstrumentInstanceDeclaration: Sendable, Hashable {
     public let name: String
     public let model: String
+    public let tuning: String?
     public let fingering: String?
     public let displayName: String?
     public let range: SourceRange
@@ -174,6 +175,7 @@ public struct TextSemanticLowerer: Sendable {
                 .init(
                     name: String($0.name.lexeme),
                     model: $0.model.value,
+                    tuning: $0.tuning?.value,
                     fingering: $0.fingering?.value,
                     displayName: $0.displayName?.stringValue,
                     range: $0.range
@@ -419,6 +421,18 @@ public struct TextSemanticLowerer: Sendable {
             case .bar: result = lowerBarExpression(expression)
             case .pickup, .finalBar: result = lowerPartialBarExpression(expression)
             case .meter: result = lowerMeterExpression(expression)
+            case .scale(let tonic, let mode):
+                guard let scale = lowerScale(tonic, mode) else {
+                    result = .rest(.zero, id: id("invalid-scale-change", expression.range))
+                    break
+                }
+                result = .init(id: id("scale", expression.range), kind: .rest(.zero), annotations: .init(metadata: [
+                    "scaleTonicLetter": .integer(scale.tonicSpelling.letter.rawValue),
+                    "scaleTonicAccidental": .integer(scale.tonicSpelling.accidental),
+                    "scaleTonicTuningCents": .integer(scale.tonicSpelling.tuningOffsetCents),
+                    "scaleName": .string(String(mode.lexeme)),
+                    "scaleIntervals": .list(scale.kind.centIntervals.map(MetadataValue.integer)),
+                ], source: expression.range))
             case .tempo: result = lowerTempoExpression(expression)
             case .tempoRamp: result = lowerTempoRampExpression(expression)
             case .fermata: result = lowerFermataExpression(expression)
@@ -1051,8 +1065,25 @@ public struct TextSemanticLowerer: Sendable {
         mutating func lowerParallelExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
             case .parallel(let expressions):
+                for child in expressions where containsContextDirective(child) {
+                    error("Meter, scale, and tempo changes are not allowed inside parallel branches", at: child.range)
+                }
                 return .parallel(expressions.map { lowerExpression($0) }, id: id("parallel", expression.range))
             default: preconditionFailure("Mismatched expression dispatch")
+            }
+        }
+
+        func containsContextDirective(_ expression: TextExpressionSyntax) -> Bool {
+            switch expression.kind {
+            case .meter, .scale, .tempo, .tempoRamp: return true
+            case .sequence(let children), .parallel(let children), .bar(let children), .pickup(let children), .finalBar(let children),
+                 .repeated(_, let children), .dynamic(_, let children), .dynamicEnvelope(_, _, let children), .pedal(let children),
+                 .grace(_, _, let children), .ornament(_, _, let children), .voiceLeading(_, let children), .technique(_, let children),
+                 .transposePitch(_, let children), .transposeDegree(_, let children), .rhythmicTransform(_, _, _, let children):
+                return children.contains(where: containsContextDirective)
+            case .proportional(_, _, _, let children): return children.contains(where: containsContextDirective)
+            case .bass(_, _, _, let children), .performed(_, let children): return children.contains(where: containsContextDirective)
+            default: return false
             }
         }
 

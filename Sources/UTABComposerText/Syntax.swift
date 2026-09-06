@@ -218,6 +218,7 @@ public struct TextTuningSyntax: Sendable, Hashable {
 public struct TextInstrumentInstanceSyntax: Sendable, Hashable {
     public let name: TextToken
     public let model: TextSymbolReferenceSyntax
+    public let tuning: TextSymbolReferenceSyntax?
     public let fingering: TextSymbolReferenceSyntax?
     public let displayName: TextToken?
     public let range: SourceRange
@@ -313,6 +314,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case pickup([TextExpressionSyntax])
         case finalBar([TextExpressionSyntax])
         case meter(numerator: TextToken, denominator: TextToken)
+        case scale(tonic: TextToken, mode: TextToken)
         case tempo(unit: TextDurationSyntax?, beatsPerMinute: TextToken)
         case tempoRamp(target: TextToken, duration: TextDurationSyntax, steps: TextToken?)
         case fermata(duration: TextDurationSyntax, factor: TextToken)

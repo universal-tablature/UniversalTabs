@@ -126,6 +126,7 @@ public struct ReferenceExpansionStage: CompilerStage {
         var timeFactor = Rational(1)
         var pitchTransposition = 0
         var degreeTransposition = 0
+        var activeMeter: TimeSignature?
 
         var phrasesByID: [SemanticID: Phrase] {
             Dictionary(uniqueKeysWithValues: input.source.phrases.map { ($0.id, $0) })
@@ -195,6 +196,7 @@ public struct ReferenceExpansionStage: CompilerStage {
         }
 
         mutating func expandSection(_ section: NameResolvedSection, sectionIndex: Int) -> ExpandedSection {
+            activeMeter = section.source.meter ?? input.source.meter
             let harmony = section.source.harmony.flatMap {
                 expandExpression(
                     $0,
@@ -204,18 +206,27 @@ public struct ReferenceExpansionStage: CompilerStage {
             }
             let parts = section.parts.enumerated().map { partIndex, part in
                 let voices = part.voices.enumerated().map { voiceIndex, voice in
+                    var voiceMeter = section.source.meter ?? input.source.meter
+                    activeMeter = voiceMeter
                     let voicePath = [
                         "section:\(section.source.id.rawValue)",
                         "part:\(partIndex):\(part.source.id.rawValue)",
                         "voice:\(voiceIndex):\(voice.source.id.rawValue)",
                     ]
                     let expressions = voice.content.enumerated().compactMap { contentIndex, content in
+                        activeMeter = voiceMeter
                         let path = voicePath + ["content:\(contentIndex)"]
                         switch content {
                         case .expression(let expression):
-                            return expandExpression(expression, path: path, ancestry: [])
+                            let result = expandExpression(expression, path: path, ancestry: [])
+                            if case .integer(let numerator)? = expression.annotations.metadata["meterNumerator"],
+                               case .integer(let denominator)? = expression.annotations.metadata["meterDenominator"] {
+                                voiceMeter = .init(numerator, denominator)
+                            }
+                            return result
                         case .reference(let reference):
-                            return expandPhrase(reference.declaration.id, path: path, ancestry: [])
+                            activeMeter = voiceMeter
+                            return expandPhrase(reference.declaration.id, path: path, ancestry: [], meter: voiceMeter)
                         }
                     }
                     let origin = voice.source.id
@@ -237,8 +248,13 @@ public struct ReferenceExpansionStage: CompilerStage {
         mutating func expandPhrase(
             _ phraseID: SemanticID,
             path: [String],
-            ancestry: [SemanticID]
+            ancestry: [SemanticID],
+            meter: TimeSignature? = nil
         ) -> ExpandedExpression? {
+            let inheritedMeter = activeMeter
+            defer { activeMeter = inheritedMeter }
+            if let meter { activeMeter = meter }
+            let useSiteMeter = activeMeter ?? input.source.meter
             guard let phrase = phrasesByID[phraseID] else {
                 diagnostics.append(.init(.error, path: path.joined(separator: "."), message: "Resolved phrase '\(phraseID)' is unavailable during expansion"))
                 return nil
@@ -251,8 +267,9 @@ public struct ReferenceExpansionStage: CompilerStage {
                         path: phrasePath + ["bar:\(index):\(bar.id.rawValue)"],
                         ancestry: ancestry + [phraseID, bar.id]
                     )
-                    if let result, result.duration != (bar.meter ?? input.source.meter).duration {
-                        diagnostics.append(.init(.error, path: phrasePath.joined(separator: "."), message: "Bar duration is \(result.duration); expected \((bar.meter ?? input.source.meter).duration)", range: bar.annotations.source))
+                    let expectedMeter = bar.meter ?? useSiteMeter
+                    if let result, result.duration != expectedMeter.duration {
+                        diagnostics.append(.init(.error, path: phrasePath.joined(separator: "."), message: "Bar duration is \(result.duration); expected \(expectedMeter.duration)", range: bar.annotations.source))
                     }
                     return result
                 }
@@ -291,13 +308,22 @@ public struct ReferenceExpansionStage: CompilerStage {
             case .actuator(let actuator):
                 expandedKind = .actuator(.init(action: actuator.action, target: actuator.target, duration: scaled(actuator.duration, at: expression), soundingPitch: actuator.soundingPitch.map { transposedPitch($0, at: expression, path: path) }, parameters: actuator.parameters))
             case .sequence(let children):
-                expandedKind = .sequence(children.enumerated().compactMap { index, child in
-                    expandExpression(child, path: path + ["sequence:\(index)"], ancestry: ancestry)
-                })
+                var expanded: [ExpandedExpression] = []
+                for (index, child) in children.enumerated() {
+                    if let result = expandExpression(child, path: path + ["sequence:\(index)"], ancestry: ancestry) { expanded.append(result) }
+                    if case .integer(let numerator)? = child.annotations.metadata["meterNumerator"],
+                       case .integer(let denominator)? = child.annotations.metadata["meterDenominator"] {
+                        activeMeter = .init(numerator, denominator)
+                    }
+                }
+                expandedKind = .sequence(expanded)
             case .parallel(let children):
+                let inheritedMeter = activeMeter
                 expandedKind = .parallel(children.enumerated().compactMap { index, child in
-                    expandExpression(child, path: path + ["parallel:\(index)"], ancestry: ancestry)
+                    activeMeter = inheritedMeter
+                    return expandExpression(child, path: path + ["parallel:\(index)"], ancestry: ancestry)
                 })
+                activeMeter = inheritedMeter
             case .reference:
                 guard let reference = input.expressionReferences[expression.id] else {
                     diagnostics.append(.init(.error, path: path.joined(separator: "."), message: "Expression reference '\(expression.id)' has no name-resolution binding"))
@@ -320,10 +346,9 @@ public struct ReferenceExpansionStage: CompilerStage {
             case .barAssertion(let child):
                 guard let result = expandExpression(child, path: path + ["bar"], ancestry: ancestry + [expression.id]) else { return nil }
                 let expectedMeter: MusicalDuration = {
+                    if let activeMeter { return activeMeter.duration }
                     guard case .integer(let numerator)? = expression.annotations.metadata["expectedMeterNumerator"],
-                          case .integer(let denominator)? = expression.annotations.metadata["expectedMeterDenominator"] else {
-                        return input.source.meter.duration
-                    }
+                          case .integer(let denominator)? = expression.annotations.metadata["expectedMeterDenominator"] else { return input.source.meter.duration }
                     return MusicalDuration(numerator, denominator)
                 }()
                 if case .string(let role)? = expression.annotations.metadata["barRole"] {
@@ -350,6 +375,8 @@ public struct ReferenceExpansionStage: CompilerStage {
             case .technique(let application):
                 if application.technique == "__phraseApplication",
                    let operand = application.operands.first {
+                    let inheritedMeter = activeMeter
+                    defer { activeMeter = inheritedMeter }
                     let phrase: String
                     if case .string(let value)? = application.parameters["phrase"] { phrase = value }
                     else { phrase = expression.id.rawValue }
@@ -383,13 +410,16 @@ public struct ReferenceExpansionStage: CompilerStage {
                         ancestry: ancestry + [expression.id]
                     )
                 }
+                let inheritedMeter = activeMeter
                 let operands = application.operands.enumerated().compactMap { index, operand in
-                    expandExpression(
+                    activeMeter = inheritedMeter
+                    return expandExpression(
                         operand,
                         path: path + ["technique:\(expression.id.rawValue):\(index)"],
                         ancestry: ancestry + [expression.id]
                     )
                 }
+                activeMeter = inheritedMeter
                 expandedKind = .technique(.init(
                     technique: application.technique,
                     form: application.form,

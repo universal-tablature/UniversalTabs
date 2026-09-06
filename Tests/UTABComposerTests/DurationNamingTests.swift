@@ -1175,6 +1175,100 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(written.contains { $0.kind == .absolute && $0.letter == "C" && $0.accidental == 0 && $0.octave == 5 })
 }
 
+@Test func phrasesInheritMeterAndScaleAtEachUseSiteWithoutScopeLeakage() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        phrase dyad { bar { @1[4] q; @3[4] q } }
+        section s { piano { voice v {
+            meter 2/4
+            scale D major
+            dyad
+            transpose pitch 0 semitones { scale E major; @1[4] q }
+            @1[4] q
+        } } }
+        main { s }
+        """, fileID: "use-site-context.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }
+    #expect(pitches == [62, 66, 64, 62])
+    #expect(result.document?.setup.sections?.first?.meterMap?.first?.numerator == 2)
+    #expect(result.document?.setup.sections?.first?.meterMap?.first?.denominator == 4)
+}
+
+@Test func contextChangesInsideParallelBranchesAreDiagnosed() {
+    for expression in [
+        "(meter 3/4, C4 q)",
+        "(scale D major, C4 q)",
+        "(tempo 90, C4 q)",
+        "(transpose pitch 0 semitones { scale D major }, C4 q)",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            scale C major
+            instrument piano : Piano
+            section s { piano { voice v { \(expression) } } }
+            main { s }
+            """, fileID: "parallel-context.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.lowercased().contains("parallel branches") }, "\(result.diagnostics)")
+    }
+}
+
+@Test func instrumentTuningIsSelectedAtDeclarationSite() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.guitar
+        import tunings.guitar.dadgad
+        meter 4/4
+        tempo 100
+        instrument guitar : Guitar tuning dadgad
+        section s { guitar { voice v { D2 w } } }
+        main { s }
+        """, fileID: "instrument-tuning.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    #expect(result.instrumentBindings["guitar"]?.tuning?.rawValue == "tuning:guitar:dadgad")
+
+    let invalid = UTabTextCompiler().compile(TextSource("""
+        import instruments.guitar
+        meter 4/4
+        tempo 100
+        instrument guitar : Guitar tuning missing
+        section s { guitar { voice v { E2 w } } }
+        main { s }
+        """, fileID: "invalid-instrument-tuning.utab"), modules: StandardTextModuleProvider())
+    #expect(!invalid.succeeded)
+    #expect(invalid.diagnostics.contains { $0.message.contains("Unknown tuning 'missing'") })
+}
+
+@Test func phraseTempoChangesArePlacedAtEachUseSite() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        instrument piano : Piano
+        phrase paced { C4 q; tempo 90; D4 q }
+        section s { piano { voice v { C3 h; paced; paced } } }
+        main { s }
+        """, fileID: "phrase-tempo-context.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let map = try #require(result.document?.setup.time?.tempoMap)
+    #expect(map.map(\.quarterNotesPerMinute) == [90, 90])
+    #expect(map[0].at?["beat"] == .number(4))
+    #expect(map[1].at?["measure"] == .number(2))
+    #expect(map[1].at?["beat"] == .number(2))
+}
+
 @Test func nearestVoiceLeadingIsScopedAndRespectsExplicitVoicings() throws {
     let result = UTabTextCompiler().compile(TextSource("""
         import instruments.piano

@@ -393,11 +393,12 @@ public struct InstrumentInstanceDefinition: Sendable, Hashable {
     public let id: InstrumentID
     public let name: String?
     public let model: InstrumentID
+    public let tuning: InstrumentID?
     public let fingering: InstrumentID?
     public let configuration: [String: InstrumentValue]
 
-    public init(id: InstrumentID, name: String? = nil, model: InstrumentID, fingering: InstrumentID? = nil, configuration: [String: InstrumentValue] = [:]) {
-        self.id = id; self.name = name; self.model = model; self.fingering = fingering; self.configuration = configuration
+    public init(id: InstrumentID, name: String? = nil, model: InstrumentID, tuning: InstrumentID? = nil, fingering: InstrumentID? = nil, configuration: [String: InstrumentValue] = [:]) {
+        self.id = id; self.name = name; self.model = model; self.tuning = tuning; self.fingering = fingering; self.configuration = configuration
     }
 }
 

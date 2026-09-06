@@ -404,7 +404,12 @@ public struct PitchResolutionStage: CompilerStage {
         case .actuator(let actuator):
             kind = .actuator(actuator)
         case .sequence(let children):
-            kind = .sequence(children.map { resolve($0, scale: scale, diagnostics: &diagnostics) })
+            var activeScale = scale
+            kind = .sequence(children.map { child in
+                let result = resolve(child, scale: activeScale, diagnostics: &diagnostics)
+                if let changed = scaleChange(in: child) { activeScale = changed }
+                return result
+            })
         case .parallel(let children):
             kind = .parallel(children.map { resolve($0, scale: scale, diagnostics: &diagnostics) })
         case .technique(let application):
@@ -421,6 +426,24 @@ public struct PitchResolutionStage: CompilerStage {
             duration: expression.duration,
             kind: kind,
             annotations: expression.annotations
+        )
+    }
+
+    private func scaleChange(in expression: TimedExpression) -> Scale? {
+        guard case .integer(let letterRaw)? = expression.annotations.metadata["scaleTonicLetter"],
+              let letter = NoteLetter(rawValue: letterRaw),
+              case .integer(let accidental)? = expression.annotations.metadata["scaleTonicAccidental"],
+              case .integer(let tuning)? = expression.annotations.metadata["scaleTonicTuningCents"],
+              case .string(let name)? = expression.annotations.metadata["scaleName"],
+              case .list(let values)? = expression.annotations.metadata["scaleIntervals"] else { return nil }
+        let intervals = values.compactMap { value -> Int? in
+            guard case .integer(let interval) = value else { return nil }
+            return interval
+        }
+        guard intervals.count == values.count else { return nil }
+        return Scale(
+            .init(letter, accidental: accidental, tuningOffsetCents: tuning),
+            .custom(name: name, centIntervals: intervals)
         )
     }
 

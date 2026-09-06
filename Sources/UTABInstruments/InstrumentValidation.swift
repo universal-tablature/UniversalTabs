@@ -169,6 +169,9 @@ public struct InstrumentCatalogValidator: Sendable {
         guard let model = catalog.models.first(where: { $0.id == instance.model }) else {
             return [.init(path: "instance.model", message: "Unknown model '\(instance.model)'")]
         }
+        if let tuning = instance.tuning, !model.tunings.contains(tuning) {
+            return [.init(path: "instance.tuning", message: "Tuning '\(tuning)' is not supported by model '\(model.id)'")]
+        }
         if let fingering = instance.fingering, !model.fingerings.contains(fingering) {
             return [.init(path: "instance.fingering", message: "Fingering '\(fingering)' is not supported by model '\(model.id)'")]
         }
