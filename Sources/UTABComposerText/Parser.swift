@@ -777,7 +777,7 @@ public struct TextParser: Sendable {
             if takeKeyword("transpose") {
                 let start = tokens[index - 1]
                 if takeKeyword("pitch") {
-                    guard let semitones = expectNumber("Expected signed semitone count") else { return nil }
+                    guard let semitones = expectIntegerExpression("Expected signed semitone count or integer parameter") else { return nil }
                     guard takeKeyword("semitones") || takeKeyword("semitone") else {
                         diagnose("Expected semitone or semitones after pitch transposition")
                         return nil
@@ -788,7 +788,7 @@ public struct TextParser: Sendable {
                     return .init(kind: .transposePitch(semitones: semitones, expressions: children), range: spanning(start, close))
                 }
                 guard expectKeyword("degree", "Expected 'pitch' or 'degree' after 'transpose'") != nil,
-                      let degrees = expectNumber("Expected signed scale-degree count") else { return nil }
+                      let degrees = expectIntegerExpression("Expected signed scale-degree count or integer parameter") else { return nil }
                 _ = takeKeyword("degrees") || takeKeyword("degree")
                 guard expect(.leftBrace, "Expected '{' after degree transposition") != nil else { return nil }
                 let children = parseExpressions(until: .rightBrace)
@@ -1047,8 +1047,8 @@ public struct TextParser: Sendable {
                 while current.kind != .rightParen && current.kind != .endOfFile {
                     guard let label = expect(.identifier, "Expected argument label"),
                           expect(.colon, "Expected ':' after argument label") != nil,
-                          let value = expect(.identifier, "Expected pitch argument") else { return nil }
-                    arguments.append(.init(label: label, value: value, range: spanning(label, value)))
+                          let value = parseValueExpression() else { return nil }
+                    arguments.append(.init(label: label, value: value, range: .init(fileID: label.range.fileID, start: label.range.start, end: value.range.end)))
                     if !take(.comma) { break }
                 }
                 let close = expect(.rightParen, "Expected ')' after phrase arguments") ?? current
@@ -1067,6 +1067,25 @@ public struct TextParser: Sendable {
                 return .init(kind: isConcretePitch && alteration == 0 ? .note(pitch: first, duration: duration) : .symbol(name: first, alteration: alteration, octave: nil, duration: duration), range: spanning(first, tokens[index - 1]))
             }
             return .init(kind: .reference(first, arguments: []), range: first.range)
+        }
+
+        mutating func parseValueExpression() -> TextValueExpressionSyntax? {
+            guard current.kind == .identifier || current.kind == .integerLiteral else {
+                diagnose("Expected pitch or integer argument")
+                return nil
+            }
+            var result: TextValueExpressionSyntax = .atom(advance())
+            if current.kind == .plus || current.kind == .minus {
+                let operation = advance()
+                guard let amount = expect(.integerLiteral, "Expected integer offset"),
+                      current.kind == .identifier else {
+                    diagnose("Expected semitone(s) or degree(s) after offset")
+                    return nil
+                }
+                let unit = advance()
+                result = .pitchOffset(base: result, operation: operation, amount: amount, unit: unit)
+            }
+            return result
         }
 
         /// Parses a direct instrument interaction such as `pluck strings[2] q`.
@@ -1261,6 +1280,10 @@ public struct TextParser: Sendable {
         func isDuration(_ token: TextToken) -> Bool { ["w", "h", "q", "e", "s"].contains(String(token.lexeme)) }
         mutating func expectNumber(_ message: String) -> TextToken? {
             if current.kind == .integerLiteral || current.kind == .decimalLiteral { return advance() }
+            diagnose(message); return nil
+        }
+        mutating func expectIntegerExpression(_ message: String) -> TextToken? {
+            if current.kind == .integerLiteral || current.kind == .decimalLiteral || current.kind == .identifier { return advance() }
             diagnose(message); return nil
         }
         mutating func expectKeyword(_ keyword: String, _ message: String) -> TextToken? {

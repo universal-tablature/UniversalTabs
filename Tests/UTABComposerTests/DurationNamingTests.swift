@@ -903,7 +903,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
 }
 
 @Test func invalidChromaticPitchTranspositionsAreDiagnosed() {
-    for transform in ["transpose pitch 1.5 semitones { C4 w }", "transpose pitch 128 semitones { C4 w }", "transpose pitch 1 semitone { transpose pitch 2 semitones { C4 w } }"] {
+    for transform in ["transpose pitch 1.5 semitones { C4 w }", "transpose pitch 128 semitones { C4 w }"] {
         let invalid = UTabTextCompiler().compile(TextSource("""
             import instruments.piano
             meter 4/4
@@ -967,7 +967,6 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         ("scale C major", "transpose degree 1 { C4 w }"),
         ("scale C major", "transpose degree 1 { chord @1 major w bass G }"),
         ("scale C major", "transpose degree 1.5 { @1[4] w }"),
-        ("scale C major", "transpose degree 1 { transpose pitch 2 semitones { @1[4] w } }"),
         ("", "transpose degree 1 { @1[4] w }"),
     ] {
         let invalid = UTabTextCompiler().compile(TextSource("""
@@ -1086,6 +1085,63 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
             let message = $0.message.lowercased()
             return message.contains("argument") || message.contains("parameter") || message.contains("recursive")
         }, "\(result.diagnostics)")
+    }
+}
+
+@Test func sharedExpressionsDeriveArgumentsAndComposeNestedTransforms() throws {
+    let result = UTabTextCompiler().compile(TextSource("""
+        import instruments.piano
+        meter 4/4
+        tempo 100
+        scale C major
+        instrument piano : Piano
+        phrase shifted(root: pitch, interval: integer) {
+            transpose pitch interval semitones {
+                root q
+                transpose pitch 1 semitone { root q }
+            }
+        }
+        phrase shiftedDegree(steps: integer) {
+            transpose degree steps {
+                @1[4] q
+                transpose pitch 1 semitone { @2[4] q }
+            }
+        }
+        section s { piano { voice v {
+            shifted(root: C4 + 2 semitones, interval: 3)
+            shiftedDegree(steps: 1)
+        } } }
+        main { s }
+        """, fileID: "shared-expressions.utab"), modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let events = try #require(result.document?.tracks.first?.parts?.first?.events)
+    let pitches = events.compactMap { event -> Int? in
+        guard case .object(let pitch)? = event.parameters?["pitch"],
+              case .number(let degree)? = pitch["degree"],
+              case .number(let period)? = pitch["period"] else { return nil }
+        return (Int(period) + 1) * 12 + Int(degree)
+    }
+    #expect(pitches == [65, 66, 62, 65])
+}
+
+@Test func sharedExpressionsDiagnoseTypeAndUnitErrors() {
+    for call in [
+        "motif(root: C4 + 1 degree, steps: 2)",
+        "motif(root: C4, steps: C4)",
+        "motif(root: C4 + 2 cents, steps: 2)",
+        "motif(root: C4, steps: C4 + 2 semitones)",
+    ] {
+        let result = UTabTextCompiler().compile(TextSource("""
+            import instruments.piano
+            meter 4/4
+            tempo 100
+            instrument piano : Piano
+            phrase motif(root: pitch, steps: integer) { transpose pitch steps semitones { root w } }
+            section s { piano { voice v { \(call) } } }
+            main { s }
+            """, fileID: "invalid-shared-expression.utab"), modules: StandardTextModuleProvider())
+        #expect(!result.succeeded)
+        #expect(result.diagnostics.contains { $0.message.lowercased().contains("expression") }, "\(result.diagnostics)")
     }
 }
 

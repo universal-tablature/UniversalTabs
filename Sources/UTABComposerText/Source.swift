@@ -26,6 +26,8 @@ public enum TextTokenKind: String, Sendable, Hashable {
     case dot
     case comma
     case slash
+    case plus
+    case minus
     case semicolon
     case newline
     case atSign
@@ -232,7 +234,7 @@ public struct TextLexer: Sendable {
             switch character {
             case "{": .leftBrace; case "}": .rightBrace; case "(": .leftParen; case ")": .rightParen
             case "[": .leftBracket; case "]": .rightBracket; case "@": .atSign; case "#": .accidental
-            case ":": .colon; case "=": .equal; case ".": .dot; case ",": .comma; case "/": .slash; case ";": .semicolon; case "~": .tie
+            case ":": .colon; case "=": .equal; case ".": .dot; case ",": .comma; case "/": .slash; case "+": .plus; case "-": .minus; case ";": .semicolon; case "~": .tie
             default: nil
             }
         }
@@ -275,7 +277,7 @@ public struct TextLexer: Sendable {
 
         func canFollowInsertedSemicolon(_ kind: TextTokenKind) -> Bool {
             switch kind {
-            case .leftBrace, .comma, .semicolon, .colon, .dot, .slash, .rightParen, .endOfFile: false
+            case .leftBrace, .comma, .semicolon, .colon, .dot, .slash, .plus, .minus, .rightParen, .endOfFile: false
             default: true
             }
         }

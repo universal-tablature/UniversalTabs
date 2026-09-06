@@ -104,8 +104,8 @@ public struct TextSemanticLowerer: Sendable {
         var bindings: [String: TextConstantSyntax.Value]
         var diagnostics: [TextDiagnostic]
         var activeMeter: TimeSignature?
-        var pitchTransformDepth = 0
         var pitchParameters: [String: MusicalPitch] = [:]
+        var integerParameters: [String: Int] = [:]
         var phraseCallStack: [SemanticID] = []
 
         mutating func lower() -> TextSemanticResult {
@@ -189,8 +189,8 @@ public struct TextSemanticLowerer: Sendable {
                     if !names.insert(name).inserted {
                         error("Duplicate phrase parameter '\(name)'", at: parameter.name.range)
                     }
-                    if parameter.type.lexeme != "pitch" {
-                        error("Unsupported phrase parameter type '\(parameter.type.lexeme)'; expected 'pitch'", at: parameter.type.range)
+                    if parameter.type.lexeme != "pitch" && parameter.type.lexeme != "integer" {
+                        error("Unsupported phrase parameter type '\(parameter.type.lexeme)'; expected 'pitch' or 'integer'", at: parameter.type.range)
                     }
                 }
             }
@@ -391,19 +391,12 @@ public struct TextSemanticLowerer: Sendable {
                     annotations: .init(metadata: ["rhythmicTransform": .string(String(kind.lexeme)), "ratio": .string("\(n)/\(d)")], source: expression.range)
                 )
             case .transposePitch(let semitones, let expressions):
-                if pitchTransformDepth > 0 {
-                    error("Nested pitch transforms require the parameter expression evaluator", at: expression.range)
-                    result = expressionSequence(expressions, range: expression.range)
-                    break
-                }
-                guard let amount = semitones.integerValue, (-127...127).contains(amount) else {
+                guard let amount = integerValue(semitones), (-127...127).contains(amount) else {
                     error("Pitch transposition requires an integer semitone count in -127...127", at: semitones.range)
                     result = expressionSequence(expressions, range: expression.range)
                     break
                 }
-                pitchTransformDepth += 1
                 let operand = expressionSequence(expressions, range: expression.range)
-                pitchTransformDepth -= 1
                 result = .technique(.init(
                     "__transposePitch",
                     form: .scoped,
@@ -411,19 +404,12 @@ public struct TextSemanticLowerer: Sendable {
                     parameters: ["semitones": .integer(amount)]
                 ), id: id("transpose-pitch:\(amount)", expression.range))
             case .transposeDegree(let degrees, let expressions):
-                if pitchTransformDepth > 0 {
-                    error("Nested pitch transforms require the parameter expression evaluator", at: expression.range)
-                    result = expressionSequence(expressions, range: expression.range)
-                    break
-                }
-                guard let amount = degrees.integerValue, (-127...127).contains(amount) else {
+                guard let amount = integerValue(degrees), (-127...127).contains(amount) else {
                     error("Degree transposition requires an integer scale-degree count in -127...127", at: degrees.range)
                     result = expressionSequence(expressions, range: expression.range)
                     break
                 }
-                pitchTransformDepth += 1
                 let operand = expressionSequence(expressions, range: expression.range)
-                pitchTransformDepth -= 1
                 result = .technique(.init(
                     "__transposeDegree",
                     form: .scoped,
@@ -831,24 +817,30 @@ public struct TextSemanticLowerer: Sendable {
                     if !arguments.isEmpty { error("Phrase '\(token.lexeme)' does not accept arguments", at: expression.range) }
                     return .reference(phraseID(phrase), id: id("phrase-reference", expression.range))
                 }
+                let parametersByName = Dictionary(uniqueKeysWithValues: phrase.parameters.map { (String($0.name.lexeme), $0) })
                 let parameterNames = phrase.parameters.map { String($0.name.lexeme) }
-                var supplied: [String: MusicalPitch] = [:]
+                var suppliedPitches: [String: MusicalPitch] = [:]
+                var suppliedIntegers: [String: Int] = [:]
+                var suppliedLabels: Set<String> = []
                 for argument in arguments {
                     let label = String(argument.label.lexeme)
-                    guard parameterNames.contains(label) else {
+                    guard let parameter = parametersByName[label] else {
                         error("Unexpected argument label '\(label)' in call to '\(token.lexeme)'", at: argument.label.range)
                         continue
                     }
-                    if supplied[label] != nil {
+                    if !suppliedLabels.insert(label).inserted {
                         error("Duplicate argument label '\(label)' in call to '\(token.lexeme)'", at: argument.label.range)
                         continue
                     }
-                    let valueName = String(argument.value.lexeme)
-                    if let inherited = pitchParameters[valueName] { supplied[label] = inherited }
-                    else if let pitch = parsePitch(argument.value) { supplied[label] = .absolute(pitch) }
-                    else { error("Argument '\(label)' requires a pitch value", at: argument.value.range) }
+                    if parameter.type.lexeme == "pitch" {
+                        if let value = evaluatePitch(argument.value) { suppliedPitches[label] = value }
+                        else { error("Argument '\(label)' requires a pitch expression", at: argument.value.range) }
+                    } else if parameter.type.lexeme == "integer" {
+                        if let value = evaluateInteger(argument.value) { suppliedIntegers[label] = value }
+                        else { error("Argument '\(label)' requires an integer expression", at: argument.value.range) }
+                    }
                 }
-                for name in parameterNames where supplied[name] == nil {
+                for name in parameterNames where !suppliedLabels.contains(name) {
                     error("Missing argument label '\(name)' in call to '\(token.lexeme)'", at: expression.range)
                 }
                 let targetID = phraseID(phrase)
@@ -857,11 +849,14 @@ public struct TextSemanticLowerer: Sendable {
                     return .rest(.zero, id: id("recursive-phrase-call", expression.range))
                 }
                 let previousParameters = pitchParameters
-                pitchParameters.merge(supplied) { _, supplied in supplied }
+                let previousIntegers = integerParameters
+                pitchParameters.merge(suppliedPitches) { _, supplied in supplied }
+                integerParameters.merge(suppliedIntegers) { _, supplied in supplied }
                 phraseCallStack.append(targetID)
                 let operand = lowerBoundarySequence(phrase.expressions, range: phrase.range)
                 phraseCallStack.removeLast()
                 pitchParameters = previousParameters
+                integerParameters = previousIntegers
                 return .technique(.init(
                     "__phraseApplication",
                     form: .scoped,
@@ -869,6 +864,37 @@ public struct TextSemanticLowerer: Sendable {
                     parameters: ["phrase": .string(targetID.rawValue)]
                 ), id: id("phrase-call:\(token.lexeme)", expression.range))
             default: preconditionFailure("Mismatched expression dispatch")
+            }
+        }
+
+        func integerValue(_ token: TextToken) -> Int? {
+            token.integerValue ?? integerParameters[String(token.lexeme)]
+        }
+
+        func evaluateInteger(_ expression: TextValueExpressionSyntax) -> Int? {
+            guard case .atom(let token) = expression else { return nil }
+            return integerValue(token)
+        }
+
+        mutating func evaluatePitch(_ expression: TextValueExpressionSyntax) -> MusicalPitch? {
+            switch expression {
+            case .atom(let token):
+                if let inherited = pitchParameters[String(token.lexeme)] { return inherited }
+                return parsePitch(token).map(MusicalPitch.absolute)
+            case .pitchOffset(let base, let operation, let amountToken, let unit):
+                guard let pitch = evaluatePitch(base), let rawAmount = integerValue(amountToken) else { return nil }
+                let amount = operation.kind == .minus ? -rawAmount : rawAmount
+                switch String(unit.lexeme) {
+                case "semitone", "semitones":
+                    switch pitch {
+                    case .absolute(let absolute): return .absolute(absolute.transposed(cents: amount * 100))
+                    case .scaleDegree(let degree, let octave, let alteration): return .scaleDegree(degree, octave: octave, alteration: alteration + amount)
+                    }
+                case "degree", "degrees":
+                    guard case .scaleDegree(let degree, let octave, let alteration) = pitch else { return nil }
+                    return .scaleDegree(degree + amount, octave: octave, alteration: alteration)
+                default: return nil
+                }
             }
         }
 

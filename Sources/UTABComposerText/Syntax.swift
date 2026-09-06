@@ -260,8 +260,21 @@ public struct TextPhraseParameterSyntax: Sendable, Hashable {
 
 public struct TextPhraseArgumentSyntax: Sendable, Hashable {
     public let label: TextToken
-    public let value: TextToken
+    public let value: TextValueExpressionSyntax
     public let range: SourceRange
+}
+
+public indirect enum TextValueExpressionSyntax: Sendable, Hashable {
+    case atom(TextToken)
+    case pitchOffset(base: TextValueExpressionSyntax, operation: TextToken, amount: TextToken, unit: TextToken)
+
+    public var range: SourceRange {
+        switch self {
+        case .atom(let token): return token.range
+        case .pitchOffset(let base, _, _, let unit):
+            return .init(fileID: base.range.fileID, start: base.range.start, end: unit.range.end)
+        }
+    }
 }
 
 public struct TextSectionSyntax: Sendable, Hashable {
