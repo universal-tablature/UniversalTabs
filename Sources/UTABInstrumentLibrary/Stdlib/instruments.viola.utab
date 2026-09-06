@@ -1,0 +1,22 @@
+module instruments.viola
+import profiles.core
+import std.midi
+
+model Viola : FretlessBowedStrings {
+    id "instrument:viola:four-string"
+    name "Four-string Viola"
+    midiProgram = midi.viola
+    geometry strings { count 4 }
+}
+
+extension Viola {
+    tuning standard default {
+        id "tuning:viola:standard"
+        name "Viola Standard"
+        tags viola, fifths
+        course C3
+        course G3
+        course D4
+        course A4
+    }
+}

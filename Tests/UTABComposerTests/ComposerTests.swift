@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 20)
+    #expect(catalog.tunings.count == 21)
     #expect(catalog.profiles.count == 19)
-    #expect(catalog.models.count == 50)
+    #expect(catalog.models.count == 51)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1366,6 +1366,7 @@ private func stableFingerprint(_ data: Data) -> String {
         import tunings.guitar.dadgad
         import instruments.banjo
         import instruments.violin
+        import instruments.viola
         import instruments.cello
         import instruments.lute.renaissance
         import instruments.oud.arabic
@@ -1377,6 +1378,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let expectedModels = [
         StandardInstruments.fiveStringBanjo,
         StandardInstruments.violin,
+        StandardInstruments.viola,
         StandardInstruments.cello,
         StandardInstruments.renaissanceLute,
         StandardInstruments.oud,
@@ -1385,6 +1387,7 @@ private func stableFingerprint(_ data: Data) -> String {
         StandardInstruments.guitarDADGAD,
         StandardInstruments.banjoOpenG,
         StandardInstruments.violinStandard,
+        StandardInstruments.violaStandard,
         StandardInstruments.celloStandard,
         StandardInstruments.renaissanceLuteG,
         StandardInstruments.arabicOud,

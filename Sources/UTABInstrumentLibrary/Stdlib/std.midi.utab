@@ -4,5 +4,6 @@ let acousticGrandPiano = 1
 let xylophone = 14
 let nylonStringGuitar = 25
 let steelStringGuitar = 26
+let viola = 42
 let cello = 43
 let choirAahs = 53
