@@ -55,12 +55,13 @@ do {
         var record: ImportRecord
         do {
             let archiveURL = datasetURL.appendingPathComponent(entry.mxlPath)
-            let archive = try Archive(url: archiveURL, accessMode: .read)
+            guard let archive = Archive(url: archiveURL, accessMode: .read) else {
+                throw MusicXMLError.malformed("archive '\(entry.mxlPath)' could not be opened")
+            }
             guard let archiveEntry = archive[entry.xmlEntry] else {
                 throw MusicXMLError.malformed("archive entry '\(entry.xmlEntry)' is missing")
             }
             var xml = Data()
-            xml.reserveCapacity(Int(archiveEntry.uncompressedSize))
             _ = try archive.extract(archiveEntry, consumer: { xml.append($0) })
             let result = try MusicXMLInterchange.importDocument(xml)
             let document = try JSONDecoder().decode(UTabDocument.self, from: result.data)

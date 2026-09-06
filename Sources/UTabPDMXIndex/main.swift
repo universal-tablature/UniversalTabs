@@ -62,12 +62,13 @@ do {
         let mxlURL = root.appendingPathComponent(mxlRelative)
         scanned += 1
         do {
-            let archive = try Archive(url: mxlURL, accessMode: .read)
+            guard let archive = Archive(url: mxlURL, accessMode: .read) else {
+                failures += 1; continue
+            }
             guard let xmlEntry = archive.first(where: { $0.type == .file && $0.path.lowercased().hasSuffix(".xml") && !$0.path.hasPrefix("META-INF/") }) else {
                 failures += 1; continue
             }
             var xml = Data()
-            xml.reserveCapacity(Int(xmlEntry.uncompressedSize))
             _ = try archive.extract(xmlEntry, consumer: { xml.append($0) })
             guard let text = String(data: xml, encoding: .utf8) else { failures += 1; continue }
             var evidence: [String] = []
@@ -77,7 +78,8 @@ do {
                text.range(of: "<string", options: [.caseInsensitive]) != nil,
                text.range(of: "<fret", options: [.caseInsensitive]) != nil { evidence.append("technical-string-fret") }
             guard !evidence.isEmpty else { continue }
-            let entry = IndexEntry(sourcePath: sourcePath, mxlPath: mxlRelative, xmlEntry: xmlEntry.path, evidence: evidence, compressedBytes: xmlEntry.compressedSize, uncompressedBytes: xmlEntry.uncompressedSize)
+            let archiveBytes = try mxlURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            let entry = IndexEntry(sourcePath: sourcePath, mxlPath: mxlRelative, xmlEntry: xmlEntry.path, evidence: evidence, compressedBytes: UInt64(archiveBytes), uncompressedBytes: UInt64(xml.count))
             var line = try encoder.encode(entry); line.append(0x0A); handle.write(line)
             matched += 1
         } catch {

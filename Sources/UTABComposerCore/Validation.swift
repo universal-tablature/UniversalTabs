@@ -30,9 +30,10 @@ public struct CompositionValidator: Sendable {
                 diagnostics.append(.init(.error, path: "phrases[\(index)].name", message: "Duplicate phrase '\(phrase.name)'"))
             }
             for (barIndex, bar) in phrase.bars.enumerated() {
-                // An unqualified phrase bar inherits meter from each use site, so
-                // its duration can only be checked during reference expansion.
-                guard let expectedDuration = bar.meter?.duration else { continue }
+                // Textual reusable phrase bars inherit meter at each use site;
+                // programmatically authored bars retain composition-meter validation.
+                if bar.annotations.metadata["inheritsMeterAtUseSite"] == .boolean(true), bar.meter == nil { continue }
+                let expectedDuration = bar.meter?.duration ?? composition.meter.duration
                 guard let actualDuration = bar.expression.duration else {
                     diagnostics.append(.init(
                         .error,

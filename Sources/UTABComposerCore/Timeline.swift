@@ -648,7 +648,7 @@ public struct TimelineDebugRenderer: Sendable {
         case .rest:
             lines.append("\(indent)rest \(timing)")
         case .chord(let chord, let constraints):
-            lines.append("\(indent)chord root=\(chord.rootPitchClass.rawValue) quality=\(chord.authored.quality) \(timing)\(format(constraints))")
+            lines.append("\(indent)chord root=\(chord.rootPitchClass.rawValue) quality=\(chord.authored.quality.name) \(timing)\(format(constraints))")
         case .actuator(let actuator):
             lines.append("\(indent)actuator \(actuator.action) group=\(actuator.target.group) \(timing)")
         case .sequence(let children):

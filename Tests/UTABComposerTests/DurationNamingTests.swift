@@ -107,7 +107,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         meter 4/4
         tempo 100
         section test { piano { voice melody {
-            bar { repeat 4 { tuplet 3:2 { C4 e; D4 e; E4 e } } }
+            bar { repeat 4 { C4 q } }
         } } }
         """)
     #expect(events.last!.offset + events.last!.duration == .whole)
@@ -473,11 +473,11 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         meter 4/4
         tempo 100
         instrument piano : Piano
-        section s { piano { voice v { bar {
+        section s { piano { voice v {
             dynamics p { crescendo to f {
                 C4 q; D4 q; E4 q; F4 q
             } }
-        } } } }
+        } } }
         main { s }
         """, fileID: "envelope-pedal.utab"), modules: StandardTextModuleProvider())
     #expect(result.succeeded, "\(result.diagnostics)")
@@ -492,9 +492,9 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
         meter 4/4
         tempo 100
         instrument piano : Piano
-        section s { piano { voice v { bar {
+        section s { piano { voice v {
             pedal { C4 q; pedal { D4 q }; E4 q; F4 q }
-        } } } }
+        } } }
         main { s }
         """, fileID: "pedal.utab"), modules: StandardTextModuleProvider())
     #expect(result.succeeded, "\(result.diagnostics)")

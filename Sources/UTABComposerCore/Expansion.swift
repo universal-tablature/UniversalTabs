@@ -439,6 +439,7 @@ public struct ReferenceExpansionStage: CompilerStage {
             switch value {
             case .absolute(let absolute):
                 if degreeTransposition != 0 { degreeTranspositionError("Degree transposition requires scale-relative pitches", at: expression, path: path) }
+                guard pitchTransposition != 0 else { return value }
                 return .absolute(absolute.transposed(cents: pitchTransposition * 100))
             case .scaleDegree(let degree, let octave, let alteration):
                 return .scaleDegree(degree + degreeTransposition, octave: octave, alteration: alteration + pitchTransposition)

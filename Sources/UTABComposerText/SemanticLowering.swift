@@ -231,6 +231,7 @@ public struct TextSemanticLowerer: Sendable {
                     return .init(
                         expressionSequence(children, range: expression.range),
                         id: id("bar", expression.range),
+                        metadata: ["inheritsMeterAtUseSite": .boolean(true)],
                         source: expression.range
                     )
                 }
