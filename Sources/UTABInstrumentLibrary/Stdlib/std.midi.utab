@@ -1,7 +1,9 @@
 module std.midi
 
 let acousticGrandPiano = 1
+let harpsichord = 7
 let xylophone = 14
+let churchOrgan = 20
 let nylonStringGuitar = 25
 let steelStringGuitar = 26
 let electricGuitarClean = 28
@@ -11,3 +13,4 @@ let fretlessBass = 36
 let viola = 42
 let cello = 43
 let choirAahs = 53
+let squareLead = 81

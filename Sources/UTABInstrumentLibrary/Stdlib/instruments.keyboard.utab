@@ -1,0 +1,32 @@
+module instruments.keyboard
+import profiles.keyboard
+import std.midi
+
+model DoubleManualHarpsichord : HarpsichordKeyboard {
+    id "instrument:harpsichord:double-manual-five-octave"
+    name "Double-manual Harpsichord"
+    midiProgram = midi.harpsichord
+    geometry manuals { count 2; keysPerManual 61; range "F1-F6" }
+    geometry registers { count 3; dispositions "8-foot,8-foot,4-foot"; coupler true }
+    geometry mechanism { action plucked; dynamicsByKeyVelocity false; releaseDampers true }
+}
+
+model ThreeManualPipeOrgan : PipeOrganConsole {
+    id "instrument:pipe-organ:three-manual"
+    name "Three-manual Pipe Organ"
+    midiProgram = midi.churchOrgan
+    geometry manuals { count 3; keysPerManual 61; names Great, Swell, Choir }
+    geometry pedalboard { keys 32; standard AGO; shape concaveRadiating }
+    geometry divisions { names Great, Swell, Choir, Pedal; independentStops true }
+    geometry stops { configurable true; pitchLengths "32-foot through 1-foot"; couplers true }
+    geometry expression { enclosedDivisions Swell, Choir; pedals 2 }
+}
+
+model PerformanceSynthesizer : PatchSynthesizer {
+    id "instrument:synthesizer:performance-61-key"
+    name "61-key Performance Synthesizer"
+    midiProgram = midi.squareLead
+    geometry keyboard { keys 61; range "C2-C7"; velocity true; channelAftertouch true }
+    geometry patchEngine { patchRequired true; layers 4; polyphony 16; programChange true }
+    geometry performanceControls { pitchBend true; modulation true; assignableKnobs 8; sustainPedal true; expressionPedal true }
+}

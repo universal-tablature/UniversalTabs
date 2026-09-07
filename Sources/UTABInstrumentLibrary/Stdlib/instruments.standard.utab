@@ -17,6 +17,7 @@ import instruments.lute.renaissance
 import instruments.oud.arabic
 import instruments.lyre.sammu
 import instruments.piano
+import instruments.keyboard
 import instruments.voice
 import instruments.nyckelharpa
 import instruments.wind

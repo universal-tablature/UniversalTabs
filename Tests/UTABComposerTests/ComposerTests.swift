@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 27)
-    #expect(catalog.profiles.count == 22)
-    #expect(catalog.models.count == 67)
+    #expect(catalog.profiles.count == 25)
+    #expect(catalog.models.count == 70)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1310,6 +1310,28 @@ private func stableFingerprint(_ data: Data) -> String {
     let bassTromboneValves = try #require(StandardInstruments.doubleValveSlideBrass.actuators.first { $0.id == "valves" })
     #expect(fourValveActuator.control == .orderedBitset(width: 4))
     #expect(bassTromboneValves.control == .orderedBitset(width: 2))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func keyboardExpansionKeepsAcousticAndElectronicControlContractsDistinct() throws {
+    let catalog = StandardInstruments.catalog
+    let harpsichord = StandardInstruments.doubleManualHarpsichord
+    let organ = StandardInstruments.threeManualPipeOrgan
+    let synthesizer = StandardInstruments.performanceSynthesizer
+
+    #expect(harpsichord.profile == StandardInstruments.harpsichordKeyboard.id)
+    #expect(harpsichord.geometry.first { $0.id == "manuals" }?.properties["count"] == .integer(2))
+    #expect(harpsichord.geometry.first { $0.id == "mechanism" }?.properties["dynamicsByKeyVelocity"] == .boolean(false))
+    #expect(organ.profile == StandardInstruments.pipeOrganConsole.id)
+    #expect(organ.geometry.first { $0.id == "manuals" }?.properties["keysPerManual"] == .integer(61))
+    #expect(organ.geometry.first { $0.id == "pedalboard" }?.properties["keys"] == .integer(32))
+    #expect(synthesizer.profile == StandardInstruments.patchSynthesizer.id)
+    #expect(synthesizer.geometry.first { $0.id == "patchEngine" }?.properties["patchRequired"] == .boolean(true))
+    #expect(synthesizer.geometry.first { $0.id == "performanceControls" }?.properties["assignableKnobs"] == .integer(8))
+
+    #expect(StandardInstruments.pipeOrganConsole.actuators.contains { $0.id == "stops" })
+    #expect(StandardInstruments.patchSynthesizer.actuators.contains { $0.id == "patchSelection" })
+    #expect(StandardInstruments.patchSynthesizer.actuators.contains { $0.id == "pitchBend" })
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

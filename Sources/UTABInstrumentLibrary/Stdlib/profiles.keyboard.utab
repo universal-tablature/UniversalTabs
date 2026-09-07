@@ -1,0 +1,41 @@
+module profiles.keyboard
+
+profile HarpsichordKeyboard {
+    id "profile:keyboard:harpsichord"
+    version "1"
+    actuator keys { minimumCount 49; maximumCount 122; control discrete }
+    actuator manuals { count 2; control discrete }
+    actuator registers { minimumCount 2; maximumCount 8; control discrete }
+    interaction press { targets keys; effectors finger }
+    interaction selectManual { targets manuals; effectors hand }
+    interaction engage { targets registers; effectors hand }
+    technique arpeggiate { target keys }
+}
+
+profile PipeOrganConsole {
+    id "profile:keyboard:pipe-organ-console"
+    version "1"
+    actuator manualKeys { minimumCount 61; maximumCount 305; control discrete }
+    actuator pedalKeys { count 32; control discrete }
+    actuator stops { minimumCount 1; maximumCount 256; control discrete }
+    actuator expressionPedals { minimumCount 1; maximumCount 4; control continuous; minimum 0.0; maximum 1.0 }
+    interaction press { targets manualKeys; effectors finger }
+    interaction press { targets pedalKeys; effectors foot }
+    interaction engage { targets stops; effectors hand }
+    interaction adjust { targets expressionPedals; effectors foot }
+}
+
+profile PatchSynthesizer {
+    id "profile:keyboard:patch-synthesizer"
+    version "1"
+    actuator keys { minimumCount 25; maximumCount 88; control discrete }
+    actuator patchSelection { count 1; control discrete }
+    actuator pitchBend { count 1; control continuous; minimum -1.0; maximum 1.0 }
+    actuator modulation { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator assignableControls { minimumCount 1; maximumCount 32; control continuous; minimum 0.0; maximum 1.0 }
+    interaction press { targets keys; effectors finger }
+    interaction select { targets patchSelection; effectors hand }
+    interaction bend { targets pitchBend; effectors hand }
+    interaction modulate { targets modulation, assignableControls; effectors hand, foot }
+    technique portamento { target keys }
+}
