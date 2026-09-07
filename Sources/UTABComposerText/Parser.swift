@@ -779,6 +779,28 @@ public struct TextParser: Sendable {
         @_optimize(speed)
         @inline(never)
         mutating func parseExpressionBody() -> TextExpressionSyntax? {
+            if isScopedExpressionStart() {
+                return parseScopedExpressionBody()
+            }
+            return parsePrimaryExpressionBody()
+        }
+
+        func isScopedExpressionStart() -> Bool {
+            switch current.lexeme {
+            case "using", "transpose", "tuplet", "stretch", "augment", "diminish",
+                 "meter", "scale", "tempo", "fermata", "rubato", "damp", "dynamics",
+                 "crescendo", "diminuendo", "pedal", "grace", "ornament", "bass":
+                return true
+            case "legato", "slur":
+                return tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace
+            default:
+                return false
+            }
+        }
+
+        @_optimize(speed)
+        @inline(never)
+        mutating func parseScopedExpressionBody() -> TextExpressionSyntax? {
             if isKeyword("using") {
                 diagnose("Notation directives must appear once at the start of a musical scope")
                 parseNotationDirective()
@@ -936,6 +958,12 @@ public struct TextParser: Sendable {
                 return .init(kind: .technique(name: technique, expressions: children), range: spanning(technique, close))
             }
 
+            return nil
+        }
+
+        @_optimize(speed)
+        @inline(never)
+        mutating func parsePrimaryExpressionBody() -> TextExpressionSyntax? {
             if take(.atSign) {
                 let start = tokens[index - 1]
                 guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
