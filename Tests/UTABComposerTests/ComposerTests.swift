@@ -997,7 +997,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 27)
     #expect(catalog.profiles.count == 20)
-    #expect(catalog.models.count == 57)
+    #expect(catalog.models.count == 63)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1201,6 +1201,36 @@ private func stableFingerprint(_ data: Data) -> String {
     let tenorBFlat = catalog.fingerings(for: .init(.bFlat, octave: 4), in: tenorMap)
     #expect(altoBFlat.map(\.label) == [nil, "side-B-flat"])
     #expect(tenorBFlat.map(\.pattern) == altoBFlat.map(\.pattern))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func orchestralWindExtensionsPreserveRegistersAndTranspositions() throws {
+    let catalog = StandardInstruments.catalog
+    func model(_ id: String) throws -> InstrumentModelDefinition {
+        try #require(catalog.models.first { $0.id.rawValue == id })
+    }
+
+    let piccolo = try model("instrument:piccolo:concert-c")
+    let bassClarinet = try model("instrument:clarinet:bass-b-flat")
+    let sopranoSax = try model("instrument:saxophone:soprano-b-flat")
+    let baritoneSax = try model("instrument:saxophone:baritone-e-flat")
+    let englishHorn = try model("instrument:english-horn:f")
+    let contrabassoon = try model("instrument:contrabassoon:standard")
+
+    #expect(piccolo.profile == "profile:wind:keyed-air-column")
+    #expect(piccolo.writtenToSoundingCents == 1_200)
+    #expect(bassClarinet.profile == "profile:wind:single-reed")
+    #expect(bassClarinet.writtenToSoundingCents == -1_400)
+    #expect(sopranoSax.profile == "profile:wind:saxophone")
+    #expect(sopranoSax.writtenToSoundingCents == -200)
+    #expect(baritoneSax.profile == "profile:wind:saxophone")
+    #expect(baritoneSax.writtenToSoundingCents == -2_100)
+    #expect(englishHorn.profile == "profile:wind:double-reed")
+    #expect(englishHorn.writtenToSoundingCents == -700)
+    #expect(contrabassoon.profile == "profile:wind:double-reed")
+    #expect(contrabassoon.writtenToSoundingCents == -1_200)
+    #expect(baritoneSax.geometry.first { $0.id == "keys" }?.properties["lowA"] == .boolean(true))
+    #expect(bassClarinet.geometry.first { $0.id == "keys" }?.properties["lowC"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

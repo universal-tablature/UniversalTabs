@@ -36,6 +36,13 @@ model ConcertFlute : KeyedAirColumnWind {
     geometry toneHoles { keyed true; system Boehm; closedHoleAvailable true; openHoleKeys 5; plugsSupported true; typicalRange "C4-D7" }
 }
 
+model Piccolo : KeyedAirColumnWind {
+    id "instrument:piccolo:concert-c"
+    name "Piccolo"
+    geometry bore { shape cylindrical; material woodOrMetal; edgeBlown true; transposition C; writtenMiddleCSounds C5 }
+    geometry toneHoles { keyed true; system Boehm; typicalWrittenRange "D4-C7" }
+}
+
 model BbTrumpet : ValvedBrass {
     id "instrument:trumpet:b-flat"
     name "B-flat Trumpet"
@@ -179,6 +186,20 @@ model BbClarinet : SingleReedWind {
     geometry keys { system Boehm; keyCount 17; rings 6; registerInterval "twelfth"; typicalRange "E3-C7" }
 }
 
+model BassClarinet : SingleReedWind {
+    id "instrument:clarinet:bass-b-flat"
+    name "B-flat Bass Clarinet"
+    geometry bore { shape cylindrical; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
+    geometry keys { system Boehm; keyCount 24; registerInterval "twelfth"; typicalWrittenRange "C3-G6"; lowC true }
+}
+
+model SopranoSaxophone : Saxophone {
+    id "instrument:saxophone:soprano-b-flat"
+    name "B-flat Soprano Saxophone"
+    geometry bore { shape conical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
+}
+
 model AltoSaxophone : Saxophone {
     id "instrument:saxophone:alto-e-flat"
     name "E-flat Alto Saxophone"
@@ -193,6 +214,13 @@ model TenorSaxophone : Saxophone {
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
 
+model BaritoneSaxophone : Saxophone {
+    id "instrument:saxophone:baritone-e-flat"
+    name "E-flat Baritone Saxophone"
+    geometry bore { shape conical; material brass; transposition "Eb"; soundsOctaveLower true; writtenMiddleCSounds Eb2 }
+    geometry keys { system Boehm; lowA true; frontF true; highFSharp true; typicalWrittenRange "A3-F#6" }
+}
+
 model Oboe : DoubleReedWind {
     id "instrument:oboe:standard"
     name "Oboe"
@@ -200,11 +228,25 @@ model Oboe : DoubleReedWind {
     geometry keys { typicalRange "Bb3-A6" }
 }
 
+model EnglishHorn : DoubleReedWind {
+    id "instrument:english-horn:f"
+    name "English Horn in F"
+    geometry bore { shape conical; transposition F; writtenMiddleCSounds F3 }
+    geometry keys { system conservatory; bell bulbous; typicalWrittenRange "B3-G6" }
+}
+
 model Bassoon : DoubleReedWind {
     id "instrument:bassoon:standard"
     name "Bassoon"
     geometry bore { shape foldedConical; transposition C }
     geometry keys { typicalRange "Bb1-Eb5" }
+}
+
+model Contrabassoon : DoubleReedWind {
+    id "instrument:contrabassoon:standard"
+    name "Contrabassoon"
+    geometry bore { shape foldedConical; transposition C; soundsOctaveLower true; writtenMiddleCSounds C3 }
+    geometry keys { typicalWrittenRange "Bb1-Bb4"; lowBFlat true }
 }
 
 extension SopranoRecorder {
