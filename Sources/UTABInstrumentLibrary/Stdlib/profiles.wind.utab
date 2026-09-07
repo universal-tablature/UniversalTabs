@@ -58,6 +58,17 @@ profile ValvedBrass {
     technique vibrato { target airColumn }
 }
 
+profile FourValveBrass {
+    id "profile:wind:four-valve-brass"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator valves { count 4; control orderedBitset; width 4 }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction press { targets valves; effectors finger, hand }
+    technique lipBend { target airColumn }
+    technique vibrato { target airColumn }
+}
+
 profile SlideBrass {
     id "profile:wind:slide-brass"
     version "1"
@@ -65,6 +76,18 @@ profile SlideBrass {
     actuator slidePosition { count 1; control continuous; minimum 1.0; maximum 7.0 }
     interaction blow { targets airColumn; effectors breath, lip }
     interaction position { targets slidePosition; effectors hand }
+    technique glissando { target slidePosition }
+}
+
+profile DoubleValveSlideBrass {
+    id "profile:wind:double-valve-slide-brass"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator slidePosition { count 1; control continuous; minimum 1.0; maximum 7.0 }
+    actuator valves { count 2; control orderedBitset; width 2 }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction position { targets slidePosition; effectors hand }
+    interaction press { targets valves; effectors finger }
     technique glissando { target slidePosition }
 }
 

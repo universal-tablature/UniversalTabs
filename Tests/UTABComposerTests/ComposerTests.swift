@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 27)
-    #expect(catalog.profiles.count == 20)
-    #expect(catalog.models.count == 63)
+    #expect(catalog.profiles.count == 22)
+    #expect(catalog.models.count == 67)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1286,6 +1286,30 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.slidePitch(for: tromboneID, position: 7.1, harmonicPartial: 2) == nil)
     #expect(catalog.slidePitch(for: tromboneID, position: 1, harmonicPartial: 13) == nil)
     #expect(slide.properties["positionTolerance"] == .decimal(0.18))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func lowBrassExpansionUsesFourValveAndDoubleValveSlideContracts() throws {
+    let catalog = StandardInstruments.catalog
+    let horn = StandardInstruments.doubleHorn
+    let euphonium = StandardInstruments.euphonium
+    let tuba = StandardInstruments.tuba
+    let bassTrombone = StandardInstruments.bassTrombone
+
+    #expect(horn.profile == StandardInstruments.fourValveBrass.id)
+    #expect(horn.writtenToSoundingCents == -700)
+    #expect(horn.geometry.first { $0.id == "valves" }?.properties["sides"] == .list([.text("F"), .text("Bb")]))
+    #expect(euphonium.profile == StandardInstruments.fourValveBrass.id)
+    #expect(euphonium.geometry.first { $0.id == "valves" }?.properties["compensating"] == .boolean(true))
+    #expect(tuba.profile == StandardInstruments.fourValveBrass.id)
+    #expect(tuba.geometry.first { $0.id == "bore" }?.properties["fundamental"] == .pitch(.init(.c, octave: 1)))
+    #expect(bassTrombone.profile == StandardInstruments.doubleValveSlideBrass.id)
+    #expect(bassTrombone.geometry.first { $0.id == "valves" }?.properties["count"] == .integer(2))
+
+    let fourValveActuator = try #require(StandardInstruments.fourValveBrass.actuators.first { $0.id == "valves" })
+    let bassTromboneValves = try #require(StandardInstruments.doubleValveSlideBrass.actuators.first { $0.id == "valves" })
+    #expect(fourValveActuator.control == .orderedBitset(width: 4))
+    #expect(bassTromboneValves.control == .orderedBitset(width: 2))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
