@@ -1,0 +1,61 @@
+module instruments.percussion.indian
+import profiles.percussion
+import std.midi
+
+model HindustaniTablaPair : PressureTunedDrumPair {
+    id "instrument:percussion:tabla:hindustani-pair"
+    name "Hindustani Tabla Pair"
+    midiPercussion true
+    geometry dayan { shell wood; head compositeSkin; tuning definite; syahi true; hand right }
+    geometry bayan { shell metalOrClay; head compositeSkin; tuning variable; syahi true; hand left; pressurePitchBend true }
+    geometry strokeNa { syllable "na"; target dayanEdge; articulation open; midiNote midi.highBongoNote; midiFidelity approximate }
+    geometry strokeTin { syllable "tin"; target dayanCenter; articulation resonant; midiNote midi.highTimbaleNote; midiFidelity approximate }
+    geometry strokeGe { syllable "ge"; target bayan; articulation resonant; pressureSensitive true; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry strokeDha { syllable "dha"; targets dayan, bayan; simultaneous true; midiNote midi.lowCongaNote; midiFidelity approximate }
+}
+
+model HindustaniPakhawaj : DoubleHeadedBarrelDrum {
+    id "instrument:percussion:pakhawaj:hindustani"
+    name "Hindustani Pakhawaj"
+    midiPercussion true
+    geometry shell { shape barrel; material wood; orientation horizontal }
+    geometry membranes { count 2; rightHead syahi; leftHead bassPaste; independentlyVoiced true }
+    geometry rightOpen { target rightHead; articulation open; midiNote midi.highBongoNote; midiFidelity approximate }
+    geometry rightDamped { target rightHead; articulation damped; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+    geometry leftBass { target leftHead; articulation bass; midiNote midi.lowCongaNote; midiFidelity approximate }
+}
+
+model CarnaticMridangam : DoubleHeadedBarrelDrum {
+    id "instrument:percussion:mridangam:carnatic"
+    name "Carnatic Mridangam"
+    midiPercussion true
+    geometry shell { shape asymmetricalBarrel; material wood; orientation horizontal; rightHeadSmaller true }
+    geometry membranes { count 2; rightHead permanentBlackPatch; leftHead temporaryBassPaste; independentlyVoiced true }
+    geometry rightOpen { target rightHead; articulation open; midiNote midi.highBongoNote; midiFidelity approximate }
+    geometry rightDamped { target rightHead; articulation damped; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+    geometry leftBass { target leftHead; articulation bass; midiNote midi.lowCongaNote; midiFidelity approximate }
+}
+
+model CarnaticKanjira : SqueezableFrameDrum {
+    id "instrument:percussion:kanjira:carnatic"
+    name "Carnatic Kanjira"
+    midiPercussion true
+    geometry frame { shape circular; material wood; handheld true; diameterCentimeters 23 }
+    geometry membrane { count 1; material syntheticOrTraditionalSkin; moistureTensionSensitive true }
+    geometry jingles { slots 1; metalDiscs true }
+    geometry tension { handSqueeze true; continuousPitchBend true }
+    geometry strokeOpen { target membrane; articulation open; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry strokeDamped { target membrane; articulation damped; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+}
+
+model CarnaticGhatam : ClayPotPercussion {
+    id "instrument:percussion:ghatam:carnatic-clay"
+    name "Carnatic Clay Ghatam"
+    midiPercussion true
+    geometry vessel { material firedClay; shape pot; mouthOpen true; tunedByConstruction true }
+    geometry surfaces { count 4; names neck, shoulder, body, rim }
+    geometry opening { handCover true; abdomenCover true; continuousPitchAndResonance true }
+    geometry bodyStroke { target body; midiNote midi.lowWoodblockNote; midiFidelity approximate }
+    geometry neckStroke { target neck; midiNote midi.highWoodblockNote; midiFidelity approximate }
+    geometry bassStroke { target opening; covered true; midiNote midi.lowCongaNote; midiFidelity approximate }
+}

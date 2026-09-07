@@ -90,3 +90,48 @@ profile JingledFrameDrum {
     technique roll { target membrane }
     technique jingleRoll { target jingles }
 }
+
+profile PressureTunedDrumPair {
+    id "profile:percussion:pressure-tuned-drum-pair"
+    version "1"
+    actuator membranes { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator tuningControls { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator pressure { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors finger, hand }
+    interaction tune { targets tuningControls; effectors hand, tool }
+    interaction press { targets pressure; effectors hand }
+    technique pitchBend { target pressure }
+    technique roll { target membranes }
+}
+
+profile DoubleHeadedBarrelDrum {
+    id "profile:percussion:double-headed-barrel-drum"
+    version "1"
+    actuator membranes { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors finger, hand }
+    interaction damp { targets damping; effectors finger, hand }
+    technique roll { target membranes }
+}
+
+profile SqueezableFrameDrum {
+    id "profile:percussion:squeezable-frame-drum"
+    version "1"
+    actuator membrane { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator jingles { minimumCount 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator tension { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membrane; effectors finger, hand }
+    interaction shake { targets jingles; effectors hand }
+    interaction squeeze { targets tension; effectors hand }
+    technique pitchBend { target tension }
+}
+
+profile ClayPotPercussion {
+    id "profile:percussion:clay-pot"
+    version "1"
+    actuator surfaces { minimumCount 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator opening { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets surfaces; effectors finger, hand, wrist }
+    interaction cover { targets opening; effectors hand, body }
+    technique pitchBend { target opening }
+}

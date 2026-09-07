@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 33)
-    #expect(catalog.models.count == 86)
+    #expect(catalog.profiles.count == 37)
+    #expect(catalog.models.count == 91)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1476,6 +1476,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(daff.geometry.first { $0.id == "frame" }?.properties["jingles"] == .boolean(false))
     #expect(bendir.geometry.first { $0.id == "snares" }?.properties["count"] == .integer(4))
     #expect(bendir.geometry.first { $0.id == "strokeBuzz" }?.properties["midiFidelity"] == .text("approximate"))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func indianClassicalPercussionAddsPressureDualHeadFrameAndPotTopologies() throws {
+    let catalog = StandardInstruments.catalog
+    let tabla = StandardInstruments.hindustaniTablaPair
+    let pakhawaj = StandardInstruments.hindustaniPakhawaj
+    let mridangam = StandardInstruments.carnaticMridangam
+    let kanjira = StandardInstruments.carnaticKanjira
+    let ghatam = StandardInstruments.carnaticGhatam
+
+    #expect(tabla.profile == StandardInstruments.pressureTunedDrumPair.id)
+    #expect(tabla.geometry.first { $0.id == "bayan" }?.properties["pressurePitchBend"] == .boolean(true))
+    #expect(tabla.geometry.first { $0.id == "strokeDha" }?.properties["simultaneous"] == .boolean(true))
+    #expect(pakhawaj.profile == StandardInstruments.doubleHeadedBarrelDrum.id)
+    #expect(pakhawaj.geometry.first { $0.id == "shell" }?.properties["shape"] == .text("barrel"))
+    #expect(mridangam.profile == StandardInstruments.doubleHeadedBarrelDrum.id)
+    #expect(mridangam.geometry.first { $0.id == "shell" }?.properties["rightHeadSmaller"] == .boolean(true))
+    #expect(kanjira.profile == StandardInstruments.squeezableFrameDrum.id)
+    #expect(kanjira.geometry.first { $0.id == "tension" }?.properties["continuousPitchBend"] == .boolean(true))
+    #expect(ghatam.profile == StandardInstruments.clayPotPercussion.id)
+    #expect(ghatam.geometry.first { $0.id == "surfaces" }?.properties["count"] == .integer(4))
+    #expect(ghatam.geometry.first { $0.id == "opening" }?.properties["continuousPitchAndResonance"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

@@ -24,3 +24,4 @@ import instruments.nyckelharpa
 import instruments.wind
 import instruments.percussion
 import instruments.percussion.arabic
+import instruments.percussion.indian
