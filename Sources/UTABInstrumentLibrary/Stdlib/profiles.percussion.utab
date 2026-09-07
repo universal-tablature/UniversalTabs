@@ -25,3 +25,44 @@ profile TunableDrums {
     interaction setPitch { targets tuningControls; effectors hand, foot }
     technique roll { target membranes }
 }
+
+profile DampedMetalPercussion {
+    id "profile:percussion:damped-metal"
+    version "1"
+    actuator playingSurfaces { minimumCount 1 }
+    actuator damping { minimumCount 1; control binary }
+    interaction strike { targets playingSurfaces; effectors hand, stick, mallet }
+    interaction damp { targets damping; effectors hand, pedal }
+    interaction choke { targets playingSurfaces, damping; effectors hand }
+    technique roll { target playingSurfaces }
+}
+
+profile PedalHiHat {
+    id "profile:percussion:pedal-hi-hat"
+    version "1"
+    actuator cymbals { count 2 }
+    actuator pedal { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets cymbals; effectors stick, brush }
+    interaction setOpenness { targets pedal; effectors foot }
+    interaction footClose { targets pedal; effectors foot }
+    interaction choke { targets cymbals; effectors hand }
+}
+
+profile DampedPitchedPercussion {
+    id "profile:percussion:damped-pitched"
+    version "1"
+    actuator bars { minimumCount 1 }
+    actuator damper { count 1; control binary }
+    interaction strike { targets bars; effectors mallet }
+    interaction damp { targets damper; effectors hand, pedal }
+    technique roll { target bars }
+}
+
+profile ShakenPercussion {
+    id "profile:percussion:shaken"
+    version "1"
+    actuator body { minimumCount 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction shake { targets body; effectors hand }
+    interaction strike { targets body; effectors hand }
+    technique roll { target body }
+}

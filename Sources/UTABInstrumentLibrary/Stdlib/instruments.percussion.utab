@@ -73,3 +73,89 @@ model Timpani : TunableDrums {
     geometry strikeDrum26 { interaction strike; target "drum26"; stateValue "drum26" }
     geometry strikeDrum23 { interaction strike; target "drum23"; stateValue "drum23" }
 }
+
+model SuspendedCymbal : DampedMetalPercussion {
+    id "instrument:percussion:cymbal-suspended"
+    name "Suspended Cymbal"
+    midiPercussion true
+    geometry playingSurfaces { count 1; material bronze; suspended true; midiNote midi.crashCymbal2Note; midiFidelity approximate }
+    geometry damping { count 1; choke true; handDamping true }
+}
+
+model CrashCymbals : DampedMetalPercussion {
+    id "instrument:percussion:cymbals-crash-pair"
+    name "Pair of Crash Cymbals"
+    midiPercussion true
+    geometry playingSurfaces { count 2; material bronze; handheld true; midiNote midi.crashCymbal1Note }
+    geometry damping { count 2; choke true; bodyDamping true }
+}
+
+model HiHat : PedalHiHat {
+    id "instrument:percussion:hi-hat"
+    name "Pedal Hi-hat"
+    midiPercussion true
+    geometry cymbals { count 2; material bronze }
+    geometry pedal { continuousOpenness true; statePersists true; initially closed }
+    geometry closedStroke { interaction strike; state closed; midiNote midi.closedHiHatNote }
+    geometry openStroke { interaction strike; state open; midiNote midi.openHiHatNote }
+    geometry footStroke { interaction footClose; midiNote midi.pedalHiHatNote }
+}
+
+model TomToms : UnpitchedPercussion {
+    id "instrument:percussion:tom-toms-six-piece"
+    name "Six-piece Tom-tom Set"
+    midiPercussion true
+    geometry playingSurfaces { count 6; membranes true; tunedRelatively true }
+    geometry lowFloorTom { midiNote midi.lowFloorTomNote }
+    geometry highFloorTom { midiNote midi.highFloorTomNote }
+    geometry lowTom { midiNote midi.lowTomNote }
+    geometry lowMidTom { midiNote midi.lowMidTomNote }
+    geometry highMidTom { midiNote midi.highMidTomNote }
+    geometry highTom { midiNote midi.highTomNote }
+}
+
+model TamTam : DampedMetalPercussion {
+    id "instrument:percussion:tam-tam"
+    name "Tam-tam"
+    midiPercussion true
+    geometry playingSurfaces { count 1; material bronze; bossed false; suspended true; midiNote midi.chineseCymbalNote; midiFidelity approximate }
+    geometry damping { count 1; handDamping true; statePersists true }
+}
+
+model TubularBells : DampedPitchedPercussion {
+    id "instrument:percussion:tubular-bells"
+    name "Tubular Bells"
+    midiProgram = midi.tubularBells
+    geometry bars { material metal; tubular true; chromatic true; typicalRange "C4-F5" }
+    geometry damper { pedal true; normallyEngaged true }
+}
+
+model Woodblock : UnpitchedPercussion {
+    id "instrument:percussion:woodblock-pair"
+    name "Woodblock Pair"
+    midiPercussion true
+    geometry playingSurfaces { count 2; material wood }
+    geometry highBlock { midiNote midi.highWoodblockNote }
+    geometry lowBlock { midiNote midi.lowWoodblockNote }
+}
+
+model Claves : UnpitchedPercussion {
+    id "instrument:percussion:claves"
+    name "Claves"
+    midiPercussion true
+    geometry playingSurfaces { count 2; material wood; struckTogether true; midiNote midi.clavesNote }
+}
+
+model Maracas : ShakenPercussion {
+    id "instrument:percussion:maracas-pair"
+    name "Pair of Maracas"
+    midiPercussion true
+    geometry body { count 2; filledVessel true; midiNote midi.maracasNote }
+}
+
+model Castanets : UnpitchedPercussion {
+    id "instrument:percussion:castanets-pair"
+    name "Pair of Castanets"
+    midiPercussion true
+    geometry playingSurfaces { count 2; shellPairs true; handheld true; midiNote midi.clavesNote; midiFidelity approximate }
+}

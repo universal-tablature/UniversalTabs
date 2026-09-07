@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 27)
-    #expect(catalog.models.count == 72)
+    #expect(catalog.profiles.count == 31)
+    #expect(catalog.models.count == 82)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1434,6 +1434,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.resolve(state) == .pitch(.init(.b, octave: 2)))
     state.set(.text("missing"), for: "target")
     #expect(catalog.resolve(state) == nil)
+}
+
+@Test func commonPercussionExpansionPreservesStateDampingAndSymbolicMIDIMappings() throws {
+    let catalog = StandardInstruments.catalog
+    let hiHat = StandardInstruments.hiHat
+    let tamTam = StandardInstruments.tamTam
+    let bells = StandardInstruments.tubularBells
+    let maracas = StandardInstruments.maracas
+
+    #expect(hiHat.profile == StandardInstruments.pedalHiHat.id)
+    #expect(hiHat.realization?.midi?.percussion == true)
+    #expect(hiHat.geometry.first { $0.id == "closedStroke" }?.properties["midiNote"] == .integer(42))
+    #expect(hiHat.geometry.first { $0.id == "openStroke" }?.properties["midiNote"] == .integer(46))
+    #expect(hiHat.geometry.first { $0.id == "footStroke" }?.properties["midiNote"] == .integer(44))
+    #expect(tamTam.profile == StandardInstruments.dampedMetalPercussion.id)
+    #expect(tamTam.geometry.first { $0.id == "playingSurfaces" }?.properties["midiFidelity"] == .text("approximate"))
+    #expect(bells.profile == StandardInstruments.dampedPitchedPercussion.id)
+    #expect(bells.realization?.midi?.program == 15)
+    #expect(maracas.profile == StandardInstruments.shakenPercussion.id)
+    #expect(maracas.geometry.first { $0.id == "body" }?.properties["midiNote"] == .integer(70))
+    #expect(StandardInstruments.pedalHiHat.actuators.contains { $0.id == "pedal" })
+    #expect(StandardInstruments.dampedPitchedPercussion.actuators.contains { $0.id == "damper" })
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
 @Test func nyckelharpaFamilyPreservesModernAndHistoricalConstruction() throws {

@@ -246,6 +246,9 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                     if ids.count == propertySyntax.values.count {
                         properties[name] = .list(ids.map(InstrumentValue.scale))
                     }
+                } else if let reference = propertySyntax.reference,
+                          let value = resolveIntegerConstant(reference, from: module) {
+                    properties[name] = .integer(value)
                 } else if propertySyntax.values.count > 1 {
                     properties[name] = .list(propertySyntax.values.map(instrumentValue))
                 } else {
@@ -457,6 +460,12 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 error("Expected an integer or constant reference for '\(name)'", at: property.range)
                 return nil
             }
+            if let value = resolveIntegerConstant(reference, from: module) { return value }
+            error("Unknown integer constant '\(reference)'", at: property.range)
+            return nil
+        }
+
+        func resolveIntegerConstant(_ reference: String, from module: TextLoadedModule) -> Int? {
             if let direct = integerConstants[reference] { return direct }
             let parts = reference.split(separator: ".")
             if parts.count > 1,
@@ -464,7 +473,6 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 let suffix = parts.dropFirst().joined(separator: ".")
                 if let value = integerConstants["\(imported.name.value).\(suffix)"] { return value }
             }
-            error("Unknown integer constant '\(reference)'", at: property.range)
             return nil
         }
 
