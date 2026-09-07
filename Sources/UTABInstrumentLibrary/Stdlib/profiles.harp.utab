@@ -1,0 +1,26 @@
+module profiles.harp
+
+profile PedalHarp {
+    id "profile:harp:pedal"
+    version "1"
+    actuator strings { count 47; control discrete }
+    actuator pedals { count 7; control discrete }
+    interaction pluck { targets strings; effectors finger }
+    interaction setPedal { targets pedals; effectors foot }
+    interaction damp { targets strings; effectors palm, finger }
+    technique glissando { target strings }
+    technique harmonic { target strings }
+    technique presDeLaTable { target strings }
+}
+
+profile LeverHarp {
+    id "profile:harp:lever"
+    version "1"
+    actuator strings { count 34; control discrete }
+    actuator levers { count 34; control discrete }
+    interaction pluck { targets strings; effectors finger }
+    interaction setLever { targets levers; effectors hand }
+    interaction damp { targets strings; effectors palm, finger }
+    technique glissando { target strings }
+    technique harmonic { target strings }
+}

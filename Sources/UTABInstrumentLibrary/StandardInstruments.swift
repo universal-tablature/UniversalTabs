@@ -37,6 +37,8 @@ public enum StandardInstruments {
     public static let doubleBassOrchestral = tuning("tuning:double-bass:orchestral")
     public static let electricBassStandard = tuning("tuning:electric-bass:standard")
     public static let fretlessElectricBassStandard = tuning("tuning:electric-bass:fretless-standard")
+    public static let concertHarpNatural = tuning("tuning:harp:concert-natural")
+    public static let leverHarpCMajor = tuning("tuning:harp:lever-34-c-major")
     public static let renaissanceLuteG = tuning("tuning:lute:renaissance-g")
     public static let arabicOud = tuning("tuning:oud:arabic-c")
 
@@ -49,6 +51,8 @@ public enum StandardInstruments {
     public static let harpsichordKeyboard = profile("profile:keyboard:harpsichord")
     public static let pipeOrganConsole = profile("profile:keyboard:pipe-organ-console")
     public static let patchSynthesizer = profile("profile:keyboard:patch-synthesizer")
+    public static let pedalHarp = profile("profile:harp:pedal")
+    public static let leverHarp = profile("profile:harp:lever")
     public static let keyboard = profile("profile:keyboard")
     public static let singingVoice = profile("profile:singing-voice")
 
@@ -72,6 +76,8 @@ public enum StandardInstruments {
     public static let doubleManualHarpsichord = model("instrument:harpsichord:double-manual-five-octave")
     public static let threeManualPipeOrgan = model("instrument:pipe-organ:three-manual")
     public static let performanceSynthesizer = model("instrument:synthesizer:performance-61-key")
+    public static let concertPedalHarp = model("instrument:harp:concert-pedal-47-string")
+    public static let thirtyFourStringLeverHarp = model("instrument:harp:lever-34-string")
     public static let renaissanceLute = model("instrument:lute:renaissance-six-course")
     public static let oud = model("instrument:oud:arabic-six-course")
     public static let piano = model("instrument:piano:88-key")

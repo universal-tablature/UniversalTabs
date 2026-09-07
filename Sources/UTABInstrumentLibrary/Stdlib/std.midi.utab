@@ -1,16 +1,161 @@
 module std.midi
 
+// Piano
 let acousticGrandPiano = 1
+let brightAcousticPiano = 2
+let electricGrandPiano = 3
+let honkyTonkPiano = 4
+let electricPiano1 = 5
+let electricPiano2 = 6
 let harpsichord = 7
+let clavinet = 8
+
+// Chromatic Percussion
+let celesta = 9
+let glockenspiel = 10
+let musicBox = 11
+let vibraphone = 12
+let marimba = 13
 let xylophone = 14
+let tubularBells = 15
+let dulcimerOrSantoor = 16
+
+// Organ
+let drawbarOrgan = 17
+let percussiveOrgan = 18
+let rockOrgan = 19
 let churchOrgan = 20
+let reedOrgan = 21
+let accordion = 22
+let harmonica = 23
+let tangoAccordionOrBandoneon = 24
+
+// Guitar
 let nylonStringGuitar = 25
 let steelStringGuitar = 26
+let electricGuitarJazz = 27
 let electricGuitarClean = 28
+let electricGuitarMuted = 29
+let overdrivenGuitar = 30
+let distortionGuitar = 31
+let guitarHarmonica = 32
+
+// Bass
 let acousticBass = 33
 let electricBassFinger = 34
+let electricBassPicked = 35
 let fretlessBass = 36
+let slapBass1 = 37
+let slapBass2 = 38
+let synthBass1 = 39
+let synthBass2 = 40
+
+// Strings
+let violin = 41
 let viola = 42
 let cello = 43
+let contrabass = 44
+let tremoloStrings = 45
+let pizzicatoStrings = 46
+let orchestralHarp = 47
+let timpani = 48
+
+// Ensemble
+let stringEnsemble1 = 49
+let stringEnsemble2 = 50
+let synthStrings1 = 51
+let synthStrings2 = 52
 let choirAahs = 53
+let voiceOohs = 54
+let synthVoice = 55
+let orchestraHit = 56
+
+// Brass
+let trumpet = 57
+let trombone = 58
+let tuba = 59
+let mutedTrumpet = 60
+let frenchHorn = 61
+let brassSection = 62
+let synthBrass1 = 63
+let synthBrass2 = 64
+
+// Reed
+let sopranoSax = 65
+let altoSax = 66
+let tenorSax = 67
+let baritoneSax = 68
+let oboe = 69
+let englishHorn = 70
+let basson = 71
+let clarinet = 72
+
+// Pipe
+let piccolo = 73
+let flute = 74
+let recorder = 75
+let panFlute = 76
+let blownBottle = 77
+let shakuhachi = 78
+let whistle = 79
+let ocarina = 80
+
+// Synth Lead
 let squareLead = 81
+let sawtoothLead = 82
+let calliopeLead = 83
+let chiffLead = 84
+let charangLead = 85
+let voiceLead = 86
+let fithsLead = 87
+let bassLead = 88
+
+// Synth Pad
+let newAgePad = 89
+let warmPad = 90
+let pylysynthPad = 91
+let choirPad = 92
+let bowedGlassPad = 93
+let metallicPad = 94
+let haloPad = 95
+let sweepPad = 96
+
+// Synth Effects
+let rainFx = 97
+let soundtrackFx = 98
+let chrystalFx = 99
+let atmosphereFx = 100
+let brightnessFx = 101
+let goblinsFx = 102
+let echoesFx = 103
+let sciFiFx = 104
+
+// Ethnic
+let sitar = 105
+let banjo = 106
+let shamisen = 107
+let koto = 108
+let kalimba = 109
+let bagpipe = 110
+let fiddle = 111
+let shanai = 112
+
+// Percussive
+let tinkleBell = 113
+let cowbell = 114
+let steelDrums = 115
+let woodblock = 116
+let taikoDrumOrSurdo = 117
+let melodicTom = 118
+let synthDrum = 119
+let reverseCymbal = 120
+
+// Sound Effects
+let guitarFretNoise = 121
+let breathNoise = 122
+let seashore = 123
+let birdTweet = 124
+let telephoneRing = 125
+let helicopter = 126
+let applause = 127
+let gunshot = 128

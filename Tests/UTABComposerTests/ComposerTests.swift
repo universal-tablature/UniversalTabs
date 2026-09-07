@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 27)
-    #expect(catalog.profiles.count == 25)
-    #expect(catalog.models.count == 70)
+    #expect(catalog.tunings.count == 29)
+    #expect(catalog.profiles.count == 27)
+    #expect(catalog.models.count == 72)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1332,6 +1332,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(StandardInstruments.pipeOrganConsole.actuators.contains { $0.id == "stops" })
     #expect(StandardInstruments.patchSynthesizer.actuators.contains { $0.id == "patchSelection" })
     #expect(StandardInstruments.patchSynthesizer.actuators.contains { $0.id == "pitchBend" })
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func harpFamilySeparatesGlobalPedalsFromPerStringLevers() throws {
+    let catalog = StandardInstruments.catalog
+    let concert = StandardInstruments.concertPedalHarp
+    let lever = StandardInstruments.thirtyFourStringLeverHarp
+    let concertTuning = StandardInstruments.concertHarpNatural
+    let leverTuning = StandardInstruments.leverHarpCMajor
+
+    #expect(concert.profile == StandardInstruments.pedalHarp.id)
+    #expect(concertTuning.courses.count == 47)
+    #expect(concertTuning.courses.first?.pitches == [AbsolutePitch(.c, octave: 1)])
+    #expect(concertTuning.courses.last?.pitches == [AbsolutePitch(.g, octave: 7)])
+    #expect(concert.geometry.first { $0.id == "pedals" }?.properties["globalByPitchClass"] == .boolean(true))
+    #expect(StandardInstruments.pedalHarp.actuators.first { $0.id == "pedals" }?.cardinality == .exact(7))
+
+    #expect(lever.profile == StandardInstruments.leverHarp.id)
+    #expect(leverTuning.courses.count == 34)
+    #expect(leverTuning.courses.first?.pitches == [AbsolutePitch(.c, octave: 2)])
+    #expect(leverTuning.courses.last?.pitches == [AbsolutePitch(.a, octave: 6)])
+    #expect(lever.geometry.first { $0.id == "levers" }?.properties["independentlySet"] == .boolean(true))
+    #expect(StandardInstruments.leverHarp.actuators.first { $0.id == "levers" }?.cardinality == .exact(34))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

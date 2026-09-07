@@ -1,0 +1,116 @@
+module instruments.harp
+import profiles.harp
+import std.midi
+
+model ConcertPedalHarp : PedalHarp {
+    id "instrument:harp:concert-pedal-47-string"
+    name "47-string Concert Pedal Harp"
+    midiProgram = midi.orchestralHarp
+    geometry strings { count 47; range "C1-G7"; diatonic true; colorCoding true }
+    geometry pedals { count 7; pitchClasses C, D, E, F, G, A, B; positions flat, natural, sharp; globalByPitchClass true }
+}
+
+extension ConcertPedalHarp {
+    tuning natural default {
+        id "tuning:harp:concert-natural"
+        name "Concert Harp Natural Pedal Position"
+        tags harp, pedal, diatonic, natural
+        course C1
+        course D1
+        course E1
+        course F1
+        course G1
+        course A1
+        course B1
+        course C2
+        course D2
+        course E2
+        course F2
+        course G2
+        course A2
+        course B2
+        course C3
+        course D3
+        course E3
+        course F3
+        course G3
+        course A3
+        course B3
+        course C4
+        course D4
+        course E4
+        course F4
+        course G4
+        course A4
+        course B4
+        course C5
+        course D5
+        course E5
+        course F5
+        course G5
+        course A5
+        course B5
+        course C6
+        course D6
+        course E6
+        course F6
+        course G6
+        course A6
+        course B6
+        course C7
+        course D7
+        course E7
+        course F7
+        course G7
+    }
+}
+
+model ThirtyFourStringLeverHarp : LeverHarp {
+    id "instrument:harp:lever-34-string"
+    name "34-string Lever Harp"
+    midiProgram = midi.orchestralHarp
+    geometry strings { count 34; range "C2-A6"; diatonic true; colorCoding true }
+    geometry levers { count 34; semitoneRaise true; independentlySet true; fullSet true }
+}
+
+extension ThirtyFourStringLeverHarp {
+    tuning cMajor default {
+        id "tuning:harp:lever-34-c-major"
+        name "34-string Lever Harp C-major"
+        tags harp, lever, diatonic, cMajor
+        course C2
+        course D2
+        course E2
+        course F2
+        course G2
+        course A2
+        course B2
+        course C3
+        course D3
+        course E3
+        course F3
+        course G3
+        course A3
+        course B3
+        course C4
+        course D4
+        course E4
+        course F4
+        course G4
+        course A4
+        course B4
+        course C5
+        course D5
+        course E5
+        course F5
+        course G5
+        course A5
+        course B5
+        course C6
+        course D6
+        course E6
+        course F6
+        course G6
+        course A6
+    }
+}

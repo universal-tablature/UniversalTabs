@@ -18,6 +18,7 @@ import instruments.oud.arabic
 import instruments.lyre.sammu
 import instruments.piano
 import instruments.keyboard
+import instruments.harp
 import instruments.voice
 import instruments.nyckelharpa
 import instruments.wind
