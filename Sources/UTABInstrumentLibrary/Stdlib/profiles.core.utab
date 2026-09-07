@@ -76,6 +76,24 @@ profile FretlessBowedStrings {
     technique pizzicato { target strings }
 }
 
+profile FretlessPluckedStrings {
+    id "profile:fretless-plucked-strings"
+    version "1"
+    actuator strings {
+        minimumCount 1
+        maximumCount 16
+        control continuous
+        minimum 0.0
+        maximum 1.0
+    }
+    interaction setPosition { targets strings }
+    interaction pluck { targets strings; effectors finger }
+    interaction damp { targets strings; effectors palm, finger }
+    technique slide { target strings }
+    technique bend { target strings }
+    technique vibrato { target strings }
+}
+
 profile Keyboard {
     id "profile:keyboard"
     version "1"

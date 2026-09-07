@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 21)
-    #expect(catalog.profiles.count == 19)
-    #expect(catalog.models.count == 51)
+    #expect(catalog.tunings.count == 24)
+    #expect(catalog.profiles.count == 20)
+    #expect(catalog.models.count == 54)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1419,6 +1419,37 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(guitar.defaultTuning == tuning.id)
     #expect(guitar.geometry.first { $0.id == "courses" }?.properties["count"] == .integer(6))
     #expect(guitar.geometry.first { $0.id == "strings" }?.properties["count"] == .integer(12))
+}
+
+@Test func bassFamilyPreservesConstructionTuningAndTransposition() throws {
+    let catalog = StandardInstruments.catalog
+    let doubleBass = StandardInstruments.doubleBass
+    let fretted = StandardInstruments.electricBass
+    let fretless = StandardInstruments.fretlessElectricBass
+
+    #expect(doubleBass.profile == StandardInstruments.fretlessBowedStrings.id)
+    #expect(doubleBass.writtenToSoundingCents == -1_200)
+    #expect(fretted.profile == StandardInstruments.frettedStrings.id)
+    #expect(fretless.profile == StandardInstruments.fretlessPluckedStrings.id)
+    #expect(fretted.writtenToSoundingCents == -1_200)
+    #expect(fretless.writtenToSoundingCents == -1_200)
+    #expect(fretted.geometry.first { $0.id == "frets" }?.properties["count"] == .integer(24))
+    #expect(fretless.geometry.allSatisfy { $0.id != "frets" })
+
+    let expected = [
+        AbsolutePitch(.e, octave: 1),
+        AbsolutePitch(.a, octave: 1),
+        AbsolutePitch(.d, octave: 2),
+        AbsolutePitch(.g, octave: 2),
+    ]
+    for tuning in [
+        StandardInstruments.doubleBassOrchestral,
+        StandardInstruments.electricBassStandard,
+        StandardInstruments.fretlessElectricBassStandard,
+    ] {
+        #expect(tuning.courses.map { $0.pitches[0] } == expected)
+    }
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
 @Test func standardTuningsRepresentAlternateReentrantAndDoubledCourses() {
@@ -1903,7 +1934,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(loaded.succeeded)
     #expect(loaded.modules.map(\.name) == ["profiles.core", "std.midi", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
-    #expect(compiled.catalog.profiles.count == 6)
+    #expect(compiled.catalog.profiles.count == 7)
     #expect(compiled.profileBindings["profiles.core.FrettedStrings"]?.rawValue == "profile:fretted-strings")
     #expect(guitar.profile.rawValue == "profile:fretted-strings")
     #expect(bowedStrings.cardinality == .range(1...16))

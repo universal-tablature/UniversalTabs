@@ -1,0 +1,61 @@
+module instruments.bass
+import profiles.core
+import std.midi
+
+model DoubleBass : FretlessBowedStrings {
+    id "instrument:double-bass:four-string"
+    name "Four-string Double Bass"
+    midiProgram = midi.acousticBass
+    geometry strings { count 4; writtenMiddleCSounds C3; typicalWrittenRange "E2-C6" }
+}
+
+extension DoubleBass {
+    tuning orchestral default {
+        id "tuning:double-bass:orchestral"
+        name "Double Bass Orchestral"
+        tags doubleBass, orchestral, fourths
+        course E1
+        course A1
+        course D2
+        course G2
+    }
+}
+
+model ElectricBass : FrettedStrings {
+    id "instrument:electric-bass:four-string-fretted"
+    name "Four-string Fretted Electric Bass"
+    midiProgram = midi.electricBassFinger
+    geometry strings { count 4; writtenMiddleCSounds C3; typicalWrittenRange "E2-G5" }
+    geometry frets { count 24; movable false }
+}
+
+extension ElectricBass {
+    tuning standard default {
+        id "tuning:electric-bass:standard"
+        name "Electric Bass Standard"
+        tags electricBass, standard, fourths
+        course E1
+        course A1
+        course D2
+        course G2
+    }
+}
+
+model FretlessElectricBass : FretlessPluckedStrings {
+    id "instrument:electric-bass:four-string-fretless"
+    name "Four-string Fretless Electric Bass"
+    midiProgram = midi.fretlessBass
+    geometry strings { count 4; writtenMiddleCSounds C3; typicalWrittenRange "E2-G5" }
+}
+
+extension FretlessElectricBass {
+    tuning standard default {
+        id "tuning:electric-bass:fretless-standard"
+        name "Fretless Electric Bass Standard"
+        tags electricBass, fretless, standard, fourths
+        course E1
+        course A1
+        course D2
+        course G2
+    }
+}

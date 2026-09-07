@@ -9,6 +9,7 @@ import instruments.banjo
 import instruments.violin
 import instruments.viola
 import instruments.cello
+import instruments.bass
 import instruments.lute.renaissance
 import instruments.oud.arabic
 import instruments.lyre.sammu
