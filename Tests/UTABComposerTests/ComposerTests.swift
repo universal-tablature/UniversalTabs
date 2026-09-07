@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 24)
+    #expect(catalog.tunings.count == 27)
     #expect(catalog.profiles.count == 20)
-    #expect(catalog.models.count == 54)
+    #expect(catalog.models.count == 57)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1450,6 +1450,34 @@ private func stableFingerprint(_ data: Data) -> String {
         #expect(tuning.courses.map { $0.pitches[0] } == expected)
     }
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func commonPluckedStringExpansionPreservesDistinctTopologies() throws {
+    let electric = StandardInstruments.electricGuitar
+    let ukulele = StandardInstruments.sopranoUkulele
+    let mandolin = StandardInstruments.mandolin
+
+    #expect(electric.profile == StandardInstruments.frettedStrings.id)
+    #expect(electric.geometry.first { $0.id == "electronics" }?.properties["pickupConfiguration"] == .text("HH"))
+    #expect(electric.geometry.first { $0.id == "electronics" }?.properties["selectorPositions"] == .integer(3))
+    #expect(StandardInstruments.electricGuitarStandard.courses.map { $0.pitches[0] } == StandardInstruments.guitarStandard.courses.map { $0.pitches[0] })
+
+    #expect(ukulele.profile == StandardInstruments.frettedStrings.id)
+    #expect(ukulele.geometry.first { $0.id == "strings" }?.properties["reentrant"] == .boolean(true))
+    #expect(StandardInstruments.sopranoUkuleleHighG.courses.map { $0.pitches[0] } == [
+        AbsolutePitch(.g, octave: 4),
+        AbsolutePitch(.c, octave: 4),
+        AbsolutePitch(.e, octave: 4),
+        AbsolutePitch(.a, octave: 4),
+    ])
+
+    #expect(mandolin.profile == StandardInstruments.pluckedCourses.id)
+    #expect(mandolin.geometry.first { $0.id == "courses" }?.properties["count"] == .integer(4))
+    #expect(mandolin.geometry.first { $0.id == "strings" }?.properties["count"] == .integer(8))
+    #expect(StandardInstruments.mandolinStandard.courses.allSatisfy { course in
+        course.pitches.count == 2 && course.pitches[0] == course.pitches[1]
+    })
+    #expect(InstrumentCatalogValidator().validate(StandardInstruments.catalog).isEmpty)
 }
 
 @Test func standardTuningsRepresentAlternateReentrantAndDoubledCourses() {

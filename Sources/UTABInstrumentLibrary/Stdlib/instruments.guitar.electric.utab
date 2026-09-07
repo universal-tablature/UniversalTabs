@@ -1,0 +1,31 @@
+module instruments.guitar.electric
+import profiles.core
+import std.midi
+
+model ElectricGuitar : FrettedStrings {
+    id "instrument:guitar:electric-six-string"
+    name "Six-string Electric Guitar"
+    midiProgram = midi.electricGuitarClean
+    geometry strings { count 6 }
+    geometry frets { count 22; movable false }
+    geometry electronics {
+        pickupConfiguration "HH"
+        volumeControls 2
+        toneControls 2
+        selectorPositions 3
+    }
+}
+
+extension ElectricGuitar {
+    tuning standard default {
+        id "tuning:electric-guitar:standard"
+        name "Electric Guitar Standard"
+        tags guitar, electric, standard
+        course E2
+        course A2
+        course D3
+        course G3
+        course B3
+        course E4
+    }
+}

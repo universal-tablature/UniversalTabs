@@ -1,0 +1,23 @@
+module instruments.ukulele
+import profiles.core
+import std.midi
+
+model SopranoUkulele : FrettedStrings {
+    id "instrument:ukulele:soprano"
+    name "Soprano Ukulele"
+    midiProgram = midi.nylonStringGuitar
+    geometry strings { count 4; reentrant true }
+    geometry frets { count 15; movable false }
+}
+
+extension SopranoUkulele {
+    tuning highG default {
+        id "tuning:ukulele:soprano-high-g"
+        name "Soprano Ukulele High G"
+        tags ukulele, soprano, reentrant, highG
+        course G4
+        course C4
+        course E4
+        course A4
+    }
+}

@@ -4,6 +4,7 @@ let acousticGrandPiano = 1
 let xylophone = 14
 let nylonStringGuitar = 25
 let steelStringGuitar = 26
+let electricGuitarClean = 28
 let acousticBass = 33
 let electricBassFinger = 34
 let fretlessBass = 36

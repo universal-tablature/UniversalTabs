@@ -1,0 +1,24 @@
+module instruments.mandolin
+import profiles.core
+import std.midi
+
+model Mandolin : PluckedCourses {
+    id "instrument:mandolin:eight-string"
+    name "Eight-string Mandolin"
+    midiProgram = midi.steelStringGuitar
+    geometry courses { count 4; doubled true }
+    geometry strings { count 8 }
+    geometry frets { count 20; movable false }
+}
+
+extension Mandolin {
+    tuning standard default {
+        id "tuning:mandolin:standard"
+        name "Mandolin Standard"
+        tags mandolin, standard, fifths, courses
+        course G3, G3
+        course D4, D4
+        course A4, A4
+        course E5, E5
+    }
+}

@@ -1,10 +1,13 @@
 module instruments.standard
 
 import instruments.guitar
+import instruments.guitar.electric
 import tunings.guitar.drop
 import tunings.guitar.dadgad
 import instruments.guitar.twelve-string
 import instruments.guitarlele
+import instruments.ukulele
+import instruments.mandolin
 import instruments.banjo
 import instruments.violin
 import instruments.viola
