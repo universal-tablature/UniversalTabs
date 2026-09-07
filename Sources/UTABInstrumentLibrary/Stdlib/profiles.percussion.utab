@@ -66,3 +66,27 @@ profile ShakenPercussion {
     interaction strike { targets body; effectors hand }
     technique roll { target body }
 }
+
+profile HandDrum {
+    id "profile:percussion:hand-drum"
+    version "1"
+    actuator membrane { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membrane; effectors finger, hand }
+    interaction damp { targets damping; effectors finger, hand }
+    technique roll { target membrane }
+    technique fingerRoll { target membrane }
+}
+
+profile JingledFrameDrum {
+    id "profile:percussion:jingled-frame-drum"
+    version "1"
+    actuator membrane { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator jingles { minimumCount 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membrane; effectors finger, hand }
+    interaction shake { targets jingles; effectors hand }
+    interaction damp { targets damping; effectors finger, hand }
+    technique roll { target membrane }
+    technique jingleRoll { target jingles }
+}

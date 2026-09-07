@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 31)
-    #expect(catalog.models.count == 82)
+    #expect(catalog.profiles.count == 33)
+    #expect(catalog.models.count == 86)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1456,6 +1456,26 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(maracas.geometry.first { $0.id == "body" }?.properties["midiNote"] == .integer(70))
     #expect(StandardInstruments.pedalHiHat.actuators.contains { $0.id == "pedal" })
     #expect(StandardInstruments.dampedPitchedPercussion.actuators.contains { $0.id == "damper" })
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func arabicPercussionFamilySeparatesConstructionSurfacesAndNamedStrokes() throws {
+    let catalog = StandardInstruments.catalog
+    let darbuka = StandardInstruments.egyptianDarbuka
+    let riq = StandardInstruments.arabicRiq
+    let daff = StandardInstruments.arabicDaff
+    let bendir = StandardInstruments.northAfricanBendir
+
+    #expect(darbuka.profile == StandardInstruments.handDrum.id)
+    #expect(darbuka.geometry.first { $0.id == "shell" }?.properties["shape"] == .text("goblet"))
+    #expect(darbuka.geometry.first { $0.id == "strokeDum" }?.properties["target"] == .text("center"))
+    #expect(darbuka.geometry.first { $0.id == "strokeTak" }?.properties["target"] == .text("edge"))
+    #expect(riq.profile == StandardInstruments.jingledFrameDrum.id)
+    #expect(riq.geometry.first { $0.id == "jingles" }?.properties["pairs"] == .integer(5))
+    #expect(riq.geometry.first { $0.id == "strokeJingle" }?.properties["midiNote"] == .integer(54))
+    #expect(daff.geometry.first { $0.id == "frame" }?.properties["jingles"] == .boolean(false))
+    #expect(bendir.geometry.first { $0.id == "snares" }?.properties["count"] == .integer(4))
+    #expect(bendir.geometry.first { $0.id == "strokeBuzz" }?.properties["midiFidelity"] == .text("approximate"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

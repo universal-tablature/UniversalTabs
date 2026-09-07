@@ -1,0 +1,49 @@
+module instruments.percussion.arabic
+import profiles.percussion
+import std.midi
+
+model EgyptianDarbuka : HandDrum {
+    id "instrument:percussion:darbuka:egyptian"
+    name "Egyptian Darbuka"
+    midiPercussion true
+    geometry shell { shape goblet; material metal; head synthetic; bearingEdge rounded }
+    geometry membrane { count 1; centerAndEdgeDistinct true }
+    geometry strokeDum { name "dum"; interaction strike; target center; hand rightOrLeft; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry strokeTak { name "tak"; interaction strike; target edge; hand dominant; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry strokeKa { name "ka"; interaction strike; target edge; hand support; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry strokeSlap { name "slap"; interaction strike; target edge; articulation slap; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+}
+
+model ArabicRiq : JingledFrameDrum {
+    id "instrument:percussion:riq:arabic"
+    name "Arabic Riq"
+    midiPercussion true
+    geometry frame { shape circular; material wood; handheld true; diameterInches 9 }
+    geometry membrane { count 1; material fishOrSyntheticSkin }
+    geometry jingles { pairs 5; rows 2; material metal }
+    geometry strokeDum { name "dumm"; interaction strike; target membraneCenter; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry strokeTak { name "takk"; interaction strike; target membraneEdge; damped true; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+    geometry strokeJingle { name "jingle"; interaction shake; target jingles; midiNote midi.tambourineNote; midiFidelity approximate }
+}
+
+model ArabicDaff : HandDrum {
+    id "instrument:percussion:daff:arabic-unringed"
+    name "Arabic Daff (Unringed Frame Drum)"
+    midiPercussion true
+    geometry frame { shape circular; material wood; handheld true; jingles false; variant unringed }
+    geometry membrane { count 1; material skin }
+    geometry strokeDum { name "dum"; interaction strike; target center; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry strokeTak { name "tak"; interaction strike; target edge; midiNote midi.openHighCongaNote; midiFidelity approximate }
+}
+
+model NorthAfricanBendir : HandDrum {
+    id "instrument:percussion:bendir:north-african-snared"
+    name "North African Bendir with Snares"
+    midiPercussion true
+    geometry frame { shape circular; material wood; handheld true; thumbHole true }
+    geometry membrane { count 1; material skin }
+    geometry snares { count 4; position insideAgainstHead; material gutOrSynthetic; buzzing true }
+    geometry strokeDum { name "dum"; interaction strike; target center; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry strokeTak { name "tak"; interaction strike; target edge; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry strokeBuzz { name "buzz"; interaction strike; target membrane; snaresExcited true; midiNote midi.electricSnareNote; midiFidelity approximate }
+}
