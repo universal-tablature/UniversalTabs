@@ -1,0 +1,98 @@
+module instruments.traditional-south-asian
+import profiles.traditional-south-asian
+import profiles.traditional-near-east
+import std.midi
+
+model HindustaniKharajPanchamSitar : FrettedSympatheticLute {
+    id "instrument:sitar:hindustani-kharaj-pancham-18-string"
+    name "Hindustani Kharaj Pancham Sitar"
+    midiProgram = midi.sitar
+    geometry playingStrings { count 7; melody 4; chikari 3; material steelOrBronze }
+    geometry sympatheticStrings { count 11; name taraf; directlyPlucked rarely; tunedToRaga true }
+    geometry movableFrets { count 20; arched true; tied true; permitLateralPull true }
+    geometry bridges { count 2; wideJawari true; mainAndTaraf true }
+    geometry resonators { mainGourd true; upperGourd optional }
+    geometry tuning { tonic requiredAtConfiguration; playingStringRoles "Sa-Pa-Sa-Ma with chikari Sa-Sa-Pa"; tarafPitchMap requiredAtConfiguration }
+    geometry pitchGesture { meendSemitones maximum5; midiFidelity approximate }
+}
+
+model HindustaniSarod : FretlessSympatheticLute {
+    id "instrument:sarod:hindustani-modern-23-string"
+    name "Modern Hindustani Sarod"
+    midiProgram = midi.sitar
+    geometry playingStrings { count 8; melody 4; chikari 2; drone 2; material steelOrBronze }
+    geometry sympatheticStrings { count 15; tunedToRaga true; directlyActuated false }
+    geometry fingerboard { material polishedMetal; fretted false; stoppedWith fingernail }
+    geometry resonator { body wood; soundtable goatskin }
+    geometry plectrum { name java; material coconutShellOrHorn }
+    geometry tuning { tonic requiredAtConfiguration; ragaPitchMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model ThanjavurSaraswatiVeena : CarnaticFrettedVeena {
+    id "instrument:veena:saraswati-thanjavur-seven-string"
+    name "Thanjavur Saraswati Veena"
+    midiProgram = midi.sitar
+    geometry melodyStrings { count 4; stoppedOnFrets true }
+    geometry droneStrings { count 3; position side; rhythmicDrone true }
+    geometry fixedFrets { count 24; material bellMetal; setIn waxBed }
+    geometry body { material jackwood; mainResonator kudam; neck dandi; secondaryResonator detachable }
+    geometry tuning { tonic requiredAtConfiguration; melodyRoles "Sa-Pa-Sa-Pa"; droneRoles "Sa-Pa-Sa"; intonation carnaticContext }
+    geometry pitchGesture { lateralPull true; gamakaContinuous true; midiFidelity approximate }
+}
+
+model HindustaniMirajTanpura : JawariDroneLute {
+    id "instrument:tanpura:hindustani-miraj-four-string"
+    name "Hindustani Miraj Four-string Tanpura"
+    midiProgram = midi.sitar
+    geometry strings { count 4; fretted false; stopped false; sequentialCycle true }
+    geometry jawariBridge { count 1; wideCurvedSurface true; threadAdjustment true; buzzingSustain true }
+    geometry body { longNeck true; resonator gourd; style miraj }
+    geometry tuning { tonic requiredAtConfiguration; commonRoles "Pa-Sa-Sa-Sa"; alternateFirstString MaOrNi; exactPitchMap requiredAtConfiguration }
+    geometry performance { role continuousDrone; retuneForRaga true }
+}
+
+model HindustaniClassicalSarangi : SympatheticBowedLute {
+    id "instrument:sarangi:hindustani-classical-37-string"
+    name "Hindustani Classical Sarangi"
+    midiProgram = midi.violin
+    geometry melodyStrings { count 3; material gut; stoppedLaterallyBy fingernails }
+    geometry sympatheticStrings { count 34; material metal; tunedToRaga true; directlyActuated false }
+    geometry bow { count 1; hair horsehair; grip underhand; rigid true }
+    geometry body { carvedFromSingleWoodBlock true; soundtable goatskin; bridge bone }
+    geometry posture { vertical true; supportedAgainst ankleAndShoulder }
+    geometry tuning { tonic requiredAtConfiguration; sympatheticPitchMap requiredAtConfiguration; continuousPitch true; midiFidelity approximate }
+}
+
+model HindustaniBbBansuri : SideBlownBambooFlute {
+    id "instrument:bansuri:hindustani-b-flat-six-hole"
+    name "Hindustani B-flat Six-hole Bansuri"
+    midiProgram = midi.flute
+    geometry airColumn { body bamboo; bore cylindrical; distalEnd open; range "F4-F6" }
+    geometry toneHoles { count 6; front 6; thumb 0; burned true; halfHole true; crossFingering true }
+    geometry embouchure { sideBlown true; directEdge true }
+    geometry tuning { performedSa Bb4; saFingering topThreeClosed; fluteLengthSelectsTonic true; pitchMap fixedForModel }
+    geometry expression { breathPitch true; meendByRollingAndHalfHole true; midiFidelity approximate }
+}
+
+model HindustaniShehnai : FolkDoubleReed {
+    id "instrument:shehnai:hindustani-seven-hole"
+    name "Hindustani Seven-hole Shehnai"
+    midiProgram = midi.shanai
+    geometry reed { count 1; type quadrupleOrDoubleCane; staple metal }
+    geometry toneHoles { count 8; front 7; tuningHole 1; halfHole true }
+    geometry body { material wood; bore conical; bell flaredMetal }
+    geometry tuning { tonic requiredAtConfiguration; exactPitchMap requiredAtConfiguration; overblownUpperRegister true }
+    geometry performance { circularBreathing supported; outdoorAndCeremonialProjection true; midiFidelity approximate }
+}
+
+model NorthIndianScaleChangerHarmonium : HandPumpedReedKeyboard {
+    id "instrument:harmonium:north-indian-scale-changer-39-key"
+    name "North Indian 39-key Scale-changer Harmonium"
+    midiProgram = midi.reedOrgan
+    geometry keys { count 39; chromaticEqualTemperament true; range "C3-D6"; transpositionMechanism scaleChanger }
+    geometry bellows { count 1; rearHandPumped true; pressureControlsDynamics true }
+    geometry stops { count 7; reedBankStops 3; droneStops 4; statePersists true }
+    geometry reeds { banks 3; registers bassMaleFemale; freeReed true }
+    geometry tuning { temperament twelveToneEqual; referenceAHz 440; scaleChangerSemitones "-4..+4" }
+    geometry limitations { fixedPitchDuringNote true; meendUnavailable true }
+}

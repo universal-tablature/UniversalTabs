@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 30)
-    #expect(catalog.profiles.count == 59)
-    #expect(catalog.models.count == 124)
+    #expect(catalog.profiles.count == 66)
+    #expect(catalog.models.count == 132)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1618,6 +1618,35 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(duduk.profile == StandardInstruments.folkDoubleReed.id)
     #expect(duduk.geometry.first { $0.id == "body" }?.properties["material"] == .text("apricotWood"))
     #expect(zurna.geometry.first { $0.id == "body" }?.properties["bore"] == .text("conical"))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func southAsianExpansionPreservesStringRolesPitchGesturesAndAirControl() throws {
+    let catalog = StandardInstruments.catalog
+    let sitar = StandardInstruments.hindustaniKharajPanchamSitar
+    let sarod = StandardInstruments.hindustaniSarod
+    let veena = StandardInstruments.thanjavurSaraswatiVeena
+    let tanpura = StandardInstruments.hindustaniMirajTanpura
+    let sarangi = StandardInstruments.hindustaniClassicalSarangi
+    let bansuri = StandardInstruments.hindustaniBbBansuri
+    let shehnai = StandardInstruments.hindustaniShehnai
+    let harmonium = StandardInstruments.northIndianScaleChangerHarmonium
+
+    #expect(sitar.profile == StandardInstruments.frettedSympatheticLute.id)
+    #expect(sitar.geometry.first { $0.id == "sympatheticStrings" }?.properties["count"] == .integer(11))
+    #expect(sarod.profile == StandardInstruments.fretlessSympatheticLute.id)
+    #expect(sarod.geometry.first { $0.id == "fingerboard" }?.properties["material"] == .text("polishedMetal"))
+    #expect(veena.profile == StandardInstruments.carnaticFrettedVeena.id)
+    #expect(veena.geometry.first { $0.id == "fixedFrets" }?.properties["count"] == .integer(24))
+    #expect(tanpura.profile == StandardInstruments.jawariDroneLute.id)
+    #expect(tanpura.geometry.first { $0.id == "performance" }?.properties["role"] == .text("continuousDrone"))
+    #expect(sarangi.profile == StandardInstruments.sympatheticBowedLute.id)
+    #expect(sarangi.geometry.first { $0.id == "melodyStrings" }?.properties["stoppedLaterallyBy"] == .text("fingernails"))
+    #expect(bansuri.profile == StandardInstruments.sideBlownBambooFlute.id)
+    #expect(bansuri.geometry.first { $0.id == "tuning" }?.properties["performedSa"] == .pitch(.init(.bFlat, octave: 4)))
+    #expect(shehnai.profile == StandardInstruments.folkDoubleReed.id)
+    #expect(harmonium.profile == StandardInstruments.handPumpedReedKeyboard.id)
+    #expect(harmonium.geometry.first { $0.id == "stops" }?.properties["droneStops"] == .integer(4))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

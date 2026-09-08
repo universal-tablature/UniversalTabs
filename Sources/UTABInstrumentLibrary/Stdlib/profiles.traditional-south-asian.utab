@@ -1,0 +1,85 @@
+module profiles.traditional-south-asian
+
+profile FrettedSympatheticLute {
+    id "profile:strings:fretted-sympathetic-lute"
+    version "1"
+    actuator playingStrings { minimumCount 6; maximumCount 7; control continuous; minimum 0.0; maximum 1.0 }
+    actuator sympatheticStrings { minimumCount 11; maximumCount 13; control continuous; minimum 0.0; maximum 1.0 }
+    actuator movableFrets { minimumCount 19; maximumCount 21; control discrete }
+    interaction pluck { targets playingStrings; effectors wirePlectrum, finger }
+    interaction sweep { targets sympatheticStrings; effectors wirePlectrum }
+    interaction stop { targets movableFrets; effectors finger }
+    technique meend { target playingStrings }
+    technique krintan { target playingStrings }
+}
+
+profile FretlessSympatheticLute {
+    id "profile:strings:fretless-sympathetic-lute"
+    version "1"
+    actuator playingStrings { minimumCount 6; maximumCount 8; control continuous; minimum 0.0; maximum 1.0 }
+    actuator sympatheticStrings { minimumCount 11; maximumCount 15; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets playingStrings; effectors plectrum }
+    interaction stop { targets playingStrings; effectors fingernail }
+    interaction excite { targets sympatheticStrings; effectors playingStrings }
+    technique meend { target playingStrings }
+    technique gamak { target playingStrings }
+}
+
+profile CarnaticFrettedVeena {
+    id "profile:strings:carnatic-fretted-veena"
+    version "1"
+    actuator melodyStrings { count 4; control continuous; minimum 0.0; maximum 1.0 }
+    actuator droneStrings { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator fixedFrets { count 24; control discrete }
+    interaction pluck { targets melodyStrings, droneStrings; effectors finger, fingernail }
+    interaction stop { targets fixedFrets; effectors finger }
+    technique gamaka { target melodyStrings }
+    technique pull { target melodyStrings }
+}
+
+profile JawariDroneLute {
+    id "profile:strings:jawari-drone-lute"
+    version "1"
+    actuator strings { count 4; control continuous; minimum 0.0; maximum 1.0 }
+    actuator jawariBridge { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets strings; effectors finger }
+    interaction adjust { targets jawariBridge; effectors thread, tool }
+    technique cyclicDrone { target strings }
+}
+
+profile SympatheticBowedLute {
+    id "profile:strings:sympathetic-bowed-lute"
+    version "1"
+    actuator melodyStrings { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator sympatheticStrings { minimumCount 30; maximumCount 40; control continuous; minimum 0.0; maximum 1.0 }
+    actuator bow { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction bow { targets melodyStrings; effectors bow }
+    interaction stop { targets melodyStrings; effectors fingernail }
+    interaction excite { targets sympatheticStrings; effectors melodyStrings }
+    technique meend { target melodyStrings }
+    technique gamak { target melodyStrings }
+}
+
+profile SideBlownBambooFlute {
+    id "profile:wind:side-blown-bamboo-flute"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator toneHoles { minimumCount 6; maximumCount 7; control discrete }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction cover { targets toneHoles; effectors finger }
+    technique halfHole { target toneHoles }
+    technique overblow { target airColumn }
+    technique meend { target airColumn }
+}
+
+profile HandPumpedReedKeyboard {
+    id "profile:keyboard:hand-pumped-reed"
+    version "1"
+    actuator keys { minimumCount 37; maximumCount 42; control discrete }
+    actuator bellows { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator stops { minimumCount 2; maximumCount 12; control discrete }
+    interaction press { targets keys; effectors finger }
+    interaction pump { targets bellows; effectors hand }
+    interaction setStop { targets stops; effectors hand }
+    technique sustainWithBellows { target bellows }
+}
