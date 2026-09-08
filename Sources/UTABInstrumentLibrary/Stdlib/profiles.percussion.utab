@@ -195,3 +195,23 @@ profile ScrapedPercussion {
     technique longScrape { target ridges }
     technique shortScrape { target ridges }
 }
+
+profile MountedDoubleHeadedDrum {
+    id "profile:percussion:mounted-double-headed-drum"
+    version "1"
+    actuator membranes { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors stick }
+    interaction damp { targets damping; effectors hand }
+    technique roll { target membranes }
+}
+
+profile AsymmetricDoubleHeadedDrum {
+    id "profile:percussion:asymmetric-double-headed-drum"
+    version "1"
+    actuator membranes { minimumCount 2; maximumCount 4; control continuous; minimum 0.0; maximum 1.0 }
+    actuator tensionCords { minimumCount 8; maximumCount 32; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors hand, thinStick, mallet }
+    interaction tune { targets tensionCords; effectors hand }
+    technique roll { target membranes }
+}

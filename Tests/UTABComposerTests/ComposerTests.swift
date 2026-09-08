@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 43)
-    #expect(catalog.models.count == 104)
+    #expect(catalog.profiles.count == 45)
+    #expect(catalog.models.count == 108)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1536,6 +1536,20 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(StandardInstruments.cubanGuiro.profile == StandardInstruments.scrapedPercussion.id)
     #expect(StandardInstruments.cubanGuiro.geometry.first { $0.id == "shortScrape" }?.properties["midiNote"] == .integer(73))
     #expect(StandardInstruments.cubanGuiro.geometry.first { $0.id == "longScrape" }?.properties["midiNote"] == .integer(74))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func eastAsianDrumExpansionPreservesMountingAsymmetryAndPairedRoles() throws {
+    let catalog = StandardInstruments.catalog
+    #expect(StandardInstruments.nagadoDaiko.profile == StandardInstruments.mountedDoubleHeadedDrum.id)
+    #expect(StandardInstruments.nagadoDaiko.geometry.first { $0.id == "shell" }?.properties["headsTacked"] == .boolean(true))
+    #expect(StandardInstruments.koreanJanggu.profile == StandardInstruments.asymmetricDoubleHeadedDrum.id)
+    #expect(StandardInstruments.koreanJanggu.geometry.first { $0.id == "shell" }?.properties["shape"] == .text("hourglass"))
+    #expect(StandardInstruments.koreanJanggu.geometry.first { $0.id == "chaepyeonStroke" }?.properties["effector"] == .text("thinBambooStick"))
+    #expect(StandardInstruments.koreanBuk.profile == StandardInstruments.mountedDoubleHeadedDrum.id)
+    #expect(StandardInstruments.balineseKendangPair.profile == StandardInstruments.asymmetricDoubleHeadedDrum.id)
+    #expect(StandardInstruments.balineseKendangPair.geometry.first { $0.id == "drums" }?.properties["count"] == .integer(2))
+    #expect(StandardInstruments.balineseKendangPair.geometry.first { $0.id == "drums" }?.properties["complementaryRegisters"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

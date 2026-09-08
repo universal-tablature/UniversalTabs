@@ -1,0 +1,46 @@
+module instruments.percussion.east-asian
+import profiles.percussion
+import std.midi
+
+model NagadoDaiko : MountedDoubleHeadedDrum {
+    id "instrument:percussion:taiko:nagado-daiko"
+    name "Japanese Nagadō-daiko"
+    midiPercussion true
+    geometry shell { shape barrel; material hollowedWood; headsTacked true; mountedOnStand true }
+    geometry membranes { count 2; material hide; sameDiameter true }
+    geometry centerStroke { target headCenter; effector bachi; midiNote midi.taikoDrumOrSurdo; midiFidelity approximate }
+    geometry rimStroke { target rim; effector bachi; midiNote midi.sideStickNote; midiFidelity approximate }
+}
+
+model KoreanJanggu : AsymmetricDoubleHeadedDrum {
+    id "instrument:percussion:janggu:korean-pungmul"
+    name "Korean Pungmul Janggu"
+    midiPercussion true
+    geometry shell { shape hourglass; material wood; shoulderSling true }
+    geometry membranes { count 2; sides gungpyeon, chaepyeon; lowAndHigh true }
+    geometry tensionCords { adjustableRings true; connectsHeads true }
+    geometry gungpyeonStroke { target gungpyeon; effector roundHeadedMallet; midiNote midi.lowTomNote; midiFidelity approximate }
+    geometry chaepyeonStroke { target chaepyeon; effector thinBambooStick; midiNote midi.highTomNote; midiFidelity approximate }
+}
+
+model KoreanBuk : MountedDoubleHeadedDrum {
+    id "instrument:percussion:buk:korean-barrel"
+    name "Korean Buk Barrel Drum"
+    midiPercussion true
+    geometry shell { shape barrel; material hollowedWood; mountedOrStrapped true }
+    geometry membranes { count 2; material hide; lacedTogether true }
+    geometry headStroke { target membrane; effector paddedStick; midiNote midi.lowMidTomNote; midiFidelity approximate }
+    geometry rimStroke { target rim; effector paddedStick; midiNote midi.sideStickNote; midiFidelity approximate }
+}
+
+model BalineseKendangPair : AsymmetricDoubleHeadedDrum {
+    id "instrument:percussion:kendang:balinese-lanang-wadon-pair"
+    name "Balinese Kendang Lanang/Wadon Pair"
+    midiPercussion true
+    geometry drums { count 2; names lanang, wadon; complementaryRegisters true }
+    geometry shells { shape hourglass; material wood; orientation lap }
+    geometry membranes { count 4; headsPerDrum 2; asymmetricHeads true; laced true }
+    geometry lanangStroke { target lanang; register higher; midiNote midi.highTimbaleNote; midiFidelity approximate }
+    geometry wadonStroke { target wadon; register lower; midiNote midi.lowTimbaleNote; midiFidelity approximate }
+    geometry damping { handAndFinger true; articulationDependent true }
+}
