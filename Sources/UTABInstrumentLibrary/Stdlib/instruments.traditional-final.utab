@@ -1,0 +1,90 @@
+module instruments.traditional-final
+import profiles.traditional-final
+import profiles.wind
+import std.midi
+
+model ArgentineRheinischeBandoneon : BellowsFreeReed {
+    id "instrument:bandoneon:argentine-rheinische-142-tone"
+    name "Argentine Rheinische 142-tone Bandoneon"
+    midiProgram = midi.tangoAccordionOrBandoneon
+    geometry buttons { count 71; rightHand 38; leftHand 33; rowsPerHand 5; bisonoric true }
+    geometry reeds { tones 142; freeReeds true; pitchDependsOnBellowsDirection true }
+    geometry bellows { direction pushOrPull; pressureContinuous true; airButton true }
+    geometry layout { system rheinische; exactButtonMap requiredAtConfiguration; handsIndependent true }
+    geometry performance { tradition argentineTango; legatoByBellows true; accentsByPressure true; midiFidelity approximate }
+}
+
+model GreatHighlandBagpipe : BagReservoirChanterAndDrones {
+    id "instrument:bagpipe:great-highland"
+    name "Great Highland Bagpipe"
+    midiProgram = midi.bagpipe
+    geometry chanter { holes 8; soundingNotes 9; bore conical; reed double }
+    geometry drones { count 3; tenor 2; bass 1; reeds single; continuous true }
+    geometry bag { airReservoir true; inflatedBy blowstick; pressureBy arm }
+    geometry scale { tradition highland; nominalTonic A; temperament piperSpecific; exactPitchMap requiredAtConfiguration }
+    geometry articulation { silenceByStoppingBag false; graceNotesRequiredForSeparation true; ornaments "doubling,birl,grip,taorluath" }
+}
+
+model FrenchSixStringHurdyGurdy : CrankedWheelKeyedDroneStrings {
+    id "instrument:hurdy-gurdy:french-six-string"
+    name "French Six-string Hurdy-gurdy"
+    midiProgram = midi.fiddle
+    geometry strings { count 6; melody 2; drone 2; trompette 1; mouche 1 }
+    geometry wheel { material wood; rosined true; bowsAllEngagedStrings true; crankDriven true }
+    geometry keyboard { keys 23; tangentsStopMelodyStrings true; returnByGravity true }
+    geometry buzzingBridge { name chien; string trompette; controlledBy crankImpulse }
+    geometry tuning { tradition french; exactPitchMap requiredAtConfiguration; dronesSelectable true }
+}
+
+model VirginiaFourStringAppalachianDulcimer : DiatonicFrettedDroneZither {
+    id "instrument:dulcimer:appalachian-virginia-four-string-daa"
+    name "Virginia Four-string Appalachian Dulcimer"
+    midiProgram = midi.dulcimerOrSantoor
+    geometry strings { count 4; melody 2; drones 2; metal true }
+    geometry frets { count 15; scaleType diatonic; chromatic false; melodyStringsFretted 2 }
+    geometry body { type singleBoutNecklessZither; hollowFingerboard true; soundHoles true }
+    geometry playing { position horizontalOnLap; strummed true; noterOptional true; dronesSoundContinuously true }
+}
+
+extension VirginiaFourStringAppalachianDulcimer {
+    tuning daa default {
+        id "tuning:dulcimer:appalachian-daa-four-string"
+        name "Appalachian Dulcimer DAA Four-string"
+        tags dulcimer, appalachian, virginia, daa, drone
+        course D3
+        course A3
+        course A3
+        course A3
+    }
+}
+
+model AmericanTwelveFifteenHammeredDulcimer : AmericanHammeredCourseZither {
+    id "instrument:dulcimer:hammered-american-12-15"
+    name "American 12/15 Hammered Dulcimer"
+    midiProgram = midi.dulcimerOrSantoor
+    geometry courses { treble 15; bass 12; stringsPerCourse variable; material steel }
+    geometry bridges { count 2; names trebleAndBass; trebleDividesStrings true; intervalAcrossTrebleBridge perfectFifth }
+    geometry body { type shallowTrapezoidalSoundbox; neck false; portable true }
+    geometry hammers { count 2; handheld true; material wood; faces hardOrPadded }
+    geometry pitchLayout { commonKeys "D,G,C,A"; exactCourseMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model HindustaniKhayalVoice : HindustaniClassicalSingingVoice {
+    id "instrument:voice:hindustani-khayal"
+    name "Hindustani Khayal Voice"
+    midiProgram = midi.choirAahs
+    geometry phoneticLibrary { notation ipaAndDevanagari; vowels "a,aː,i,iː,u,uː,eː,oː"; consonants configurableByTextLanguage; sargam "sa,re,ga,ma,pa,dha,ni" }
+    geometry pitchLanguage { tonic performerSelected; raga requiredAtConfiguration; continuousIntonation true; shrutiSensitive true }
+    geometry techniques { ornaments "meend,gamak,murki,khatka"; improvisation "alap,taan,sargam"; rhythmicFramework tala }
+    geometry lyricAlignment { phonemeTiming explicit; melisma true; syllabic true }
+}
+
+model ThembuXhosaUmngqokoloVoice : XhosaOvertoneSingingVoice {
+    id "instrument:voice:xhosa-umngqokolo"
+    name "Thembu Xhosa Umngqokolo Voice"
+    midiProgram = midi.voiceOohs
+    geometry phoneticLibrary { notation ipaAndXhosaOrthography; vowels "a,e,i,o,u"; clicks "c-dental,q-alveolar,x-lateral"; clickAccompaniments configurable }
+    geometry overtoneSystem { audibleFundamental true; filteredOvertoneMelody true; mouthCavityVariable true; fundamentalMap requiredAtConfiguration }
+    geometry techniques { forms "umngqokolo-nje,umngqokolo-ngomqangi"; callAndResponse true; bowImitation true }
+    geometry lyricAlignment { phonemeTiming explicit; tonalLanguageAware true; melisma true }
+}

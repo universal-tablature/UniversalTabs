@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 37)
-    #expect(catalog.profiles.count == 83)
-    #expect(catalog.models.count == 157)
+    #expect(catalog.tunings.count == 38)
+    #expect(catalog.profiles.count == 89)
+    #expect(catalog.models.count == 164)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1747,6 +1747,33 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(quena.geometry.first { $0.id == "toneHoles" }?.properties["count"] == .integer(7))
     #expect(siku.profile == StandardInstruments.splitComplementaryPanpipePair.id)
     #expect(siku.geometry.first { $0.id == "playerConfiguration" }?.properties["default"] == .text("splitTwoPlayers"))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func finalTraditionalExpansionPreservesBellowsDronesWheelsDulcimersAndVocalPhonetics() throws {
+    let catalog = StandardInstruments.catalog
+    let bandoneon = StandardInstruments.argentineRheinischeBandoneon
+    let bagpipe = StandardInstruments.greatHighlandBagpipe
+    let hurdyGurdy = StandardInstruments.frenchSixStringHurdyGurdy
+    let appalachian = StandardInstruments.virginiaFourStringAppalachianDulcimer
+    let hammered = StandardInstruments.americanTwelveFifteenHammeredDulcimer
+    let khayal = StandardInstruments.hindustaniKhayalVoice
+    let umngqokolo = StandardInstruments.thembuXhosaUmngqokoloVoice
+
+    #expect(bandoneon.profile == StandardInstruments.bellowsFreeReed.id)
+    #expect(bandoneon.geometry.first { $0.id == "buttons" }?.properties["bisonoric"] == .boolean(true))
+    #expect(bagpipe.profile == StandardInstruments.bagReservoirChanterAndDrones.id)
+    #expect(bagpipe.geometry.first { $0.id == "drones" }?.properties["count"] == .integer(3))
+    #expect(hurdyGurdy.profile == StandardInstruments.crankedWheelKeyedDroneStrings.id)
+    #expect(hurdyGurdy.geometry.first { $0.id == "buzzingBridge" }?.properties["name"] == .text("chien"))
+    #expect(appalachian.profile == StandardInstruments.diatonicFrettedDroneZither.id)
+    #expect(appalachian.defaultTuning?.rawValue == "tuning:dulcimer:appalachian-daa-four-string")
+    #expect(hammered.profile == StandardInstruments.americanHammeredCourseZither.id)
+    #expect(hammered.geometry.first { $0.id == "bridges" }?.properties["trebleDividesStrings"] == .boolean(true))
+    #expect(khayal.profile == StandardInstruments.hindustaniClassicalSingingVoice.id)
+    #expect(khayal.geometry.first { $0.id == "phoneticLibrary" }?.properties["sargam"] == .text("sa,re,ga,ma,pa,dha,ni"))
+    #expect(umngqokolo.profile == StandardInstruments.xhosaOvertoneSingingVoice.id)
+    #expect(umngqokolo.geometry.first { $0.id == "phoneticLibrary" }?.properties["clicks"] == .text("c-dental,q-alveolar,x-lateral"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

@@ -1,0 +1,83 @@
+module profiles.traditional-final
+
+profile BagReservoirChanterAndDrones {
+    id "profile:wind:bag-reservoir-chanter-and-drones"
+    version "1"
+    actuator chanterHoles { count 8; control orderedBitset; width 8 }
+    actuator drones { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator bagPressure { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction blow { targets bagPressure; effectors breath }
+    interaction squeeze { targets bagPressure; effectors arm }
+    interaction cover { targets chanterHoles; effectors finger }
+    interaction tune { targets drones; effectors hand }
+    technique graceNote { target chanterHoles }
+    technique doubling { target chanterHoles }
+    technique birl { target chanterHoles }
+}
+
+profile CrankedWheelKeyedDroneStrings {
+    id "profile:strings:cranked-wheel-keyed-drone"
+    version "1"
+    actuator melodyKeys { minimumCount 20; maximumCount 30; control discrete }
+    actuator wheelSpeed { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator droneStrings { minimumCount 1; maximumCount 4; control continuous; minimum 0.0; maximum 1.0 }
+    actuator buzzingBridge { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction turn { targets wheelSpeed, buzzingBridge; effectors crankHand }
+    interaction press { targets melodyKeys; effectors finger }
+    interaction engage { targets droneStrings; effectors hand }
+    technique continuousBow { target wheelSpeed }
+    technique trompetteBuzz { target buzzingBridge }
+    technique drone { target droneStrings }
+}
+
+profile DiatonicFrettedDroneZither {
+    id "profile:zither:diatonic-fretted-drone"
+    version "1"
+    actuator melodyStrings { minimumCount 1; maximumCount 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator droneStrings { minimumCount 1; maximumCount 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator diatonicFrets { minimumCount 12; maximumCount 20; control discrete }
+    interaction strum { targets melodyStrings, droneStrings; effectors finger, plectrum }
+    interaction stop { targets diatonicFrets; effectors finger, noter }
+    technique drone { target droneStrings }
+    technique noterSlide { target diatonicFrets }
+}
+
+profile AmericanHammeredCourseZither {
+    id "profile:zither:american-hammered-courses"
+    version "1"
+    actuator courses { minimumCount 20; maximumCount 60; control continuous; minimum 0.0; maximum 1.0 }
+    actuator bridges { minimumCount 2; maximumCount 4; control discrete }
+    interaction strike { targets courses; effectors leftHammer, rightHammer }
+    interaction tune { targets courses; effectors tuningWrench }
+    technique alternatingStroke { target courses }
+    technique roll { target courses }
+    technique chord { target courses }
+}
+
+profile HindustaniClassicalSingingVoice {
+    id "profile:voice:hindustani-classical"
+    version "1"
+    actuator voice { count 1; control continuous }
+    actuator phonemes { count 1; control discrete }
+    actuator pitchGlide { count 1; control continuous; minimum -1.0; maximum 1.0 }
+    interaction sing { targets voice, phonemes; effectors breath, vocalFolds, articulators }
+    interaction glide { targets pitchGlide; effectors vocalFolds }
+    technique meend { target pitchGlide }
+    technique gamak { target pitchGlide }
+    technique taan { target voice }
+    technique sargam { target phonemes }
+}
+
+profile XhosaOvertoneSingingVoice {
+    id "profile:voice:xhosa-overtone"
+    version "1"
+    actuator voice { count 1; control continuous }
+    actuator phonemes { count 1; control discrete }
+    actuator overtoneFocus { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction sing { targets voice, phonemes; effectors breath, vocalFolds, articulators }
+    interaction filter { targets overtoneFocus; effectors mouth, tongue, pharynx }
+    technique umngqokolo { target overtoneFocus }
+    technique ngomqangi { target overtoneFocus }
+    technique clickConsonant { target phonemes }
+    technique callAndResponse { target voice }
+}
