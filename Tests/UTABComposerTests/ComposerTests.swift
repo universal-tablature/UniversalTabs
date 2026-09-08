@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 49)
-    #expect(catalog.models.count == 112)
+    #expect(catalog.profiles.count == 54)
+    #expect(catalog.models.count == 117)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1569,6 +1569,29 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(gender.geometry.first { $0.id == "resonators" }?.properties["onePerKey"] == .boolean(true))
     #expect(gongs.profile == StandardInstruments.hangingBossedGongSet.id)
     #expect(gongs.geometry.first { $0.id == "gongAgeng" }?.properties["formalRole"] == .text("closesGongan"))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func finalPercussionExpansionPreservesSpecifiedLayoutsAndTuningScope() throws {
+    let catalog = StandardInstruments.catalog
+    let steelpan = StandardInstruments.trinidadHighTenorSteelpan
+    let handpan = StandardInstruments.dMinorNineNoteHandpan
+    let mbira = StandardInstruments.shonaMbiraDzavadzimu
+    let kalimba = StandardInstruments.hughTraceyTrebleKalimbaG
+    let bala = StandardInstruments.mandeBalaFourteenKey
+
+    #expect(steelpan.profile == StandardInstruments.dividedSurfaceSteelPan.id)
+    #expect(steelpan.geometry.first { $0.id == "noteAreas" }?.properties["count"] == .integer(29))
+    #expect(handpan.profile == StandardInstruments.handpanToneFields.id)
+    #expect(handpan.geometry.first { $0.id == "toneFields" }?.properties["centralDing"] == .pitch(.init(.d, octave: 3)))
+    #expect(mbira.profile == StandardInstruments.buzzingBoardLamellophone.id)
+    #expect(mbira.geometry.first { $0.id == "lamellae" }?.properties["ranks"] == .integer(3))
+    #expect(mbira.geometry.first { $0.id == "tuning" }?.properties["exactPitchMap"] == .text("requiredAtConfiguration"))
+    #expect(kalimba.profile == StandardInstruments.boxLamellophone.id)
+    #expect(kalimba.geometry.first { $0.id == "lamellae" }?.properties["count"] == .integer(17))
+    #expect(kalimba.geometry.first { $0.id == "lamellae" }?.properties["centerLowest"] == .pitch(.init(.b, octave: 3)))
+    #expect(bala.profile == StandardInstruments.gourdResonatedXylophone.id)
+    #expect(bala.geometry.first { $0.id == "resonators" }?.properties["name"] == .text("batolu"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

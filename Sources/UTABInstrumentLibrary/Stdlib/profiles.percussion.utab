@@ -254,3 +254,54 @@ profile HangingBossedGongSet {
     interaction strike { targets gongs; effectors paddedBeater }
     interaction damp { targets damping; effectors hand }
 }
+
+profile DividedSurfaceSteelPan {
+    id "profile:percussion:divided-surface-steelpan"
+    version "1"
+    actuator noteAreas { minimumCount 28; maximumCount 30; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets noteAreas; effectors rubberTippedStick }
+    interaction damp { targets damping; effectors hand }
+    technique roll { target noteAreas }
+}
+
+profile HandpanToneFields {
+    id "profile:percussion:handpan-tone-fields"
+    version "1"
+    actuator toneFields { minimumCount 8; maximumCount 24; control continuous; minimum 0.0; maximum 1.0 }
+    actuator shellSurfaces { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets toneFields, shellSurfaces; effectors finger, hand }
+    interaction damp { targets toneFields; effectors finger, hand }
+    technique toneField { target toneFields }
+    technique slap { target shellSurfaces }
+}
+
+profile BuzzingBoardLamellophone {
+    id "profile:percussion:buzzing-board-lamellophone"
+    version "1"
+    actuator lamellae { minimumCount 22; maximumCount 28; control continuous; minimum 0.0; maximum 1.0 }
+    actuator buzzers { minimumCount 1; maximumCount 32; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets lamellae; effectors thumb, indexFinger }
+    interaction excite { targets buzzers; effectors lamellae }
+}
+
+profile BoxLamellophone {
+    id "profile:percussion:box-lamellophone"
+    version "1"
+    actuator lamellae { count 17; control continuous; minimum 0.0; maximum 1.0 }
+    actuator soundHole { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets lamellae; effectors thumb }
+    interaction cover { targets soundHole; effectors finger }
+}
+
+profile GourdResonatedXylophone {
+    id "profile:percussion:gourd-resonated-xylophone"
+    version "1"
+    actuator bars { count 14; control continuous; minimum 0.0; maximum 1.0 }
+    actuator resonators { count 14; control continuous; minimum 0.0; maximum 1.0 }
+    actuator buzzers { count 14; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets bars; effectors rubberHeadedMallet }
+    interaction resonate { targets resonators; effectors bars }
+    interaction excite { targets buzzers; effectors resonators }
+    technique roll { target bars }
+}

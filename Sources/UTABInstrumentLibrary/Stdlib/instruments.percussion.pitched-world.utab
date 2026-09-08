@@ -1,0 +1,59 @@
+module instruments.percussion.pitched-world
+import profiles.percussion
+import std.midi
+
+model TrinidadHighTenorSteelpan : DividedSurfaceSteelPan {
+    id "instrument:percussion:steelpan:trinidad-high-tenor-d4-g6"
+    name "Trinidad High Tenor Steelpan"
+    midiProgram = midi.steelDrums
+    geometry noteAreas { count 29; chromatic true; minimumPitch D4; maximumPitch G6; individuallyTuned true }
+    geometry damping { count 1; technique handOrBody }
+    geometry vessel { material steel; sourceOilDrum true; concaveBowl true; skirt short }
+    geometry mallets { count 2; tips rubber }
+    geometry layout { scheme fourthsAndFifths; voice highTenor; exactNoteMap requiredAtConfiguration }
+}
+
+model DMinorNineNoteHandpan : HandpanToneFields {
+    id "instrument:percussion:handpan:d-minor-nine-note"
+    name "Nine-note D-minor Handpan"
+    midiProgram = midi.steelDrums
+    geometry toneFields { count 9; centralDing D3; ringPitchOrder "A3 Bb3 C4 D4 E4 F4 G4 A4"; tunedPartials fundamentalOctaveFifth }
+    geometry shellSurfaces { count 2; material nitridedSteel; joinedLenticular true }
+    geometry layout { topFields 9; bottomFields 0; ringDirection ascendingAlternating; fixedAtBuild true }
+    geometry gu { bottomOpening true; helmholtzResonator true }
+    geometry playback { midiFidelity approximate; velocityLayers requiredForTimbre }
+}
+
+model ShonaMbiraDzavadzimu : BuzzingBoardLamellophone {
+    id "instrument:percussion:mbira:shona-dzavadzimu-24-key"
+    name "Shona Mbira Dzavadzimu, 24-key"
+    midiProgram = midi.kalimba
+    geometry lamellae { count 24; material metal; ranks 3; leftRanks 2; rightRanks 1 }
+    geometry buzzers { count 8; material bottleCapsOrShells; characteristicSound true }
+    geometry soundboard { material hardwood; trayShaped true; rightLittleFingerHole true }
+    geometry deze { separateGourdResonator true; optionalForPlaying true }
+    geometry hands { leftThumbRanks 2; rightThumbInsideKeys 3; rightIndexOuterKeys 6; pluckDirections mixed }
+    geometry tuning { system nonStandardizedHeptatonic; rangeOctaves minimum3; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model HughTraceyTrebleKalimbaG : BoxLamellophone {
+    id "instrument:percussion:kalimba:hugh-tracey-treble-17-g"
+    name "Hugh Tracey Treble Kalimba, 17-key G"
+    midiProgram = midi.kalimba
+    geometry lamellae { count 17; material steel; alternatingLeftRight true; centerLowest B3; physicalLeftToRight "C6 A5 F#5 D5 B4 G4 E4 C4 B3 D4 F#4 A4 C5 E5 G5 B5 D6" }
+    geometry soundHole { count 1; front true; coveredForWah true }
+    geometry resonator { type integralWoodenBox; sharedByKeys true }
+    geometry tuning { system gMajorDiatonic; minimumPitch B3; maximumPitch D6; retunable true }
+}
+
+model MandeBalaFourteenKey : GourdResonatedXylophone {
+    id "instrument:percussion:balafon:mande-bala-fourteen-key"
+    name "Mandé Bala, 14-key"
+    midiProgram = midi.marimba
+    geometry bars { count 14; material smokedWood; graduatedLength true; tiedWith hideRope }
+    geometry resonators { count 14; material gourd; name batolu; arrangement zigzag; onePerBar true }
+    geometry buzzers { count 14; membraneOnGourdHole true; characteristicSound true }
+    geometry frame { sides 4; verticalDowels 15; portable true }
+    geometry mallets { count 2; heads rubber }
+    geometry tuning { tradition mande; scope makerAndEnsembleSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}
