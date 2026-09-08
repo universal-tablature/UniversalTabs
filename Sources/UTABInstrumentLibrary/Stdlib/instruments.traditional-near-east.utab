@@ -1,0 +1,96 @@
+module instruments.traditional-near-east
+import profiles.core
+import profiles.traditional-near-east
+import std.midi
+
+model TurkishOud : PluckedCourses {
+    id "instrument:oud:turkish-bolahenk-six-course"
+    name "Turkish Bolâhenk Oud"
+    midiProgram = midi.nylonStringGuitar
+    geometry courses { count 6; stringCount 11; lowestSingle true; remainingDoubled true }
+    geometry body { bowlBack true; construction light; ribs fewerThanArabicTypical; soundboard thin }
+    geometry fingerboard { fretted false; continuousPitch true }
+    geometry scaleLength { relativeToArabic shorter }
+    geometry notation { writtenTransposition conventionDependent; soundingPitchAuthoritative true }
+}
+
+extension TurkishOud {
+    tuning bolahenk default {
+        id "tuning:oud:turkish-bolahenk"
+        name "Turkish Oud Bolâhenk C-sharp"
+        tags oud, turkish, courses
+        course C#2
+        course F#2, F#2
+        course B2, B2
+        course E3, E3
+        course A3, A3
+        course D4, D4
+    }
+}
+
+model TurkishQanun : LeveredCourseZither {
+    id "instrument:qanun:turkish-24-course-mandalli"
+    name "Turkish 24-course Mandallı Qanun"
+    midiProgram = midi.dulcimerOrSantoor
+    geometry courses { count 24; stringsPerCourse 3; stringCount 72; material nylonOrGut }
+    geometry mandals { count 168; perCourse typical7; statePersists true; raisesPitch true; stepCents makerSpecific }
+    geometry body { shape trapezoidal; playedHorizontal true }
+    geometry bridge { restsOn fishSkinMembrane }
+    geometry plectra { count 2; material metal; attachedTo indexFingers }
+    geometry tuning { makamCapable true; basePitchMap requiredAtConfiguration; mandalOffsets requiredAtConfiguration }
+}
+
+model ShortNeckBaglama : TiedFretPluckedCourses {
+    id "instrument:baglama:turkish-short-neck-seven-string"
+    name "Turkish Short-neck Bağlama"
+    midiProgram = midi.sitar
+    geometry courses { count 3; stringCount 7; grouping "2-2-3"; melodyAndDroneRoles true }
+    geometry tiedFrets { count 19; movable true; material nylonLine; makamIntervals true }
+    geometry body { shape longNeckBowlLute; soundboard spruce; bowl mulberry }
+    geometry tuning { name baglamaDuzeni; relativeLowToHigh "A-G-D"; exactRegister requiredAtConfiguration }
+    geometry playing { plectrum cherryBarkOrPlastic; fingerStyle selpe; soundboardStrikes true }
+}
+
+model PersianKamancheh : SpikeFiddle {
+    id "instrument:kamancheh:persian-modern-four-string"
+    name "Modern Persian Kamancheh"
+    midiProgram = midi.violin
+    geometry strings { count 4; material metal; tuning "G3 D4 A4 E5" }
+    geometry bow { count 1; tensionControlledByHand true; remainsOutsideStrings true }
+    geometry body { shape sphericalBowl; membraneSoundTable hide; endpin true }
+    geometry posture { vertical true; rotatesAgainstBow true; supportedOn kneeOrChair }
+    geometry pitchSystem { fingerboard fretless; continuousPitch true; midiFidelity approximate }
+}
+
+model TurkishKizNey : RimBlownFlute {
+    id "instrument:ney:turkish-kiz-a2"
+    name "Turkish Kız Ney"
+    midiProgram = midi.flute
+    geometry airColumn { bore cylindrical; body reed; segments 9; lowestPitch A2 }
+    geometry toneHoles { count 7; front 6; thumb 1; halfCovering true }
+    geometry mouthpiece { name baspare; material hornWoodOrPlastic; beveled true }
+    geometry reinforcement { endBands metal; count 2 }
+    geometry pitchSystem { makamCapable true; overblownRegisters true; exactFingeringMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model ArmenianADuduk : FolkDoubleReed {
+    id "instrument:duduk:armenian-a-apricot"
+    name "Armenian Duduk in A"
+    midiProgram = midi.oboe
+    geometry reed { count 1; type largeFlattenedDoubleReed; tuningCollar adjustable }
+    geometry toneHoles { count 10; frontPlayable 8; rearThumb 1; tuningHole 1; halfHoleChromatic true }
+    geometry body { material apricotWood; bore cylindrical }
+    geometry pitchSystem { nominalKey A; range "oneOctavePlusThird"; untempered true; breathIntonation true }
+    geometry ensembleRole { melodyAndDamDrone true; circularBreathing supported }
+}
+
+model TurkishKabaZurna : FolkDoubleReed {
+    id "instrument:zurna:turkish-kaba"
+    name "Turkish Kaba Zurna"
+    midiProgram = midi.shanai
+    geometry reed { count 1; type smallDoubleReed; pirouette true }
+    geometry toneHoles { count 8; front 7; thumb 1; halfHoleChromatic true }
+    geometry body { material wood; bore conical; bell flared; size large }
+    geometry pitchSystem { register lowForFamily; exactPitchMap requiredAtConfiguration; overblownRegister true }
+    geometry performance { outdoorProjection true; circularBreathing supported; pairedWithDavul typical }
+}

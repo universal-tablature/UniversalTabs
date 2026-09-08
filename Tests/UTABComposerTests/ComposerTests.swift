@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 54)
-    #expect(catalog.models.count == 117)
+    #expect(catalog.tunings.count == 30)
+    #expect(catalog.profiles.count == 59)
+    #expect(catalog.models.count == 124)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1592,6 +1592,32 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(kalimba.geometry.first { $0.id == "lamellae" }?.properties["centerLowest"] == .pitch(.init(.b, octave: 3)))
     #expect(bala.profile == StandardInstruments.gourdResonatedXylophone.id)
     #expect(bala.geometry.first { $0.id == "resonators" }?.properties["name"] == .text("batolu"))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func nearEasternExpansionPreservesRegionalConstructionAndPitchControls() throws {
+    let catalog = StandardInstruments.catalog
+    let oud = StandardInstruments.turkishOud
+    let qanun = StandardInstruments.turkishQanun
+    let baglama = StandardInstruments.shortNeckBaglama
+    let kamancheh = StandardInstruments.persianKamancheh
+    let ney = StandardInstruments.turkishKizNey
+    let duduk = StandardInstruments.armenianADuduk
+    let zurna = StandardInstruments.turkishKabaZurna
+
+    #expect(oud.defaultTuning?.rawValue == "tuning:oud:turkish-bolahenk")
+    #expect(oud.geometry.first { $0.id == "courses" }?.properties["stringCount"] == .integer(11))
+    #expect(qanun.profile == StandardInstruments.leveredCourseZither.id)
+    #expect(qanun.geometry.first { $0.id == "mandals" }?.properties["statePersists"] == .boolean(true))
+    #expect(baglama.profile == StandardInstruments.tiedFretPluckedCourses.id)
+    #expect(baglama.geometry.first { $0.id == "playing" }?.properties["fingerStyle"] == .text("selpe"))
+    #expect(kamancheh.profile == StandardInstruments.spikeFiddle.id)
+    #expect(kamancheh.geometry.first { $0.id == "posture" }?.properties["vertical"] == .boolean(true))
+    #expect(ney.profile == StandardInstruments.rimBlownFlute.id)
+    #expect(ney.geometry.first { $0.id == "toneHoles" }?.properties["front"] == .integer(6))
+    #expect(duduk.profile == StandardInstruments.folkDoubleReed.id)
+    #expect(duduk.geometry.first { $0.id == "body" }?.properties["material"] == .text("apricotWood"))
+    #expect(zurna.geometry.first { $0.id == "body" }?.properties["bore"] == .text("conical"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
