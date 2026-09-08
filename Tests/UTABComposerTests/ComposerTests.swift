@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 35)
-    #expect(catalog.profiles.count == 78)
-    #expect(catalog.models.count == 149)
+    #expect(catalog.profiles.count == 81)
+    #expect(catalog.models.count == 152)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1707,6 +1707,24 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(daegeum.geometry.first { $0.id == "membrane" }?.properties["name"] == .text("cheong"))
     #expect(haegeum.profile == StandardInstruments.bowBetweenStringsFiddle.id)
     #expect(haegeum.geometry.first { $0.id == "bridge" }?.properties["controlsToneAndVolume"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func africanStringExpansionPreservesDoubleRanksBuzzingAndResonatorFiltering() throws {
+    let catalog = StandardInstruments.catalog
+    let kora = StandardInstruments.mandinkaTwentyOneStringKora
+    let ngoni = StandardInstruments.wasuluSixStringDonsoNgoni
+    let uhadi = StandardInstruments.xhosaUhadiMusicalBow
+
+    #expect(kora.profile == StandardInstruments.doubleRankNotchedBridgeHarpLute.id)
+    #expect(kora.geometry.first { $0.id == "strings" }?.properties["count"] == .integer(21))
+    #expect(kora.geometry.first { $0.id == "bridge" }?.properties["separatesRanks"] == .boolean(true))
+    #expect(ngoni.profile == StandardInstruments.skinSoundboardSpikeHarp.id)
+    #expect(ngoni.geometry.first { $0.id == "buzzingRattle" }?.properties["name"] == .text("segesege"))
+    #expect(ngoni.geometry.first { $0.id == "playing" }?.properties["harmonicDamping"] == .text("kaDere"))
+    #expect(uhadi.profile == StandardInstruments.gourdResonatedStruckMusicalBow.id)
+    #expect(uhadi.geometry.first { $0.id == "pitchDivision" }?.properties["fundamentals"] == .integer(2))
+    #expect(uhadi.geometry.first { $0.id == "harmonicFilter" }?.properties["continuous"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

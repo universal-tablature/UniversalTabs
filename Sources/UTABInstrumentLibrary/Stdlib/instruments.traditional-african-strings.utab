@@ -1,0 +1,42 @@
+module instruments.traditional-african-strings
+import profiles.traditional-african-strings
+import std.midi
+
+model MandinkaTwentyOneStringKora : DoubleRankNotchedBridgeHarpLute {
+    id "instrument:kora:mandinka-21-string"
+    name "Mandinka Twenty-one-string Kora"
+    midiProgram = midi.orchestralHarp
+    geometry strings { count 21; ranks 2; leftRank 11; rightRank 10; material gutOrNylon }
+    geometry bridge { type tallUpright; stringGuides verticallyNotchedOrPierced; separatesRanks true }
+    geometry resonator { type hemisphericalCalabash; soundboard cowhide; hideFasteners metalTacks }
+    geometry neck { type throughSpike; material hardwood; tuningHardware leatherRingsOrMachineHeads }
+    geometry handles { count 2; flankBridge true; grippedWhilePlaying true }
+    geometry playing { effectors thumbsAndIndexFingers; interlockingLines true; chords true; handlePercussion optional }
+    geometry tuning { principalModes "hardino,tomoraba,sauta,tomoraMesengo"; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model WasuluSixStringDonsoNgoni : SkinSoundboardSpikeHarp {
+    id "instrument:ngoni:wasulu-donso-six-string"
+    name "Wasulu Six-string Donsó Ngoni"
+    midiProgram = midi.koto
+    geometry strings { count 6; ranks 2; material sinew; attachedBy neckRings }
+    geometry resonator { type calabash; soundboard goatskinOrAntelopeHide; hideFasteners woodenPegs }
+    geometry neck { type throughSpike; protrudesBelowResonator true; tuningHardware rings }
+    geometry bridge { type uprightNotched; name so; stringNotches 6 }
+    geometry handles { count 2; parallelToNeck true; tiedToNeck true }
+    geometry buzzingRattle { count 1; name segesege; material metal; rings true }
+    geometry tuning { scaleType pentatonic; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+    geometry playing { primaryHand left; pluckingFingers thumbAndIndex; harmonicDamping kaDere; foundationalPattern ngonisin; improvisation teremeli }
+}
+
+model XhosaUhadiMusicalBow : GourdResonatedStruckMusicalBow {
+    id "instrument:musical-bow:xhosa-uhadi"
+    name "Xhosa Uhadi Musical Bow"
+    midiProgram = midi.kalimba
+    geometry bow { material flexibleWood; curved true; derivedFrom huntingBow }
+    geometry string { count 1; struckWith reedBeater; tension makerSpecific }
+    geometry resonator { type driedCalabash; attachedToBow true; apertureCoupledTo chest }
+    geometry pitchDivision { method claspString; effectors thumbAndIndexFinger; fundamentals 2 }
+    geometry harmonicFilter { method moveCalabashAgainstChest; continuous true; exposesUpperPartials true }
+    geometry tuning { fundamentals performerSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}

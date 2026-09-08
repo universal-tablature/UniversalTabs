@@ -1,0 +1,41 @@
+module profiles.traditional-african-strings
+
+profile DoubleRankNotchedBridgeHarpLute {
+    id "profile:strings:double-rank-notched-bridge-harp-lute"
+    version "1"
+    actuator strings { count 21; control continuous; minimum 0.0; maximum 1.0 }
+    actuator handles { count 2; control discrete }
+    interaction pluck { targets strings; effectors thumb, indexFinger }
+    interaction grip { targets handles; effectors hand }
+    interaction strike { targets handles; effectors fingernail }
+    technique interlockingPattern { target strings }
+    technique chord { target strings }
+    technique ostinato { target strings }
+}
+
+profile SkinSoundboardSpikeHarp {
+    id "profile:strings:skin-soundboard-spike-harp"
+    version "1"
+    actuator strings { count 6; control continuous; minimum 0.0; maximum 1.0 }
+    actuator buzzingRattle { count 1; control discrete }
+    interaction pluck { targets strings; effectors thumb, indexFinger }
+    interaction damp { targets strings; effectors thumbKnuckle, fingertip }
+    interaction excite { targets buzzingRattle; effectors stringVibration }
+    technique harmonicDamping { target strings }
+    technique ostinato { target strings }
+    technique improvisation { target strings }
+}
+
+profile GourdResonatedStruckMusicalBow {
+    id "profile:strings:gourd-resonated-struck-musical-bow"
+    version "1"
+    actuator string { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator pitchDivision { count 1; control discrete }
+    actuator gourdAperture { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets string; effectors reedBeater }
+    interaction clasp { targets pitchDivision; effectors thumb, indexFinger }
+    interaction couple { targets gourdAperture; effectors chest }
+    technique openFundamental { target string }
+    technique stoppedFundamental { target pitchDivision }
+    technique harmonicFiltering { target gourdAperture }
+}
