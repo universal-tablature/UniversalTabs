@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 35)
-    #expect(catalog.profiles.count == 81)
-    #expect(catalog.models.count == 152)
+    #expect(catalog.tunings.count == 37)
+    #expect(catalog.profiles.count == 83)
+    #expect(catalog.models.count == 157)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1725,6 +1725,28 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(uhadi.profile == StandardInstruments.gourdResonatedStruckMusicalBow.id)
     #expect(uhadi.geometry.first { $0.id == "pitchDivision" }?.properties["fundamentals"] == .integer(2))
     #expect(uhadi.geometry.first { $0.id == "harmonicFilter" }?.properties["continuous"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func latinAmericanExpansionPreservesReentrantCoursesBowControlsAndSplitPanpipes() throws {
+    let catalog = StandardInstruments.catalog
+    let berimbau = StandardInstruments.brazilianCapoeiraBerimbau
+    let charango = StandardInstruments.bolivianTenStringCharango
+    let cuatro = StandardInstruments.venezuelanLlaneroCuatro
+    let quena = StandardInstruments.andeanSevenHoleQuena
+    let siku = StandardInstruments.aymaraChallaSikuPair
+
+    #expect(berimbau.profile == StandardInstruments.coinStoppedGourdMusicalBow.id)
+    #expect(berimbau.geometry.first { $0.id == "pitchContact" }?.properties["states"] == .text("openStoppedBuzz"))
+    #expect(charango.profile == StandardInstruments.pluckedCourses.id)
+    #expect(charango.defaultTuning?.rawValue == "tuning:charango:bolivian-temple-natural")
+    #expect(charango.geometry.first { $0.id == "courses" }?.properties["middleCourseOctaveDoubled"] == .boolean(true))
+    #expect(cuatro.profile == StandardInstruments.frettedStrings.id)
+    #expect(cuatro.defaultTuning?.rawValue == "tuning:cuatro:venezuelan-cambur-pinton")
+    #expect(quena.profile == StandardInstruments.notchedEndBlownFlute.id)
+    #expect(quena.geometry.first { $0.id == "toneHoles" }?.properties["count"] == .integer(7))
+    #expect(siku.profile == StandardInstruments.splitComplementaryPanpipePair.id)
+    #expect(siku.geometry.first { $0.id == "playerConfiguration" }?.properties["default"] == .text("splitTwoPlayers"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

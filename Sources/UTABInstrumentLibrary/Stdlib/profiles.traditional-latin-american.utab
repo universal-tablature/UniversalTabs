@@ -1,0 +1,33 @@
+module profiles.traditional-latin-american
+
+profile CoinStoppedGourdMusicalBow {
+    id "profile:strings:coin-stopped-gourd-musical-bow"
+    version "1"
+    actuator wire { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator pitchContact { count 1; control discrete }
+    actuator gourdAperture { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator basketRattle { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets wire; effectors baqueta }
+    interaction touch { targets pitchContact; effectors dobrão, stone }
+    interaction couple { targets gourdAperture; effectors abdomen }
+    interaction shake { targets basketRattle; effectors hand }
+    technique openTone { target wire }
+    technique stoppedTone { target pitchContact }
+    technique buzzTone { target pitchContact }
+    technique resonanceWah { target gourdAperture }
+}
+
+profile SplitComplementaryPanpipePair {
+    id "profile:wind:split-complementary-panpipe-pair"
+    version "1"
+    actuator iraPipes { count 6; control discrete }
+    actuator arkaPipes { count 7; control discrete }
+    actuator playerAssignment { count 2; control discrete }
+    interaction blow { targets iraPipes, arkaPipes; effectors breath, lip }
+    interaction assign { targets playerAssignment; effectors performer }
+    technique interlock { target iraPipes }
+    technique interlockResponse { target arkaPipes }
+    technique hocket { target playerAssignment }
+    technique overblow { target iraPipes }
+    technique overblowResponse { target arkaPipes }
+}

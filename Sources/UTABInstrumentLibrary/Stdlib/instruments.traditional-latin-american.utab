@@ -1,0 +1,85 @@
+module instruments.traditional-latin-american
+import profiles.traditional-latin-american
+import profiles.core
+import profiles.traditional-chinese
+import std.midi
+
+model BrazilianCapoeiraBerimbau : CoinStoppedGourdMusicalBow {
+    id "instrument:berimbau:brazilian-capoeira"
+    name "Brazilian Capoeira Berimbau"
+    midiProgram = midi.kalimba
+    geometry bow { name verga; material biribaWood; curvedBy wireTension }
+    geometry wire { count 1; material steel; name arame }
+    geometry resonator { type calabash; name cabaça; attachedBy cord; apertureMovedAgainst abdomen }
+    geometry beater { count 1; name baqueta; material wood }
+    geometry pitchContact { name dobrão; alternatives stoneOrMetalCoin; states openStoppedBuzz }
+    geometry basketRattle { count 1; name caxixi; heldWith beaterHand; coordinated true }
+    geometry ensembleRole { sizes "gunga,médio,viola"; exactRegister requiredAtConfiguration; midiFidelity approximate }
+}
+
+model BolivianTenStringCharango : PluckedCourses {
+    id "instrument:charango:bolivian-ten-string-natural"
+    name "Bolivian Ten-string Charango"
+    midiProgram = midi.nylonStringGuitar
+    geometry courses { count 5; stringsPerCourse 2; reentrant true; middleCourseOctaveDoubled true }
+    geometry strings { count 10; material nylon }
+    geometry frets { count 17; movable false; exactCount makerSpecific }
+    geometry body { type smallWaistedLute; back woodOrArmadilloShell; scaleLengthCm "35-37" }
+    geometry playing { strummed true; fingerPlucked true; rapidTremolo true }
+}
+
+extension BolivianTenStringCharango {
+    tuning templeNatural default {
+        id "tuning:charango:bolivian-temple-natural"
+        name "Bolivian Charango Temple Natural"
+        tags charango, bolivian, templeNatural, reentrant, courses
+        course G4, G4
+        course C5, C5
+        course E5, E4
+        course A4, A4
+        course E5, E5
+    }
+}
+
+model VenezuelanLlaneroCuatro : FrettedStrings {
+    id "instrument:cuatro:venezuelan-llanero-four-string"
+    name "Venezuelan Llanero Cuatro"
+    midiProgram = midi.nylonStringGuitar
+    geometry strings { count 4; material nylon; reentrant true; lowFirstString true }
+    geometry frets { count 17; movable false; exactCount makerSpecific }
+    geometry body { type smallFourStringGuitar; flatBack true }
+    geometry playing { primaryRole rhythmicAccompaniment; strummed true; percussiveMutedStrokes true; fingerPlucked true }
+}
+
+extension VenezuelanLlaneroCuatro {
+    tuning camburPinton default {
+        id "tuning:cuatro:venezuelan-cambur-pinton"
+        name "Venezuelan Cuatro Cambur Pintón"
+        tags cuatro, venezuelan, llanero, camburPinton, reentrant
+        course A3
+        course D4
+        course F#4
+        course B3
+    }
+}
+
+model AndeanSevenHoleQuena : NotchedEndBlownFlute {
+    id "instrument:quena:andean-seven-hole-g"
+    name "Andean Seven-hole Quena in G"
+    midiProgram = midi.flute
+    geometry airColumn { body caneOrWood; openAtFoot true; nominalKey G4 }
+    geometry embouchure { type rimNotch; shape ushaped; duct false }
+    geometry toneHoles { count 7; front 6; thumb 1; halfHole true }
+    geometry pitchSystem { lowestPitch G4; chromaticBy crossFingeringAndHalfHoles; overblownRegisters true; midiFidelity approximate }
+}
+
+model AymaraChallaSikuPair : SplitComplementaryPanpipePair {
+    id "instrument:siku:aymara-challa-ira-arka"
+    name "Aymara Ch'alla Siku Ira-Arka Pair"
+    midiProgram = midi.panFlute
+    geometry pipeSet { totalPipes 13; material cane; closedAtFoot true; steppedLengths true }
+    geometry ira { pipes 6; role leadingHalf; ownsAlternatingScaleDegrees true }
+    geometry arka { pipes 7; role respondingHalf; ownsComplementaryScaleDegrees true }
+    geometry playerConfiguration { default splitTwoPlayers; iraPlayer 1; arkaPlayer 2; singlePlayer possible }
+    geometry performance { interlockingHocket true; pairedBreathing true; exactPitchMap requiredAtConfiguration; ensembleTuning local }
+}
