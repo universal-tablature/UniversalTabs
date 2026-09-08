@@ -215,3 +215,42 @@ profile AsymmetricDoubleHeadedDrum {
     interaction tune { targets tensionCords; effectors hand }
     technique roll { target membranes }
 }
+
+profile BossedGongRack {
+    id "profile:percussion:bossed-gong-rack"
+    version "1"
+    actuator gongKettles { minimumCount 10; maximumCount 14; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { minimumCount 10; maximumCount 14; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets gongKettles; effectors paddedMallet }
+    interaction damp { targets damping; effectors hand, mallet }
+    technique pipilan { target gongKettles }
+    technique gembyangan { target gongKettles }
+}
+
+profile TroughMetallophone {
+    id "profile:percussion:trough-metallophone"
+    version "1"
+    actuator keys { minimumCount 6; maximumCount 7; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { minimumCount 6; maximumCount 7; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets keys; effectors hardMallet }
+    interaction damp { targets damping; effectors freeHand }
+}
+
+profile ResonatedSuspendedMetallophone {
+    id "profile:percussion:resonated-suspended-metallophone"
+    version "1"
+    actuator keys { minimumCount 10; maximumCount 14; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { minimumCount 10; maximumCount 14; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets keys; effectors paddedDiscMallet }
+    interaction damp { targets damping; effectors hand }
+    technique cengkok { target keys }
+}
+
+profile HangingBossedGongSet {
+    id "profile:percussion:hanging-bossed-gong-set"
+    version "1"
+    actuator gongs { minimumCount 2; maximumCount 16; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { minimumCount 2; maximumCount 16; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets gongs; effectors paddedBeater }
+    interaction damp { targets damping; effectors hand }
+}

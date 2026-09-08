@@ -1,0 +1,50 @@
+module instruments.percussion.gamelan
+import profiles.percussion
+import std.midi
+
+model JavaneseBonangBarungPelog : BossedGongRack {
+    id "instrument:percussion:bonang:javanese-barung-pelog"
+    name "Javanese Pélog Bonang Barung"
+    midiProgram = midi.tinkleBell
+    geometry gongKettles { count 14; rows 2; kettlesPerRow 7; material bronze; bossed true; openSide down }
+    geometry damping { count 14; technique handOrMallet }
+    geometry frame { rectangular true; suspension stretchedCords }
+    geometry mallets { count 2; shape cylindrical; paddedWith cord }
+    geometry tuning { system pelog; scope ensembleSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+    geometry register { role barung; above panembung; below panerus }
+}
+
+model JavaneseSaronBarungPelog : TroughMetallophone {
+    id "instrument:percussion:saron:javanese-barung-pelog"
+    name "Javanese Pélog Saron Barung"
+    midiProgram = midi.xylophone
+    geometry keys { count 7; material bronze; restingOn trough; melodicRole balungan }
+    geometry damping { count 7; technique freeHandAfterStrike }
+    geometry resonator { type woodenTrough }
+    geometry mallets { count 1; hardness hard }
+    geometry tuning { system pelog; scope ensembleSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+    geometry register { family saron; role middle; below peking; above demung }
+}
+
+model JavaneseGenderBarungPelog : ResonatedSuspendedMetallophone {
+    id "instrument:percussion:gender:javanese-barung-pelog"
+    name "Javanese Pélog Gendèr Barung"
+    midiProgram = midi.vibraphone
+    geometry keys { count 14; material bronze; suspendedBy cords; twoHanded true }
+    geometry damping { count 14; technique handAfterOrWithNextStrike }
+    geometry resonators { count 14; type individualTubes; onePerKey true }
+    geometry mallets { count 2; shape paddedDisc }
+    geometry tuning { system pelog; scope ensembleSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+    geometry melodicRole { elaborating true; patterns cengkok; register medium }
+}
+
+model JavaneseGongAgengKempulSet : HangingBossedGongSet {
+    id "instrument:percussion:gong:javanese-ageng-kempul-set"
+    name "Javanese Gong Ageng and Kempul Set"
+    midiProgram = midi.tubularBells
+    geometry gongs { count 7; material bronze; bossed true; suspendedVertically true }
+    geometry damping { count 7; technique hand }
+    geometry gongAgeng { count 1; diameterInches 34; register lowest; formalRole closesGongan; beater heavilyPadded }
+    geometry kempul { count 6; relativeSize smaller; formalRole subdividesGongan; beaters padded }
+    geometry tuning { systems slendroOrPelog; scope ensembleSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}

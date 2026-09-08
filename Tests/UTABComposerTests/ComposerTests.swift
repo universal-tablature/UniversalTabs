@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 45)
-    #expect(catalog.models.count == 108)
+    #expect(catalog.profiles.count == 49)
+    #expect(catalog.models.count == 112)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1550,6 +1550,25 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(StandardInstruments.balineseKendangPair.profile == StandardInstruments.asymmetricDoubleHeadedDrum.id)
     #expect(StandardInstruments.balineseKendangPair.geometry.first { $0.id == "drums" }?.properties["count"] == .integer(2))
     #expect(StandardInstruments.balineseKendangPair.geometry.first { $0.id == "drums" }?.properties["complementaryRegisters"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func javaneseGamelanExpansionPreservesLayoutsDampingAndEnsembleTuning() throws {
+    let catalog = StandardInstruments.catalog
+    let bonang = StandardInstruments.javaneseBonangBarungPelog
+    let saron = StandardInstruments.javaneseSaronBarungPelog
+    let gender = StandardInstruments.javaneseGenderBarungPelog
+    let gongs = StandardInstruments.javaneseGongAgengKempulSet
+
+    #expect(bonang.profile == StandardInstruments.bossedGongRack.id)
+    #expect(bonang.geometry.first { $0.id == "gongKettles" }?.properties["rows"] == .integer(2))
+    #expect(bonang.geometry.first { $0.id == "tuning" }?.properties["scope"] == .text("ensembleSpecific"))
+    #expect(saron.profile == StandardInstruments.troughMetallophone.id)
+    #expect(saron.geometry.first { $0.id == "keys" }?.properties["melodicRole"] == .text("balungan"))
+    #expect(gender.profile == StandardInstruments.resonatedSuspendedMetallophone.id)
+    #expect(gender.geometry.first { $0.id == "resonators" }?.properties["onePerKey"] == .boolean(true))
+    #expect(gongs.profile == StandardInstruments.hangingBossedGongSet.id)
+    #expect(gongs.geometry.first { $0.id == "gongAgeng" }?.properties["formalRole"] == .text("closesGongan"))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
