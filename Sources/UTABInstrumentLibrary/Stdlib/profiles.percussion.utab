@@ -155,3 +155,43 @@ profile PressureCordDrum {
     interaction squeeze { targets tensionCords; effectors arm, body }
     technique pitchBend { target tensionCords }
 }
+
+profile MultiHandDrum {
+    id "profile:percussion:multi-hand-drum"
+    version "1"
+    actuator membranes { minimumCount 2; maximumCount 8; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { minimumCount 2; maximumCount 8; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors finger, hand }
+    interaction damp { targets damping; effectors finger, hand }
+    technique roll { target membranes }
+}
+
+profile StickDrumSet {
+    id "profile:percussion:stick-drum-set"
+    version "1"
+    actuator membranes { minimumCount 2; maximumCount 8; control continuous; minimum 0.0; maximum 1.0 }
+    actuator rims { minimumCount 2; maximumCount 8 }
+    actuator accessories { minimumCount 1; maximumCount 8 }
+    interaction strike { targets membranes, rims, accessories; effectors stick }
+    technique roll { target membranes }
+}
+
+profile MultiSurfaceBoxDrum {
+    id "profile:percussion:multi-surface-box-drum"
+    version "1"
+    actuator surfaces { minimumCount 3; maximumCount 12; control continuous; minimum 0.0; maximum 1.0 }
+    actuator snares { minimumCount 1; maximumCount 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets surfaces; effectors finger, hand, brush }
+    interaction adjust { targets snares; effectors hand }
+    technique roll { target surfaces }
+}
+
+profile ScrapedPercussion {
+    id "profile:percussion:scraped"
+    version "1"
+    actuator ridges { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction scrape { targets ridges; effectors scraper, stick }
+    interaction strike { targets ridges; effectors stick }
+    technique longScrape { target ridges }
+    technique shortScrape { target ridges }
+}

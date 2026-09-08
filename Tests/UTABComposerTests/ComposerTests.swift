@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 39)
-    #expect(catalog.models.count == 97)
+    #expect(catalog.profiles.count == 43)
+    #expect(catalog.models.count == 104)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1520,6 +1520,22 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(talkingDrum.geometry.first { $0.id == "tensionCords" }?.properties["pitchTrajectory"] == .boolean(true))
     #expect(shekere.profile == StandardInstruments.shakenPercussion.id)
     #expect(shekere.geometry.first { $0.id == "beadNet" }?.properties["surroundsBody"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func latinPercussionExpansionPreservesSetsSurfacesAndScrapes() throws {
+    let catalog = StandardInstruments.catalog
+    #expect(StandardInstruments.cubanCongaSet.profile == StandardInstruments.multiHandDrum.id)
+    #expect(StandardInstruments.cubanCongaSet.geometry.first { $0.id == "membranes" }?.properties["count"] == .integer(3))
+    #expect(StandardInstruments.cubanBongos.geometry.first { $0.id == "macho" }?.properties["midiNote"] == .integer(60))
+    #expect(StandardInstruments.cubanTimbales.profile == StandardInstruments.stickDrumSet.id)
+    #expect(StandardInstruments.cubanTimbales.geometry.first { $0.id == "rims" }?.properties["cascaraSurface"] == .boolean(true))
+    #expect(StandardInstruments.peruvianCajon.profile == StandardInstruments.multiSurfaceBoxDrum.id)
+    #expect(StandardInstruments.brazilianSurdo.profile == StandardInstruments.strappedDoubleHeadedDrum.id)
+    #expect(StandardInstruments.brazilianPandeiro.profile == StandardInstruments.jingledFrameDrum.id)
+    #expect(StandardInstruments.cubanGuiro.profile == StandardInstruments.scrapedPercussion.id)
+    #expect(StandardInstruments.cubanGuiro.geometry.first { $0.id == "shortScrape" }?.properties["midiNote"] == .integer(73))
+    #expect(StandardInstruments.cubanGuiro.geometry.first { $0.id == "longScrape" }?.properties["midiNote"] == .integer(74))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

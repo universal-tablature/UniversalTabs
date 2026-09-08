@@ -1,0 +1,76 @@
+module instruments.percussion.latin
+import profiles.percussion
+import std.midi
+
+model CubanCongaSet : MultiHandDrum {
+    id "instrument:percussion:congas:cuban-three-drum"
+    name "Cuban Three-drum Conga Set"
+    midiPercussion true
+    geometry membranes { count 3; drums quinto, conga, tumba; tunable true }
+    geometry quinto { diameterInches 11; midiOpen midi.openHighCongaNote; midiMute midi.muteHighCongaNote }
+    geometry conga { diameterInches 11.75; midiOpen midi.openHighCongaNote; midiMute midi.muteHighCongaNote }
+    geometry tumba { diameterInches 12.5; midiOpen midi.lowCongaNote }
+    geometry strokes { names open, muted, bass, slap; surfaceAndArticulationDistinct true }
+}
+
+model CubanBongos : MultiHandDrum {
+    id "instrument:percussion:bongos:cuban-pair"
+    name "Cuban Bongo Pair"
+    midiPercussion true
+    geometry membranes { count 2; drums macho, hembra; tunable true }
+    geometry macho { diameterInches 7; midiNote midi.highBongoNote }
+    geometry hembra { diameterInches 8.5; midiNote midi.lowBongoNote }
+    geometry strokes { names open, muted, slap; surfaceAndArticulationDistinct true }
+}
+
+model CubanTimbales : StickDrumSet {
+    id "instrument:percussion:timbales:cuban-pair"
+    name "Cuban Timbales"
+    midiPercussion true
+    geometry membranes { count 2; singleHeaded true; metalShells true }
+    geometry highDrum { midiNote midi.highTimbaleNote }
+    geometry lowDrum { midiNote midi.lowTimbaleNote }
+    geometry rims { count 2; cascaraSurface true }
+    geometry accessories { cowbell true; midiNote midi.cowbellNote }
+}
+
+model PeruvianCajon : MultiSurfaceBoxDrum {
+    id "instrument:percussion:cajon:peruvian"
+    name "Peruvian Cajón"
+    midiPercussion true
+    geometry box { material wood; soundHole true; seatedOn true; snares false }
+    geometry surfaces { count 4; names center, edge, corner, side }
+    geometry bassStroke { target center; midiNote midi.acousticBassDrumNote; midiFidelity approximate }
+    geometry slapStroke { target edge; midiNote midi.sideStickNote; midiFidelity approximate }
+}
+
+model BrazilianSurdo : StrappedDoubleHeadedDrum {
+    id "instrument:percussion:surdo:brazilian"
+    name "Brazilian Surdo"
+    midiPercussion true
+    geometry shell { shape cylindrical; material metalOrWood; orientation shoulderStrapped }
+    geometry membranes { count 2; tunable true; oneHeadPrimary true }
+    geometry openStroke { target primaryHead; effector mallet; midiNote midi.lowFloorTomNote; midiFidelity approximate }
+    geometry dampedStroke { target primaryHead; effector malletAndHand; midiNote midi.acousticBassDrumNote; midiFidelity approximate }
+}
+
+model BrazilianPandeiro : JingledFrameDrum {
+    id "instrument:percussion:pandeiro:brazilian"
+    name "Brazilian Pandeiro"
+    midiPercussion true
+    geometry frame { shape circular; handheld true; tunableHead true }
+    geometry membrane { count 1; thumbAndFingerArticulations true }
+    geometry jingles { pairs 5; cuppedPlatinelas true; dryResponse true }
+    geometry headStroke { target membrane; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry jingleStroke { target jingles; midiNote midi.tambourineNote; midiFidelity approximate }
+}
+
+model CubanGuiro : ScrapedPercussion {
+    id "instrument:percussion:guiro:cuban-gourd"
+    name "Cuban Gourd Güiro"
+    midiPercussion true
+    geometry body { material driedGourd; hollow true; handheld true }
+    geometry ridges { count 1; textured true; scrapeDirection bidirectional }
+    geometry shortScrape { midiNote midi.shortGuiroNote }
+    geometry longScrape { midiNote midi.longGuiroNote }
+}
