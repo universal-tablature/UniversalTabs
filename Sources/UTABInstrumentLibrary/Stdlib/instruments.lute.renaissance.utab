@@ -111,6 +111,7 @@ model ArchluteFourteenCourse : PluckedCourses {
     name "Fourteen-course Archlute"
     geometry courses { count 14; doubled true; singleTopCourses 1; frettedCourses 6; diapasons 8 }
     geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
+    geometry speakingLengths { stoppedCourses "1-6"; diapasonCourses "7-14"; diapasonsLonger true; courseSpecific true }
     geometry frets {
         count 10
         neckFrets 9
@@ -122,6 +123,7 @@ model ArchluteFourteenCourse : PluckedCourses {
         splitFretsSupported true
         tastiniSupported true
         typicalSplitFrets "1,3,4,6"
+        appliesToCourses "1-6"
     }
 }
 
@@ -130,6 +132,7 @@ model TheorboFourteenCourse : PluckedCourses {
     name "Fourteen-course Theorbo in A"
     geometry courses { count 14; doubled false; frettedCourses 6; diapasons 8; reentrantTopCourses 2 }
     geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
+    geometry speakingLengths { stoppedCourses "1-6"; diapasonCourses "7-14"; diapasonsLonger true; courseSpecific true }
     geometry frets {
         count 8
         neckFrets 8
@@ -141,6 +144,7 @@ model TheorboFourteenCourse : PluckedCourses {
         splitFretsSupported true
         tastiniSupported true
         typicalSplitFrets "1,3,4,6"
+        appliesToCourses "1-6"
     }
 }
 

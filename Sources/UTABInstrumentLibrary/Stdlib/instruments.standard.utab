@@ -21,7 +21,9 @@ import instruments.keyboard
 import instruments.harp
 import instruments.voice
 import instruments.nyckelharpa
-import instruments.wind
+import instruments.wind.woodwinds
+import instruments.wind.brass
+import instruments.wind.free-reeds
 import instruments.percussion
 import instruments.percussion.arabic
 import instruments.percussion.indian

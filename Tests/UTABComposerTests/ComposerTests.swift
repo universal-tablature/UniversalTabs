@@ -995,11 +995,63 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 38)
+    #expect(catalog.tunings.count == 62)
     #expect(catalog.profiles.count == 89)
     #expect(catalog.models.count == 164)
+    #expect(catalog.fingerings.count == 24)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func everyStringInstrumentPublishesAtLeastOneTuning() {
+    let catalog = StandardInstruments.catalog
+    let stringModels = catalog.models.filter { model in
+        let profile = model.profile.rawValue
+        return profile.contains("strings") || profile.contains("zither")
+            || profile.hasPrefix("profile:harp:") || profile.contains("harp-lute")
+            || profile.contains("spike-harp") || profile == "profile:plucked-courses"
+    }
+    let untuned = stringModels.filter(\.tunings.isEmpty).map { $0.id.rawValue }.sorted()
+
+    #expect(!stringModels.isEmpty)
+    #expect(untuned.isEmpty, "String models without a tuning: \(untuned)")
+}
+
+@Test func everyOrderedBitsetActuatorHasAModelFingeringMap() {
+    let catalog = StandardInstruments.catalog
+    var missing: [String] = []
+
+    for model in catalog.models {
+        guard let profile = catalog.profiles.first(where: { $0.id == model.profile }) else { continue }
+        for actuator in profile.actuators {
+            guard case .orderedBitset = actuator.control else { continue }
+            let hasMap = catalog.fingerings.contains {
+                $0.model == model.id && $0.actuatorGroup == actuator.id
+            }
+            if !hasMap { missing.append("\(model.id.rawValue).\(actuator.id)") }
+        }
+    }
+
+    #expect(missing.isEmpty, "Ordered-bitset actuators without fingerings: \(missing.sorted())")
+}
+
+@Test func asymmetricStringLengthsAndFretExtentsAreExplicit() {
+    let banjo = StandardInstruments.fiveStringBanjo
+    let banjoFrets = banjo.geometry.first { $0.id == "frets" }
+    let fifthStringNut = banjo.geometry.first { $0.id == "fifthStringNut" }
+    #expect(banjoFrets?.properties["appliesToStrings"] == .text("2-5"))
+    #expect(fifthStringNut?.properties["startsAtFret"] == .integer(5))
+    #expect(fifthStringNut?.properties["playableFrets"] == .integer(17))
+
+    for lute in [StandardInstruments.archluteFourteenCourse, StandardInstruments.theorboFourteenCourse] {
+        let lengths = lute.geometry.first { $0.id == "speakingLengths" }
+        let frets = lute.geometry.first { $0.id == "frets" }
+        #expect(lengths?.properties["stoppedCourses"] == .text("1-6"))
+        #expect(lengths?.properties["diapasonCourses"] == .text("7-14"))
+        #expect(lengths?.properties["diapasonsLonger"] == .boolean(true))
+        #expect(lengths?.properties["courseSpecific"] == .boolean(true))
+        #expect(frets?.properties["appliesToCourses"] == .text("1-6"))
+    }
 }
 
 @Test func luteFamilyPublishesHistoricalConstructionsAndTunings() throws {
@@ -1046,6 +1098,67 @@ private func stableFingerprint(_ data: Data) -> String {
     }
 }
 
+@Test func instrumentFamilyModulesCarryTheirOwnRequiredDefaults() {
+    let modules = [
+        "instruments.nyckelharpa",
+        "instruments.traditional-near-east",
+        "instruments.traditional-south-asian",
+        "instruments.traditional-chinese",
+        "instruments.traditional-japanese-korean",
+        "instruments.traditional-african-strings",
+        "instruments.traditional-latin-american",
+        "instruments.traditional-final",
+        "instruments.wind.woodwinds",
+        "instruments.wind.brass",
+        "instruments.wind.free-reeds",
+        "instruments.wind",
+    ]
+
+    for module in modules {
+        let source = TextSource(
+            "module tests.isolated\nimport \(module)\n",
+            fileID: "isolated-\(module).utab"
+        )
+        let loaded = TextModuleLoader().load(root: source, provider: StandardTextModuleProvider())
+        let compiled = TextInstrumentCatalogCompiler().compile(
+            loaded.modules,
+            extending: .init(profiles: [], models: [])
+        )
+
+        #expect(loaded.succeeded, "Could not load \(module) in isolation")
+        #expect(compiled.succeeded, "Could not compile \(module) in isolation")
+        #expect(
+            InstrumentCatalogValidator().validate(compiled.catalog).isEmpty,
+            "Invalid isolated catalog for \(module)"
+        )
+
+        let untunedStrings = compiled.catalog.models.filter { model in
+            let profile = model.profile.rawValue
+            let isStringInstrument = profile.contains("strings") || profile.contains("zither")
+                || profile.hasPrefix("profile:harp:") || profile.contains("harp-lute")
+                || profile.contains("spike-harp") || profile == "profile:plucked-courses"
+            return isStringInstrument && model.tunings.isEmpty
+        }.map { $0.id.rawValue }.sorted()
+        #expect(untunedStrings.isEmpty, "Untuned strings imported from \(module): \(untunedStrings)")
+
+        var missingFingerings: [String] = []
+        for model in compiled.catalog.models {
+            guard let profile = compiled.catalog.profiles.first(where: { $0.id == model.profile }) else { continue }
+            for actuator in profile.actuators {
+                guard case .orderedBitset = actuator.control else { continue }
+                let hasMap = compiled.catalog.fingerings.contains {
+                    $0.model == model.id && $0.actuatorGroup == actuator.id
+                }
+                if !hasMap { missingFingerings.append("\(model.id.rawValue).\(actuator.id)") }
+            }
+        }
+        #expect(
+            missingFingerings.isEmpty,
+            "Bitmap instruments without fingerings imported from \(module): \(missingFingerings.sorted())"
+        )
+    }
+}
+
 @Test func recorderFingeringMapsAreExplicitExtensibleAndUnknownByDefault() throws {
     let standard = StandardInstruments.catalog
     let recorder = try #require(standard.models.first { $0.id.rawValue == "instrument:recorder:soprano" })
@@ -1057,7 +1170,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let source = TextSource(
         """
         module composer.recorder
-        import instruments.wind
+        import instruments.wind.woodwinds
 
         extension SopranoRecorder {
             fingering experimental {
@@ -1796,7 +1909,9 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(mora.geometry.first { $0.id == "sympatheticStrings" }?.properties["count"] == .integer(0))
     #expect(esse.geometry.first { $0.id == "tonalSystem" }?.properties["pureOctave"] == .boolean(true))
     #expect(vefsen.geometry.first { $0.id == "tonalSystem" }?.properties["pureOctave"] == .boolean(false))
-    #expect(mora.tunings.isEmpty && esse.tunings.isEmpty && vefsen.tunings.isEmpty)
+    #expect(mora.defaultTuning?.rawValue == "tuning:nyckelharpa:moraharpa-reference")
+    #expect(esse.defaultTuning?.rawValue == "tuning:nyckelharpa:esseharpa-reference-a")
+    #expect(vefsen.defaultTuning?.rawValue == "tuning:nyckelharpa:vefsenharpa-reference-a")
 }
 
 @Test func remainingStandardInstrumentDefinitionsAreAuthoredInTextualStdlib() throws {

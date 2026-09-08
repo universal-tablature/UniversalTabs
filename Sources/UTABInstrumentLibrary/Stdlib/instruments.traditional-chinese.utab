@@ -137,3 +137,105 @@ model NorthernChineseSuona : FolkDoubleReed {
     geometry bell { material brass; flared true; looselyAttached true }
     geometry pitchSystem { exactPitchMap requiredAtConfiguration; breathBends true; overblownRegister true; midiFidelity approximate }
 }
+
+extension TwentyOneStringGuzheng {
+    tuning dPentatonic default {
+        id "tuning:guzheng:21-string-d-pentatonic"
+        name "Guzheng 21-string D Pentatonic"
+        tags guzheng, chinese, d, pentatonic
+        course D2
+        course E2
+        course F#2
+        course A2
+        course B2
+        course D3
+        course E3
+        course F#3
+        course A3
+        course B3
+        course D4
+        course E4
+        course F#4
+        course A4
+        course B4
+        course D5
+        course E5
+        course F#5
+        course A5
+        course B5
+        course D6
+    }
+}
+
+extension ChineseChromaticYangqin {
+    tuning chromaticC2B5 default {
+        id "tuning:yangqin:concert-chromatic-c2-b5"
+        name "Concert Yangqin Chromatic C2-B5 Reference"
+        tags yangqin, chinese, chromatic, concert, reference
+        course C2
+        course C#2
+        course D2
+        course D#2
+        course E2
+        course F2
+        course F#2
+        course G2
+        course G#2
+        course A2
+        course Bb2
+        course B2
+        course C3
+        course C#3
+        course D3
+        course D#3
+        course E3
+        course F3
+        course F#3
+        course G3
+        course G#3
+        course A3
+        course Bb3
+        course B3
+        course C4
+        course C#4
+        course D4
+        course D#4
+        course E4
+        course F4
+        course F#4
+        course G4
+        course G#4
+        course A4
+        course Bb4
+        course B4
+        course C5
+        course C#5
+        course D5
+        course D#5
+        course E5
+        course F5
+        course F#5
+        course G5
+        course G#5
+        course A5
+        course Bb5
+        course B5
+    }
+}
+
+extension ChineseDiziD {
+    fingering sixHoleReference default {
+        id "fingering:dizi:d-key-six-hole-reference"
+        name "D-key dizi six-hole reference fingering"
+        actuators toneHoles
+        bitOrder hole1, hole2, hole3, hole4, hole5, hole6
+        A4 111111 register 1 preferred
+        B4 111110 register 1 preferred
+        C#5 111100 register 1 preferred
+        D5 111000 register 1 preferred
+        E5 110000 register 1 preferred
+        F#5 100000 register 1 preferred
+        G#5 000000 register 1 preferred
+        A5 111111 register 2 preferred
+    }
+}

@@ -88,3 +88,70 @@ model ThembuXhosaUmngqokoloVoice : XhosaOvertoneSingingVoice {
     geometry techniques { forms "umngqokolo-nje,umngqokolo-ngomqangi"; callAndResponse true; bowImitation true }
     geometry lyricAlignment { phonemeTiming explicit; tonalLanguageAware true; melisma true }
 }
+
+extension FrenchSixStringHurdyGurdy {
+    tuning gCReference default {
+        id "tuning:hurdy-gurdy:french-g-c-reference"
+        name "French Hurdy-gurdy G/C Reference"
+        tags hurdyGurdy, french, gc, reference, drone
+        course G3
+        course G3
+        course C3
+        course G2
+        course C4
+        course G3
+    }
+}
+
+extension AmericanTwelveFifteenHammeredDulcimer {
+    tuning dGReference default {
+        id "tuning:dulcimer:hammered-american-12-15-d-g-reference"
+        name "American 12/15 Hammered Dulcimer D/G Reference"
+        tags dulcimer, hammered, american, dg, reference
+        course D3
+        course E3
+        course F#3
+        course G3
+        course A3
+        course B3
+        course C#4
+        course D4
+        course E4
+        course F#4
+        course G4
+        course A4
+        course B4
+        course C#5
+        course D5
+        course G3
+        course A3
+        course B3
+        course C4
+        course D4
+        course E4
+        course F#4
+        course G4
+        course A4
+        course B4
+        course C5
+        course D5
+    }
+}
+
+extension GreatHighlandBagpipe {
+    fingering highlandChanter default {
+        id "fingering:bagpipe:great-highland-chanter"
+        name "Great Highland bagpipe chanter fingering"
+        actuators chanterHoles
+        bitOrder thumb, lh1, lh2, lh3, rh1, rh2, rh3, rh4
+        G4 11111111 preferred
+        A4 01111111 preferred
+        B4 01111110 preferred
+        C#5 01111100 preferred
+        D5 01111000 preferred
+        E5 01110000 preferred
+        F#5 01100000 preferred
+        G5 01000000 preferred
+        A5 00000000 preferred
+    }
+}

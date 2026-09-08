@@ -40,3 +40,55 @@ model XhosaUhadiMusicalBow : GourdResonatedStruckMusicalBow {
     geometry harmonicFilter { method moveCalabashAgainstChest; continuous true; exposesUpperPartials true }
     geometry tuning { fundamentals performerSpecific; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
 }
+
+extension MandinkaTwentyOneStringKora {
+    tuning fMajorReference default {
+        id "tuning:kora:mandinka-f-major-reference"
+        name "Mandinka Kora F-major Reference"
+        tags kora, mandinka, reference, heptatonic
+        course F2
+        course C3
+        course D3
+        course E3
+        course F3
+        course G3
+        course A3
+        course Bb3
+        course C4
+        course D4
+        course E4
+        course F4
+        course G4
+        course A4
+        course Bb4
+        course C5
+        course D5
+        course E5
+        course F5
+        course G5
+        course A5
+    }
+}
+
+extension WasuluSixStringDonsoNgoni {
+    tuning cPentatonicReference default {
+        id "tuning:ngoni:wasulu-donso-c-pentatonic-reference"
+        name "Wasulu Donsó Ngoni C Pentatonic Reference"
+        tags ngoni, wasulu, donso, pentatonic, reference
+        course C3
+        course G3
+        course Bb3
+        course C4
+        course D4
+        course F4
+    }
+}
+
+extension XhosaUhadiMusicalBow {
+    tuning cReference default {
+        id "tuning:musical-bow:xhosa-uhadi-c-reference"
+        name "Xhosa Uhadi C Reference"
+        tags uhadi, xhosa, musicalBow, reference
+        course C3
+    }
+}

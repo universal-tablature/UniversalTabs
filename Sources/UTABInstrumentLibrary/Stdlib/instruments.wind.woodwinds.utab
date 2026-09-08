@@ -1,0 +1,496 @@
+module instruments.wind.woodwinds
+import profiles.wind
+
+model SopranoRecorder : AirColumnWind {
+    id "instrument:recorder:soprano"
+    name "Soprano Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch C5; typicalRange "C5-D7" }
+}
+
+model AltoRecorder : AirColumnWind {
+    id "instrument:recorder:alto"
+    name "Alto Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch F4; typicalRange "F4-G6" }
+}
+
+model TenorRecorder : AirColumnWind {
+    id "instrument:recorder:tenor"
+    name "Tenor Recorder"
+    geometry bore { shape conical; material woodOrPlastic }
+    geometry toneHoles { count 8; lowestPitch C4; typicalRange "C4-D6" }
+}
+
+model BassRecorder : AirColumnWind {
+    id "instrument:recorder:bass"
+    name "Bass Recorder"
+    geometry bore { shape foldedOrStraight; material woodOrPlastic }
+    geometry toneHoles { lowestPitch F3; typicalRange "F3-G5"; keyed true }
+}
+
+model ConcertFlute : KeyedAirColumnWind {
+    id "instrument:flute:concert-c"
+    name "Concert Flute"
+    geometry bore { shape cylindrical; material metal; edgeBlown true }
+    geometry toneHoles { keyed true; system Boehm; closedHoleAvailable true; openHoleKeys 5; plugsSupported true; typicalRange "C4-D7" }
+}
+
+model Piccolo : KeyedAirColumnWind {
+    id "instrument:piccolo:concert-c"
+    name "Piccolo"
+    geometry bore { shape cylindrical; material woodOrMetal; edgeBlown true; transposition C; writtenMiddleCSounds C5 }
+    geometry toneHoles { keyed true; system Boehm; typicalWrittenRange "D4-C7" }
+}
+
+
+model BbClarinet : SingleReedWind {
+    id "instrument:clarinet:b-flat"
+    name "B-flat Clarinet"
+    geometry bore { shape cylindrical; transposition "Bb"; writtenMiddleCSounds Bb3 }
+    geometry keys { system Boehm; keyCount 17; rings 6; registerInterval "twelfth"; typicalRange "E3-C7" }
+}
+
+model BassClarinet : SingleReedWind {
+    id "instrument:clarinet:bass-b-flat"
+    name "B-flat Bass Clarinet"
+    geometry bore { shape cylindrical; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
+    geometry keys { system Boehm; keyCount 24; registerInterval "twelfth"; typicalWrittenRange "C3-G6"; lowC true }
+}
+
+model SopranoSaxophone : Saxophone {
+    id "instrument:saxophone:soprano-b-flat"
+    name "B-flat Soprano Saxophone"
+    geometry bore { shape conical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
+}
+
+model AltoSaxophone : Saxophone {
+    id "instrument:saxophone:alto-e-flat"
+    name "E-flat Alto Saxophone"
+    geometry bore { shape conical; material brass; transposition "Eb"; writtenMiddleCSounds Eb3 }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
+}
+
+model TenorSaxophone : Saxophone {
+    id "instrument:saxophone:tenor-b-flat"
+    name "B-flat Tenor Saxophone"
+    geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
+    geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
+}
+
+model BaritoneSaxophone : Saxophone {
+    id "instrument:saxophone:baritone-e-flat"
+    name "E-flat Baritone Saxophone"
+    geometry bore { shape conical; material brass; transposition "Eb"; soundsOctaveLower true; writtenMiddleCSounds Eb2 }
+    geometry keys { system Boehm; lowA true; frontF true; highFSharp true; typicalWrittenRange "A3-F#6" }
+}
+
+model Oboe : DoubleReedWind {
+    id "instrument:oboe:standard"
+    name "Oboe"
+    geometry bore { shape conical; transposition C }
+    geometry keys { typicalRange "Bb3-A6" }
+}
+
+model EnglishHorn : DoubleReedWind {
+    id "instrument:english-horn:f"
+    name "English Horn in F"
+    geometry bore { shape conical; transposition F; writtenMiddleCSounds F3 }
+    geometry keys { system conservatory; bell bulbous; typicalWrittenRange "B3-G6" }
+}
+
+model Bassoon : DoubleReedWind {
+    id "instrument:bassoon:standard"
+    name "Bassoon"
+    geometry bore { shape foldedConical; transposition C }
+    geometry keys { typicalRange "Bb1-Eb5" }
+}
+
+model Contrabassoon : DoubleReedWind {
+    id "instrument:contrabassoon:standard"
+    name "Contrabassoon"
+    geometry bore { shape foldedConical; transposition C; soundsOctaveLower true; writtenMiddleCSounds C3 }
+    geometry keys { typicalWrittenRange "Bb1-Bb4"; lowBFlat true }
+}
+
+
+extension SopranoRecorder {
+    fingering baroque default {
+        id "fingering:recorder:soprano:baroque"
+        name "Soprano recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        C5 11111111 preferred
+        D5 11111110 preferred
+        E5 11111100 preferred
+        F5 11111011 preferred
+        G5 11110000 preferred
+        A5 11100000 preferred
+        B5 11000000 preferred
+        C6 10100000 register 2 preferred
+        D6 00100000 register 2 preferred
+        E6 "h1111100" register 2 preferred
+        G6 "h1110000" register 2 preferred
+    }
+
+    fingering german {
+        id "fingering:recorder:soprano:german"
+        name "Soprano recorder German fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        C5 11111111 preferred
+        D5 11111110 preferred
+        E5 11111100 preferred
+        F5 11111000 preferred
+        G5 11110000 preferred
+        A5 11100000 preferred
+        B5 11000000 preferred
+        C6 10100000 register 2 preferred
+        D6 00100000 register 2 preferred
+        E6 "h1111100" register 2 preferred
+        G6 "h1110000" register 2 preferred
+    }
+}
+
+extension AltoRecorder {
+    fingering baroque default {
+        id "fingering:recorder:alto:baroque"
+        name "Alto recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+
+        F4 11111111 preferred
+        G4 11111110 preferred
+        A4 11111100 preferred
+        Bb4 11111011 preferred
+        C5 11110000 preferred
+        D5 11100000 preferred
+        E5 11000000 preferred
+        F5 10100000 register 2 preferred
+        G5 00100000 register 2 preferred
+        A5 "h1111100" register 2 preferred
+        C6 "h1110000" register 2 preferred
+    }
+}
+
+extension BbClarinet {
+    fingering boehm default {
+        id "fingering:clarinet:b-flat:boehm"
+        name "B-flat clarinet Boehm fingering"
+        actuators keys
+        bitOrder register, thumb, lh1, lh2, lh3, rh1, rh2, rh3, gSharp, aKey, ebLever, lowE, lowFSharp, lowF, sideBb, sideC, sideCSharp, sideDSharp
+
+        // Chalumeau and throat registers. The low E/F keys close the bell
+        // extension; the open fingering is written G4 on a B-flat clarinet.
+        E3 011111110001000000 register 1 preferred
+        F3 011111110000010000 register 1 preferred
+        F#3 011111110000100000 register 1 preferred
+        G3 011111110000000000 register 1 preferred
+        G#3 011111111000000000 register 1 preferred
+        A3 011111100000000000 register 1 preferred
+        B3 011111000000000000 register 1 preferred
+        C4 011110000000000000 register 1 preferred
+        D4 011100000000000000 register 1 preferred
+        E4 011000000000000000 register 1 preferred
+        F4 010000000000000000 register 1 preferred
+        G4 000000000000000000 register 1 preferred
+        G#4 000000001000000000 register 1 preferred
+        A4 000000000100000000 register 1 preferred
+        Bb4 100000000100000000 register 1 preferred
+        Bb4 001000000000001000 register 1 alternate "side-key"
+
+        // Opening the register key vents the third harmonic, a twelfth above
+        // the corresponding chalumeau fingering rather than an octave.
+        B4 111111110001000000 register 2 preferred
+        C5 111111110000010000 register 2 preferred
+        C#5 111111110000100000 register 2 preferred
+        D5 111111110000000000 register 2 preferred
+        D#5 111111111000000000 register 2 preferred
+        E5 111111100000000000 register 2 preferred
+        F5 111111000000000000 register 2 preferred
+        F#5 111110000000000000 register 2 preferred
+        G5 111100000000000000 register 2 preferred
+        A5 111000000000000000 register 2 preferred
+        B5 110000000000000000 register 2 preferred
+        C6 100000000000000000 register 2 preferred
+        D6 100000000000000001 register 3 alternate "side-D-sharp"
+    }
+}
+
+extension ConcertFlute {
+    fingering boehmClosedHole default {
+        id "fingering:flute:concert-c:boehm-closed-hole"
+        name "Concert flute Boehm closed-hole fingering"
+        actuators keys
+        bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+
+        C4 111111000111000000 register 1 preferred
+        C#4 111111000110000000 register 1 preferred
+        D4 111111000100000000 register 1 preferred
+        E4 111110000100000000 register 1 preferred
+        F4 111100000100000000 register 1 preferred
+        F#4 111010000100000000 register 1 preferred
+        F#4 111001000100000000 register 1 alternate "right-ring"
+        G4 111000000100000000 register 1 preferred
+        A4 110000000100000000 register 1 preferred
+        Bb4 100000100100000000 register 1 preferred
+        Bb4 100000000100001000 register 1 alternate "side-B-flat"
+        B4 100000000100000000 register 1 preferred
+        C5 000000000100000000 register 1 preferred
+
+        // The second octave primarily reuses the first-octave keywork and is
+        // disambiguated by the air-column register selected by the player.
+        D5 111111000100000000 register 2 preferred
+        E5 111110000100000000 register 2 preferred
+        F5 111100000100000000 register 2 preferred
+        F#5 111010000100000000 register 2 preferred
+        F#5 111001000100000000 register 2 alternate "right-ring"
+        G5 111000000100000000 register 2 preferred
+        A5 110000000100000000 register 2 preferred
+        Bb5 100000100100000000 register 2 preferred
+        Bb5 100000000100001000 register 2 alternate "side-B-flat"
+        B5 100000000100000000 register 2 preferred
+        C6 000000000100000000 register 2 preferred
+
+        // High D vents the left-index key; higher third-octave fingerings are
+        // intentionally left unknown until their dedicated alternate map lands.
+        D6 011111000100000000 register 3 preferred
+    }
+
+    fingering boehmOpenHole {
+        id "fingering:flute:concert-c:boehm-open-hole"
+        name "Concert flute Boehm open-hole fingering"
+        actuators keys
+        extends "fingering:flute:concert-c:boehm-closed-hole"
+        bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+
+        // French-model open holes can be progressively shaded. These states
+        // describe the physical partial closure without pretending it is a
+        // fixed equal-tempered pitch.
+        effect pitchShade "xhxxxxxxxxxxxxxxxx" alternate "partial-lh2"
+        effect pitchShade "xxhxxxxxxxxxxxxxxx" alternate "partial-lh3"
+        effect pitchShade "xxxhxxxxxxxxxxxxxx" alternate "partial-rh1"
+        effect pitchShade "xxxxhxxxxxxxxxxxxx" alternate "partial-rh2"
+        effect pitchShade "xxxxxhxxxxxxxxxxxx" alternate "partial-rh3"
+    }
+}
+
+extension AltoSaxophone {
+    fingering boehm default {
+        id "fingering:saxophone:alto:boehm"
+        name "Alto saxophone Boehm fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
+
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        C#4 0111111000000000000100 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        D#4 0111111000000000000010 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        F#4 0111010000000000000000 register 1 preferred
+        F#4 0111000000001000000000 register 1 alternate "side-F-sharp"
+        G4 0111000000000000000000 register 1 preferred
+        G#4 0111000001000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        Bb4 0100000010000000000000 register 1 preferred
+        Bb4 0100000000100000000000 register 1 alternate "side-B-flat"
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        C#5 0000000000000000000000 register 1 preferred
+
+        D5 1111111000000000000000 register 2 preferred
+        D#5 1111111000000000000010 register 2 preferred
+        E5 1111110000000000000000 register 2 preferred
+        F5 1111100000000000000000 register 2 preferred
+        F#5 1111010000000000000000 register 2 preferred
+        F#5 1111000000001000000000 register 2 alternate "side-F-sharp"
+        G5 1111000000000000000000 register 2 preferred
+        G#5 1111000001000000000000 register 2 preferred
+        A5 1110000000000000000000 register 2 preferred
+        Bb5 1100000010000000000000 register 2 preferred
+        Bb5 1100000000100000000000 register 2 alternate "side-B-flat"
+        B5 1100000000000000000000 register 2 preferred
+        C6 1010000000000000000000 register 2 preferred
+        C#6 1000000000000000000000 register 2 preferred
+
+        D6 1000000000000100000000 register 3 preferred
+        D#6 1000000000000110000000 register 3 preferred
+        E6 1000000000000111000000 register 3 preferred
+        F6 1000000100000111000000 register 3 preferred
+        F#6 1000000100000000000001 register 3 alternate "high-F-sharp"
+    }
+}
+
+extension TenorSaxophone {
+    fingering boehm default {
+        id "fingering:saxophone:tenor:boehm"
+        name "Tenor saxophone Boehm fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
+
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        C#4 0111111000000000000100 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        D#4 0111111000000000000010 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        F#4 0111010000000000000000 register 1 preferred
+        F#4 0111000000001000000000 register 1 alternate "side-F-sharp"
+        G4 0111000000000000000000 register 1 preferred
+        G#4 0111000001000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        Bb4 0100000010000000000000 register 1 preferred
+        Bb4 0100000000100000000000 register 1 alternate "side-B-flat"
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        C#5 0000000000000000000000 register 1 preferred
+
+        D5 1111111000000000000000 register 2 preferred
+        D#5 1111111000000000000010 register 2 preferred
+        E5 1111110000000000000000 register 2 preferred
+        F5 1111100000000000000000 register 2 preferred
+        F#5 1111010000000000000000 register 2 preferred
+        F#5 1111000000001000000000 register 2 alternate "side-F-sharp"
+        G5 1111000000000000000000 register 2 preferred
+        G#5 1111000001000000000000 register 2 preferred
+        A5 1110000000000000000000 register 2 preferred
+        Bb5 1100000010000000000000 register 2 preferred
+        Bb5 1100000000100000000000 register 2 alternate "side-B-flat"
+        B5 1100000000000000000000 register 2 preferred
+        C6 1010000000000000000000 register 2 preferred
+        C#6 1000000000000000000000 register 2 preferred
+
+        D6 1000000000000100000000 register 3 preferred
+        D#6 1000000000000110000000 register 3 preferred
+        E6 1000000000000111000000 register 3 preferred
+        F6 1000000100000111000000 register 3 preferred
+        F#6 1000000100000000000001 register 3 alternate "high-F-sharp"
+    }
+}
+
+
+extension TenorRecorder {
+    fingering baroque default {
+        id "fingering:recorder:tenor:baroque"
+        name "Tenor recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+        C4 11111111 preferred
+        D4 11111110 preferred
+        E4 11111100 preferred
+        F4 11111011 preferred
+        G4 11110000 preferred
+        A4 11100000 preferred
+        B4 11000000 preferred
+        C5 10100000 register 2 preferred
+        D5 00100000 register 2 preferred
+    }
+}
+
+extension BassRecorder {
+    fingering baroque default {
+        id "fingering:recorder:bass:baroque"
+        name "Bass recorder Baroque fingering"
+        actuators toneHoles
+        bitOrder thumb, hole1, hole2, hole3, hole4, hole5, hole6, hole7
+        F3 11111111 preferred
+        G3 11111110 preferred
+        A3 11111100 preferred
+        Bb3 11111011 preferred
+        C4 11110000 preferred
+        D4 11100000 preferred
+        E4 11000000 preferred
+        F4 10100000 register 2 preferred
+        G4 00100000 register 2 preferred
+    }
+}
+
+extension Piccolo {
+    fingering boehm default {
+        id "fingering:piccolo:c:boehm"
+        name "Piccolo Boehm fingering"
+        actuators keys
+        bitOrder lh1, lh2, lh3, rh1, rh2, rh3, thumbBb, gizmo, gSharp, dSharp, lowCSharp, lowC, trillD, trillDSharp, sideBb, highC, splitE, footB
+        D4 111111000100000000 register 1 preferred
+        E4 111110000100000000 register 1 preferred
+        F4 111100000100000000 register 1 preferred
+        F#4 111010000100000000 register 1 preferred
+        G4 111000000100000000 register 1 preferred
+        A4 110000000100000000 register 1 preferred
+        Bb4 100000100100000000 register 1 preferred
+        B4 100000000100000000 register 1 preferred
+        C5 000000000100000000 register 1 preferred
+        D5 111111000100000000 register 2 preferred
+    }
+}
+
+extension BassClarinet {
+    fingering boehmLowC default {
+        id "fingering:clarinet:bass-b-flat:boehm-low-c"
+        name "B-flat bass clarinet Boehm low-C fingering"
+        actuators keys
+        bitOrder register, thumb, lh1, lh2, lh3, rh1, rh2, rh3, gSharp, aKey, ebLever, lowE, lowFSharp, lowF, sideBb, sideC, sideCSharp, sideDSharp
+        E3 011111110001000000 register 1 preferred
+        F3 011111110000010000 register 1 preferred
+        F#3 011111110000100000 register 1 preferred
+        G3 011111110000000000 register 1 preferred
+        A3 011111100000000000 register 1 preferred
+        B3 011111000000000000 register 1 preferred
+        C4 011110000000000000 register 1 preferred
+        D4 011100000000000000 register 1 preferred
+        E4 011000000000000000 register 1 preferred
+        F4 010000000000000000 register 1 preferred
+        G4 000000000000000000 register 1 preferred
+        B4 111111110001000000 register 2 preferred
+    }
+}
+
+extension SopranoSaxophone {
+    fingering boehm default {
+        id "fingering:saxophone:soprano:boehm"
+        name "Soprano saxophone Boehm fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        G4 0111000000000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        D5 1111111000000000000000 register 2 preferred
+    }
+}
+
+extension BaritoneSaxophone {
+    fingering boehmLowA default {
+        id "fingering:saxophone:baritone:boehm-low-a"
+        name "Baritone saxophone Boehm low-A fingering"
+        actuators keys
+        bitOrder octave, lh1, lh2, lh3, rh1, rh2, rh3, frontF, bisBb, gSharp, sideBb, sideC, sideFSharp, palmD, palmDSharp, palmF, lowB, lowBb, lowC, lowCSharp, lowDSharp, highFSharp
+        A3 0111111000000000110000 register 1 preferred
+        Bb3 0111111000000000010000 register 1 preferred
+        B3 0111111000000000100000 register 1 preferred
+        C4 0111111000000000001000 register 1 preferred
+        D4 0111111000000000000000 register 1 preferred
+        E4 0111110000000000000000 register 1 preferred
+        F4 0111100000000000000000 register 1 preferred
+        G4 0111000000000000000000 register 1 preferred
+        A4 0110000000000000000000 register 1 preferred
+        B4 0100000000000000000000 register 1 preferred
+        C5 0010000000000000000000 register 1 preferred
+        D5 1111111000000000000000 register 2 preferred
+    }
+}
+

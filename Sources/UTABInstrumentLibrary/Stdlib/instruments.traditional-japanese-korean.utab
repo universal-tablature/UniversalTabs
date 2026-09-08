@@ -126,3 +126,79 @@ model KoreanHaegeum : BowBetweenStringsFiddle {
     geometry posture { vertical true; supportedOnKnee true }
     geometry tuning { interval perfectFifth; absolutePitch contextDependent; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
 }
+
+extension KoreanJeongakGayageum {
+    tuning jeongakReference default {
+        id "tuning:gayageum:jeongak-reference"
+        name "Jeongak Gayageum Reference"
+        tags gayageum, korean, jeongak, reference
+        course Eb3
+        course Ab3
+        course Bb3
+        course Eb4
+        course F4
+        course Ab4
+        course Bb4
+        course C5
+        course Eb5
+        course F5
+        course Ab5
+        course Bb5
+    }
+}
+
+extension KoreanGeomungo {
+    tuning jeongakReference default {
+        id "tuning:geomungo:jeongak-reference"
+        name "Jeongak Geomungo Reference"
+        tags geomungo, korean, jeongak, reference
+        course Eb2
+        course Ab2
+        course Bb2
+        course Db3
+        course Eb3
+        course Ab3
+    }
+}
+
+extension KoreanHaegeum {
+    tuning cGReference default {
+        id "tuning:haegeum:c4-g4-reference"
+        name "Haegeum C-G Reference"
+        tags haegeum, korean, fifths, reference
+        course C4
+        course G4
+    }
+}
+
+extension KoreanJeongakDaegeum {
+    fingering sixHoleReference default {
+        id "fingering:daegeum:jeongak-six-hole-reference"
+        name "Jeongak daegeum six-hole reference fingering"
+        actuators toneHoles
+        bitOrder hole1, hole2, hole3, hole4, hole5, hole6
+        Bb3 111111 register 1 preferred
+        C4 111110 register 1 preferred
+        D4 111100 register 1 preferred
+        Eb4 111000 register 1 preferred
+        F4 110000 register 1 preferred
+        G4 100000 register 1 preferred
+        A4 000000 register 1 preferred
+        Bb4 111111 register 2 preferred
+    }
+}
+
+extension KinkoShakuhachiOneEight {
+    fingering basicFiveHole default {
+        id "fingering:shakuhachi:kinko-1.8-basic"
+        name "Kinko 1.8 shakuhachi basic fingering"
+        actuators toneHoles
+        bitOrder hole1, hole2, hole3, hole4, thumb
+        D4 11111 register 1 preferred
+        F4 11110 register 1 preferred
+        G4 11100 register 1 preferred
+        A4 11000 register 1 preferred
+        C5 10000 register 1 preferred
+        D5 00000 register 2 preferred
+    }
+}

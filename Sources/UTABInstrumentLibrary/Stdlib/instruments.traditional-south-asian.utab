@@ -96,3 +96,72 @@ model NorthIndianScaleChangerHarmonium : HandPumpedReedKeyboard {
     geometry tuning { temperament twelveToneEqual; referenceAHz 440; scaleChangerSemitones "-4..+4" }
     geometry limitations { fixedPitchDuringNote true; meendUnavailable true }
 }
+
+extension HindustaniKharajPanchamSitar {
+    tuning cReference default {
+        id "tuning:sitar:kharaj-pancham-c-reference"
+        name "Kharaj Pancham Sitar C Reference"
+        tags sitar, hindustani, kharajPancham, reference
+        course C3
+        course G3
+        course C4
+        course F4
+        course C5
+        course C5
+        course G4
+    }
+}
+
+extension HindustaniSarod {
+    tuning cReference default {
+        id "tuning:sarod:hindustani-c-reference"
+        name "Hindustani Sarod C Reference"
+        tags sarod, hindustani, reference
+        course C3
+        course G3
+        course C4
+        course C4
+        course G4
+        course C5
+        course F3
+        course G3
+    }
+}
+
+extension ThanjavurSaraswatiVeena {
+    tuning cReference default {
+        id "tuning:veena:saraswati-c-reference"
+        name "Saraswati Veena C Reference"
+        tags veena, carnatic, saraswati, reference, drone
+        course C3
+        course G3
+        course C4
+        course G4
+        course C4
+        course G3
+        course C3
+    }
+}
+
+extension HindustaniMirajTanpura {
+    tuning paSaSaSaC default {
+        id "tuning:tanpura:miraj-pa-sa-sa-sa-c"
+        name "Miraj Tanpura Pa-Sa-Sa-Sa in C"
+        tags tanpura, hindustani, paSaSaSa, reference, drone
+        course G2
+        course C3
+        course C3
+        course C2
+    }
+}
+
+extension HindustaniClassicalSarangi {
+    tuning cReference default {
+        id "tuning:sarangi:hindustani-c-reference"
+        name "Hindustani Sarangi C Reference"
+        tags sarangi, hindustani, reference
+        course C3
+        course G3
+        course C4
+    }
+}

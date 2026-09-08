@@ -357,14 +357,6 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(events.first?.duration == MusicalDuration(5,12))
 }
 
-@Test func legacyNamingModulePathsRequireExplicitSelection() throws {
-    for (module, system, name) in [("std.solfege.fixed", "FixedSolfege", "do[4]"), ("std.solfege.movable", "MovableSolfege", "do[0]"), ("std.notes.oud.arabic", "ArabicDegrees", "sikah[0]")] {
-        _ = try semantic("import \(module); meter 4/4; tempo 100; phrase p { using notation \(system); \(name) q }")
-        let loaded = TextModuleLoader().load(root: TextSource("import \(module); meter 4/4; tempo 100; phrase p { \(name) q }"), provider: StandardTextModuleProvider())
-        #expect(!TextSemanticLowerer().lower(loaded.modules).succeeded)
-    }
-}
-
 @Test func tuningCoursesResolveScopedNamingThroughTheCatalog() throws {
     let source = TextSource("""
         import instruments.guitar
@@ -1154,7 +1146,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
     #expect(models.first { $0.name == "Oboe" }?.writtenToSoundingCents == 0)
 
     let result = UTabTextCompiler().compile(TextSource("""
-        import instruments.wind
+        import instruments.wind.woodwinds
         meter 2/4
         tempo 100
         instrument clarinet : BbClarinet

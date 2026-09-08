@@ -228,6 +228,8 @@ public enum StandardInstruments {
     public static let hindustaniKhayalVoice = model("instrument:voice:hindustani-khayal")
     public static let thembuXhosaUmngqokoloVoice = model("instrument:voice:xhosa-umngqokolo")
     public static let renaissanceLute = model("instrument:lute:renaissance-six-course")
+    public static let archluteFourteenCourse = model("instrument:archlute:fourteen-course")
+    public static let theorboFourteenCourse = model("instrument:theorbo:fourteen-course-a")
     public static let oud = model("instrument:oud:arabic-six-course")
     public static let piano = model("instrument:piano:88-key")
     public static let voice = model("instrument:voice:generic")

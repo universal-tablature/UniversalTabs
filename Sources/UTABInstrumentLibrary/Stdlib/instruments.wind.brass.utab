@@ -1,0 +1,180 @@
+module instruments.wind.brass
+import profiles.wind
+
+model BbTrumpet : ValvedBrass {
+    id "instrument:trumpet:b-flat"
+    name "B-flat Trumpet"
+    geometry bore { shape cylindricalThenConical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
+    geometry valves { count 3; type piston; firstValveSemitones 2; secondValveSemitones 1; thirdValveSemitones 3; typicalWrittenRange "F#3-D6" }
+    geometry harmonics { lowestPartial 2; highestPartial 10; pedalPartial 1; registerRequired true; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68; thirteenthPartialOffsetCents 40.53 }
+    geometry tuningSlides { firstValve true; thirdValve true; continuous true }
+}
+
+model TenorTrombone : SlideBrass {
+    id "instrument:trombone:tenor-b-flat"
+    name "Tenor Trombone"
+    geometry bore { shape cylindricalThenConical; material brass; fundamental Bb1 }
+    geometry slide { positions 7; adjustable true; minimum 1.0; maximum 7.0; positionTolerance 0.18; typicalRange "E2-F5" }
+    geometry slidePosition1 { name "First"; value 1.0; semitoneOffset 0.0 }
+    geometry slidePosition2 { name "Second"; value 2.0; semitoneOffset 1.0 }
+    geometry slidePosition3 { name "Third"; value 3.0; semitoneOffset 2.0 }
+    geometry slidePosition4 { name "Fourth"; value 4.0; semitoneOffset 3.0 }
+    geometry slidePosition5 { name "Fifth"; value 5.0; semitoneOffset 4.0 }
+    geometry slidePosition6 { name "Sixth"; value 6.0; semitoneOffset 5.0 }
+    geometry slidePosition7 { name "Seventh"; value 7.0; semitoneOffset 6.0 }
+    geometry harmonics { lowestPartial 1; highestPartial 12; conventionalLowestPartial 2; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68 }
+}
+
+model BassTrombone : DoubleValveSlideBrass {
+    id "instrument:trombone:bass-b-flat"
+    name "B-flat Bass Trombone"
+    geometry bore { shape cylindricalThenConical; material brass; fundamental Bb0 }
+    geometry slide { positions 7; adjustable true; minimum 1.0; maximum 7.0; positionTolerance 0.18; typicalRange "Bb0-F5" }
+    geometry valves { count 2; type rotary; firstAttachment F; secondAttachment Gb; configuration independent }
+    geometry harmonics { lowestPartial 1; highestPartial 12; pedalPartial 1 }
+}
+
+model DoubleHorn : FourValveBrass {
+    id "instrument:horn:double-f-b-flat"
+    name "Double Horn in F/B-flat"
+    geometry bore { shape conical; material brass; transposition F; writtenMiddleCSounds F3 }
+    geometry valves { count 4; type rotary; sides F, Bb; changeValve 4 }
+    geometry harmonics { lowestPartial 2; highestPartial 16; typicalWrittenRange "F#3-C6"; handStopping true }
+}
+
+model Euphonium : FourValveBrass {
+    id "instrument:euphonium:b-flat-four-valve"
+    name "Four-valve B-flat Euphonium"
+    geometry bore { shape conical; material brass; fundamental Bb1 }
+    geometry valves { count 4; type piston; compensating true }
+    geometry harmonics { lowestPartial 1; highestPartial 12; typicalRange "E2-Bb4" }
+}
+
+model Tuba : FourValveBrass {
+    id "instrument:tuba:cc-four-valve"
+    name "Four-valve CC Tuba"
+    geometry bore { shape conical; material brass; fundamental C1 }
+    geometry valves { count 4; type pistonOrRotary; compensating false }
+    geometry harmonics { lowestPartial 1; highestPartial 12; typicalRange "D1-F4" }
+}
+
+
+extension BbTrumpet {
+    fingering standardValves default {
+        id "fingering:trumpet:b-flat:standard-valves"
+        name "B-flat trumpet standard valve combinations"
+        actuators valves
+        bitOrder valve1, valve2, valve3
+
+        // Second partial: the lowest conventional chromatic register.
+        F#3 111 register 2 preferred
+        G3 101 register 2 preferred
+        G#3 110 register 2 preferred
+        A3 011 register 2 preferred
+        A3 001 register 2 alternate "third-valve-use-slide"
+        Bb3 100 register 2 preferred
+        B3 010 register 2 preferred
+        C4 000 register 2 preferred
+
+        // Third partial.
+        C#4 111 register 3 preferred
+        D4 101 register 3 preferred
+        D#4 110 register 3 preferred
+        E4 011 register 3 preferred
+        E4 001 register 3 alternate "third-valve-use-slide"
+        F4 100 register 3 preferred
+        F#4 010 register 3 preferred
+        G4 000 register 3 preferred
+
+        // Fourth partial.
+        G#4 110 register 4 preferred
+        A4 011 register 4 preferred
+        A4 001 register 4 alternate "third-valve-use-slide"
+        Bb4 100 register 4 preferred
+        B4 010 register 4 preferred
+        C5 000 register 4 preferred
+
+        // Fifth through tenth partials make the upper register progressively
+        // more dependent on lip selection and harmonic intonation.
+        C#5 011 register 5 preferred
+        D5 100 register 5 preferred
+        D#5 010 register 5 preferred
+        E5 000 register 5 preferred
+        F5 100 register 6 preferred
+        F#5 010 register 6 preferred
+        G5 000 register 6 preferred
+        G#5 110 register 7 preferred
+        A5 011 register 7 preferred
+        A5 001 register 7 alternate "third-valve-use-slide"
+        Bb5 100 register 7 preferred
+        B5 010 register 8 preferred
+        C6 000 register 8 preferred
+        C#6 011 register 9 preferred
+        D6 100 register 10 preferred
+    }
+}
+
+extension DoubleHorn {
+    fingering doubleHornValves default {
+        id "fingering:horn:double-f-b-flat:valves"
+        name "Double horn F/B-flat valve combinations"
+        actuators valves
+        bitOrder valve1, valve2, valve3, changeValve
+        C4 0000 register 4 preferred
+        B3 0100 register 4 preferred
+        Bb3 1000 register 4 preferred
+        A3 1100 register 4 preferred
+        Ab3 0110 register 4 preferred
+        G3 1010 register 4 preferred
+        F#3 1110 register 4 preferred
+        C4 0001 register 5 alternate "B-flat-side"
+    }
+}
+
+extension Euphonium {
+    fingering fourValveCompensating default {
+        id "fingering:euphonium:b-flat:four-valve-compensating"
+        name "B-flat euphonium four-valve combinations"
+        actuators valves
+        bitOrder valve1, valve2, valve3, valve4
+        Bb2 0000 register 2 preferred
+        A2 0100 register 2 preferred
+        Ab2 1000 register 2 preferred
+        G2 1100 register 2 preferred
+        F#2 0110 register 2 preferred
+        F2 1010 register 2 preferred
+        E2 0001 register 2 preferred
+        E2 1110 register 2 alternate "one-two-three"
+    }
+}
+
+extension Tuba {
+    fingering ccFourValve default {
+        id "fingering:tuba:cc:four-valve"
+        name "CC tuba four-valve combinations"
+        actuators valves
+        bitOrder valve1, valve2, valve3, valve4
+        C2 0000 register 2 preferred
+        B1 0100 register 2 preferred
+        Bb1 1000 register 2 preferred
+        A1 1100 register 2 preferred
+        Ab1 0110 register 2 preferred
+        G1 1010 register 2 preferred
+        F#1 0001 register 2 preferred
+        F#1 1110 register 2 alternate "one-two-three"
+    }
+}
+
+extension BassTrombone {
+    fingering attachmentStates default {
+        id "fingering:trombone:bass-b-flat:attachments"
+        name "Bass trombone attachment states"
+        actuators valves
+        bitOrder fAttachment, gFlatAttachment
+        effect open 00 preferred
+        effect fAttachment 10 preferred
+        effect gFlatAttachment 01 preferred
+        effect combinedAttachments 11 preferred
+    }
+}
+

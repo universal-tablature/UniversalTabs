@@ -89,3 +89,55 @@ model Vefsenharpa : KeyedBowedStrings {
     geometry tonalSystem { openMelodyPitch A4; temperament historicalNonEqual; pureOctave false }
     geometry provenance { region Vefsn; country Norway }
 }
+
+extension Kontrabasharpa {
+    tuning historicalReference default {
+        id "tuning:nyckelharpa:kontrabasharpa-reference"
+        name "Kontrabasharpa Historical Reference"
+        tags nyckelharpa, kontrabasharpa, historical, reference
+        course A3
+        course D4
+        course A4
+    }
+}
+
+extension Silverbasharpa {
+    tuning historicalReference default {
+        id "tuning:nyckelharpa:silverbasharpa-reference"
+        name "Silverbasharpa Historical Reference"
+        tags nyckelharpa, silverbasharpa, historical, reference
+        course C3
+        course G3
+        course C4
+        course A4
+    }
+}
+
+extension Moraharpa {
+    tuning historicalReference default {
+        id "tuning:nyckelharpa:moraharpa-reference"
+        name "Moraharpa Historical Reference"
+        tags nyckelharpa, moraharpa, historical, reference, drone
+        course A4
+        course D4
+        course A3
+    }
+}
+
+extension Esseharpa {
+    tuning historicalReference default {
+        id "tuning:nyckelharpa:esseharpa-reference-a"
+        name "Esseharpa Historical Reference in A"
+        tags nyckelharpa, esseharpa, historical, reference
+        course A4
+    }
+}
+
+extension Vefsenharpa {
+    tuning historicalReference default {
+        id "tuning:nyckelharpa:vefsenharpa-reference-a"
+        name "Vefsenharpa Historical Reference in A"
+        tags nyckelharpa, vefsenharpa, historical, reference
+        course A4
+    }
+}

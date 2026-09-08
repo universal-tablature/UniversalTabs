@@ -5,7 +5,8 @@ model FiveStringBanjo : FrettedStrings {
     id "instrument:banjo:five-string"
     name "Five-string Banjo"
     geometry strings { count 5; reentrant true }
-    geometry frets { count 22; movable false }
+    geometry frets { count 22; movable false; appliesToStrings "2-5" }
+    geometry fifthStringNut { name pip; startsAtFret 5; string 1; playableFrets 17 }
 }
 
 extension FiveStringBanjo {

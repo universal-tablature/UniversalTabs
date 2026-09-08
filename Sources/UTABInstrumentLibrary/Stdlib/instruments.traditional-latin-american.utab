@@ -83,3 +83,12 @@ model AymaraChallaSikuPair : SplitComplementaryPanpipePair {
     geometry playerConfiguration { default splitTwoPlayers; iraPlayer 1; arkaPlayer 2; singlePlayer possible }
     geometry performance { interlockingHocket true; pairedBreathing true; exactPitchMap requiredAtConfiguration; ensembleTuning local }
 }
+
+extension BrazilianCapoeiraBerimbau {
+    tuning cReference default {
+        id "tuning:berimbau:capoeira-c-reference"
+        name "Capoeira Berimbau C Reference"
+        tags berimbau, brazilian, capoeira, reference
+        course C3
+    }
+}
