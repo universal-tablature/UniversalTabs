@@ -1,0 +1,92 @@
+module profiles.traditional-chinese
+
+profile BowBetweenStringsFiddle {
+    id "profile:strings:bow-between-strings-fiddle"
+    version "1"
+    actuator strings { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator captiveBow { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction bow { targets strings; effectors captiveBow }
+    interaction stop { targets strings; effectors finger }
+    technique vibrato { target strings }
+    technique portamento { target strings }
+}
+
+profile VerticalFrettedLute {
+    id "profile:strings:vertical-fretted-lute"
+    version "1"
+    actuator strings { count 4; control continuous; minimum 0.0; maximum 1.0 }
+    actuator frets { minimumCount 24; maximumCount 31; control discrete }
+    interaction pluck { targets strings; effectors fingernail, fingerPick }
+    interaction stop { targets frets; effectors finger }
+    technique tremolo { target strings }
+    technique bend { target strings }
+}
+
+profile PressureBridgeZither {
+    id "profile:zither:pressure-bridge"
+    version "1"
+    actuator strings { minimumCount 18; maximumCount 26; control continuous; minimum 0.0; maximum 1.0 }
+    actuator movableBridges { minimumCount 18; maximumCount 26; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets strings; effectors fingernail, fingerPick }
+    interaction press { targets strings; effectors hand }
+    interaction position { targets movableBridges; effectors hand }
+    technique pitchBend { target strings }
+    technique glissando { target strings }
+}
+
+profile FretlessTableZither {
+    id "profile:zither:fretless-table"
+    version "1"
+    actuator strings { count 7; control continuous; minimum 0.0; maximum 1.0 }
+    actuator positionMarkers { count 13; control discrete }
+    interaction pluck { targets strings; effectors finger, fingernail }
+    interaction stop { targets positionMarkers; effectors finger }
+    technique harmonic { target strings }
+    technique slide { target strings }
+    technique vibrato { target strings }
+}
+
+profile HammeredBridgeZither {
+    id "profile:zither:hammered-bridges"
+    version "1"
+    actuator courses { minimumCount 30; maximumCount 60; control continuous; minimum 0.0; maximum 1.0 }
+    actuator bridges { minimumCount 4; maximumCount 12; control discrete }
+    interaction strike { targets courses; effectors bambooBeater }
+    interaction tune { targets bridges; effectors hand, tool }
+    technique tremolo { target courses }
+}
+
+profile MembraneTransverseFlute {
+    id "profile:wind:membrane-transverse-flute"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator toneHoles { count 6; control orderedBitset; width 6 }
+    actuator membrane { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction cover { targets toneHoles; effectors finger }
+    interaction excite { targets membrane; effectors airColumn }
+    technique overblow { target airColumn }
+    technique flutterTongue { target airColumn }
+}
+
+profile NotchedEndBlownFlute {
+    id "profile:wind:notched-end-blown-flute"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator toneHoles { minimumCount 6; maximumCount 8; control discrete }
+    interaction blow { targets airColumn; effectors breath, lip }
+    interaction cover { targets toneHoles; effectors finger }
+    technique overblow { target airColumn }
+    technique pitchBend { target airColumn }
+}
+
+profile FreeReedPipeMouthOrgan {
+    id "profile:wind:free-reed-pipe-mouth-organ"
+    version "1"
+    actuator soundingPipes { minimumCount 14; maximumCount 36; control discrete }
+    actuator breathDirection { count 1; control discrete }
+    interaction breathe { targets soundingPipes, breathDirection; effectors breath }
+    interaction select { targets soundingPipes; effectors finger }
+    technique chord { target soundingPipes }
+    technique continuousTone { target breathDirection }
+}

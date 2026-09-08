@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 30)
-    #expect(catalog.profiles.count == 66)
-    #expect(catalog.models.count == 132)
+    #expect(catalog.tunings.count == 33)
+    #expect(catalog.profiles.count == 74)
+    #expect(catalog.models.count == 141)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1647,6 +1647,36 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(shehnai.profile == StandardInstruments.folkDoubleReed.id)
     #expect(harmonium.profile == StandardInstruments.handPumpedReedKeyboard.id)
     #expect(harmonium.geometry.first { $0.id == "stops" }?.properties["droneStops"] == .integer(4))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func chineseExpansionPreservesCaptiveBowBridgesMembranesAndFreeReeds() throws {
+    let catalog = StandardInstruments.catalog
+    let erhu = StandardInstruments.modernErhu
+    let pipa = StandardInstruments.concertPipa
+    let guzheng = StandardInstruments.twentyOneStringGuzheng
+    let guqin = StandardInstruments.sevenStringGuqin
+    let yangqin = StandardInstruments.chineseChromaticYangqin
+    let dizi = StandardInstruments.chineseDiziD
+    let xiao = StandardInstruments.chineseGXiao
+    let sheng = StandardInstruments.centralChineseXiaosheng
+    let suona = StandardInstruments.northernChineseSuona
+
+    #expect(erhu.profile == StandardInstruments.bowBetweenStringsFiddle.id)
+    #expect(erhu.defaultTuning?.rawValue == "tuning:erhu:standard-d4-a4")
+    #expect(pipa.profile == StandardInstruments.verticalFrettedLute.id)
+    #expect(pipa.geometry.first { $0.id == "frets" }?.properties["count"] == .integer(31))
+    #expect(guzheng.profile == StandardInstruments.pressureBridgeZither.id)
+    #expect(guzheng.geometry.first { $0.id == "movableBridges" }?.properties["count"] == .integer(21))
+    #expect(guqin.profile == StandardInstruments.fretlessTableZither.id)
+    #expect(guqin.geometry.first { $0.id == "positionMarkers" }?.properties["count"] == .integer(13))
+    #expect(yangqin.profile == StandardInstruments.hammeredBridgeZither.id)
+    #expect(dizi.profile == StandardInstruments.membraneTransverseFlute.id)
+    #expect(dizi.geometry.first { $0.id == "membrane" }?.properties["name"] == .text("dimo"))
+    #expect(xiao.profile == StandardInstruments.notchedEndBlownFlute.id)
+    #expect(sheng.profile == StandardInstruments.freeReedPipeMouthOrgan.id)
+    #expect(sheng.geometry.first { $0.id == "pipeArray" }?.properties["mutePipes"] == .integer(3))
+    #expect(suona.profile == StandardInstruments.folkDoubleReed.id)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

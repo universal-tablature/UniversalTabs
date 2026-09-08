@@ -1,0 +1,139 @@
+module instruments.traditional-chinese
+import profiles.traditional-chinese
+import profiles.traditional-near-east
+import std.midi
+
+model ModernErhu : BowBetweenStringsFiddle {
+    id "instrument:erhu:modern-d-a"
+    name "Modern Chinese Erhu"
+    midiProgram = midi.violin
+    geometry strings { count 2; inside neixian; outside waixian; stoppedWithoutFingerboard true }
+    geometry captiveBow { count 1; hairBetweenStrings true; material horsehairOrNylon }
+    geometry body { shape hexagonalTube; front snakeskin; back piercedWood; material hardwood }
+    geometry posture { vertical true; resonatorOnLeftThigh true }
+    geometry pitchRange { minimum D4; maximum D7; continuousPitch true; midiFidelity approximate }
+}
+
+extension ModernErhu {
+    tuning standardDA default {
+        id "tuning:erhu:standard-d4-a4"
+        name "Modern Erhu D4-A4"
+        tags erhu, chinese, fifths
+        course D4
+        course A4
+    }
+}
+
+model ConcertPipa : VerticalFrettedLute {
+    id "instrument:pipa:chinese-concert-four-string"
+    name "Chinese Concert Pipa"
+    midiProgram = midi.koto
+    geometry strings { count 4; material steel; fingerPicks rightHand }
+    geometry frets { count 31; neckLedges 6; soundboardFrets 25; fixed true }
+    geometry body { pearShaped true; back flat; soundboard wutong; held nearlyVertical }
+    geometry playing { tremolo lun; strum sao; bendByStringPressure true }
+    geometry pitchRange { minimum A2; maximum E6; midiFidelity approximate }
+}
+
+extension ConcertPipa {
+    tuning standardADEA default {
+        id "tuning:pipa:standard-a2-d3-e3-a3"
+        name "Concert Pipa A-D-E-A"
+        tags pipa, chinese, standard
+        course A2
+        course D3
+        course E3
+        course A3
+    }
+}
+
+model TwentyOneStringGuzheng : PressureBridgeZither {
+    id "instrument:guzheng:chinese-21-string-pentatonic"
+    name "Chinese 21-string Guzheng"
+    midiProgram = midi.koto
+    geometry strings { count 21; material nylonWoundSteel; rightSide sounded; leftSide pressureArea }
+    geometry movableBridges { count 21; onePerString true; independentlyPositioned true }
+    geometry body { type archedBoxZither; soundboard wutong; soundHoles 3 }
+    geometry tuning { system anhemitonicPentatonic; range "A2-A6"; exactPitchMap requiredAtConfiguration }
+    geometry playing { rightHandPlucks true; leftHandBendsAndVibrato true; glissando true; midiFidelity approximate }
+}
+
+model SevenStringGuqin : FretlessTableZither {
+    id "instrument:guqin:chinese-seven-string-standard"
+    name "Chinese Seven-string Guqin"
+    midiProgram = midi.koto
+    geometry strings { count 7; material silkOrNylonMetal; noIndividualBridges true }
+    geometry positionMarkers { count 13; name hui; material motherOfPearl; harmonicAndStoppingGuides true }
+    geometry body { soundboard archedWutong; bottom flatZiWood; lacquered true; soundHoles 2 }
+    geometry playing { toneTypes fanYinAndStoppedTones; leftHandSlides true; tablature jianzipu }
+    geometry pitchSystem { tuning zhengDiao; continuousStoppedPitch true; midiFidelity approximate }
+}
+
+extension SevenStringGuqin {
+    tuning zhengDiao default {
+        id "tuning:guqin:zhengdiao-c2-d2-f2-g2-a2-c3-d3"
+        name "Guqin Zhengdiao"
+        tags guqin, chinese, standard
+        course C2
+        course D2
+        course F2
+        course G2
+        course A2
+        course C3
+        course D3
+    }
+}
+
+model ChineseChromaticYangqin : HammeredBridgeZither {
+    id "instrument:yangqin:chinese-concert-chromatic"
+    name "Chinese Concert Chromatic Yangqin"
+    midiProgram = midi.dulcimerOrSantoor
+    geometry courses { count 48; stringsPerCourse variable; material steel; bothSidesOfBridgesSounded true }
+    geometry bridges { count 5; alternatingCourses true; multipleRegisters true }
+    geometry body { shape trapezoidal; playedHorizontal true; tuningPins bothSides }
+    geometry beaters { count 2; material bamboo; flexible true; reversibleHeads true }
+    geometry tuning { system chromaticConcert; exactCourseSegmentMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model ChineseDiziD : MembraneTransverseFlute {
+    id "instrument:dizi:chinese-d-key-six-hole"
+    name "Chinese D-key Dizi"
+    midiProgram = midi.flute
+    geometry airColumn { body bamboo; transverse true; bore cylindrical; nominalKey D }
+    geometry toneHoles { count 6; front 6; halfHole true }
+    geometry membrane { count 1; name dimo; hole dimoKong; buzzingTimbre true }
+    geometry holes { blowHole 1; membraneHole 1; tuningAndTasselHoles additional }
+    geometry pitchSystem { overblownRegisters true; fingeringMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model ChineseGXiao : NotchedEndBlownFlute {
+    id "instrument:xiao:chinese-g-key-eight-hole"
+    name "Chinese G-key Eight-hole Xiao"
+    midiProgram = midi.flute
+    geometry airColumn { body bamboo; endBlown true; bore cylindrical; nominalKey G }
+    geometry toneHoles { count 8; front 7; thumb 1; halfHole true }
+    geometry embouchure { notch uShaped; directEdge true }
+    geometry pitchSystem { overblownRegisters true; fingeringMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model CentralChineseXiaosheng : FreeReedPipeMouthOrgan {
+    id "instrument:sheng:central-chinese-xiaosheng-17-pipe"
+    name "Central Chinese Seventeen-pipe Xiaosheng"
+    midiProgram = midi.reedOrgan
+    geometry soundingPipes { count 14; material bamboo; freeReeds copperTin; fingerHoles selectPipes }
+    geometry breathDirection { count 1; inhaledAndExhaled true; sustainedAcrossDirection true }
+    geometry pipeArray { totalPipes 17; mutePipes 3; incompleteCircle true; symbolicShape phoenixWings }
+    geometry windchest { material wood; shape bowl; curvedBlowpipe true }
+    geometry pitchMap { exactPipeMap requiredAtConfiguration; polyphonic true; midiFidelity approximate }
+}
+
+model NorthernChineseSuona : FolkDoubleReed {
+    id "instrument:suona:northern-chinese-standard"
+    name "Northern Chinese Suona"
+    midiProgram = midi.shanai
+    geometry reed { count 1; type smallDoubleReed; material riverCane; pirouette true }
+    geometry toneHoles { count 8; front 7; thumb 1; halfHole true }
+    geometry body { material hardwood; bore conical; exterior scalloped }
+    geometry bell { material brass; flared true; looselyAttached true }
+    geometry pitchSystem { exactPitchMap requiredAtConfiguration; breathBends true; overblownRegister true; midiFidelity approximate }
+}
