@@ -25,3 +25,4 @@ import instruments.wind
 import instruments.percussion
 import instruments.percussion.arabic
 import instruments.percussion.indian
+import instruments.percussion.folk-drums

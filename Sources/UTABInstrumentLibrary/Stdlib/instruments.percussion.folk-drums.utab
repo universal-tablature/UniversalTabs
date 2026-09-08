@@ -1,0 +1,64 @@
+module instruments.percussion.folk-drums
+import profiles.percussion
+import std.midi
+
+model NorthIndianDholak : DoubleHeadedBarrelDrum {
+    id "instrument:percussion:dholak:north-indian"
+    name "North Indian Dholak"
+    midiPercussion true
+    geometry shell { shape barrel; material wood; orientation lap }
+    geometry membranes { count 2; trebleHead smaller; bassHead larger; ropeOrBoltTension true }
+    geometry trebleStroke { target trebleHead; effector hand; midiNote midi.highBongoNote; midiFidelity approximate }
+    geometry bassStroke { target bassHead; effector hand; midiNote midi.lowCongaNote; midiFidelity approximate }
+}
+
+model PunjabiDhol : StrappedDoubleHeadedDrum {
+    id "instrument:percussion:dhol:punjabi"
+    name "Punjabi Dhol"
+    midiPercussion true
+    geometry shell { shape barrel; material wood; orientation shoulderStrapped }
+    geometry membranes { count 2; trebleHead "tilli"; bassHead "dagga"; ropeTension true }
+    geometry trebleStroke { target trebleHead; effector thinFlexibleStick; midiNote midi.highTomNote; midiFidelity approximate }
+    geometry bassStroke { target bassHead; effector curvedHeavyStick; midiNote midi.lowFloorTomNote; midiFidelity approximate }
+}
+
+model WestAfricanDjembe : HandDrum {
+    id "instrument:percussion:djembe:west-african-rope-tuned"
+    name "West African Rope-tuned Djembe"
+    midiPercussion true
+    geometry shell { shape goblet; material carvedWood; head skin; ropeTuned true }
+    geometry membrane { count 1; centerAndEdgeDistinct true }
+    geometry bassStroke { target center; articulation bass; midiNote midi.lowCongaNote; midiFidelity approximate }
+    geometry toneStroke { target edge; articulation open; midiNote midi.openHighCongaNote; midiFidelity approximate }
+    geometry slapStroke { target edge; articulation slap; midiNote midi.muteHighCongaNote; midiFidelity approximate }
+}
+
+model WestAfricanDunun : StrappedDoubleHeadedDrum {
+    id "instrument:percussion:dunun:west-african"
+    name "West African Dunun"
+    midiPercussion true
+    geometry shell { shape cylindrical; material wood; orientation horizontalOrStrapped }
+    geometry membranes { count 2; ropeTuned true; struckWithStick true }
+    geometry bell { attachedOptional true; independentlyStruck true; midiNote midi.cowbellNote; midiFidelity approximate }
+    geometry drumStroke { target membrane; effector straightStick; midiNote midi.lowFloorTomNote; midiFidelity approximate }
+}
+
+model YorubaTalkingDrum : PressureCordDrum {
+    id "instrument:percussion:talking-drum:yoruba-dundun"
+    name "Yoruba Dundun Talking Drum"
+    midiPercussion true
+    geometry shell { shape hourglass; material wood; held underArm }
+    geometry membranes { count 2; connected true; material skin }
+    geometry tensionCords { continuousPressure true; pitchTrajectory true; squeezedByArm true }
+    geometry stroke { target membrane; effector curvedStick; midiNote midi.melodicTom; midiFidelity approximate }
+}
+
+model BeadedGourdShekere : ShakenPercussion {
+    id "instrument:percussion:shekere:beaded-gourd"
+    name "Beaded-gourd Shekere"
+    midiPercussion true
+    geometry body { count 1; material driedGourd; hollow true }
+    geometry beadNet { material beadsAndCord; surroundsBody true; independentlyMovable true }
+    geometry shakeStroke { target beadNet; midiNote midi.cabasaNote; midiFidelity approximate }
+    geometry slapStroke { target gourdBody; midiNote midi.handClapNote; midiFidelity approximate }
+}

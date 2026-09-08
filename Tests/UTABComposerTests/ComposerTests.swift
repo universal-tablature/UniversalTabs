@@ -996,8 +996,8 @@ private func stableFingerprint(_ data: Data) -> String {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
     #expect(catalog.tunings.count == 29)
-    #expect(catalog.profiles.count == 37)
-    #expect(catalog.models.count == 91)
+    #expect(catalog.profiles.count == 39)
+    #expect(catalog.models.count == 97)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1499,6 +1499,27 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(ghatam.profile == StandardInstruments.clayPotPercussion.id)
     #expect(ghatam.geometry.first { $0.id == "surfaces" }?.properties["count"] == .integer(4))
     #expect(ghatam.geometry.first { $0.id == "opening" }?.properties["continuousPitchAndResonance"] == .boolean(true))
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func folkDrumExpansionPreservesStickHandPressureCordAndBeadNetControls() throws {
+    let catalog = StandardInstruments.catalog
+    let dholak = StandardInstruments.northIndianDholak
+    let dhol = StandardInstruments.punjabiDhol
+    let djembe = StandardInstruments.westAfricanDjembe
+    let dunun = StandardInstruments.westAfricanDunun
+    let talkingDrum = StandardInstruments.yorubaTalkingDrum
+    let shekere = StandardInstruments.beadedGourdShekere
+
+    #expect(dholak.profile == StandardInstruments.doubleHeadedBarrelDrum.id)
+    #expect(dhol.geometry.first { $0.id == "shell" }?.properties["orientation"] == .text("shoulderStrapped"))
+    #expect(djembe.geometry.first { $0.id == "slapStroke" }?.properties["articulation"] == .text("slap"))
+    #expect(dunun.profile == StandardInstruments.strappedDoubleHeadedDrum.id)
+    #expect(dunun.geometry.first { $0.id == "bell" }?.properties["independentlyStruck"] == .boolean(true))
+    #expect(talkingDrum.profile == StandardInstruments.pressureCordDrum.id)
+    #expect(talkingDrum.geometry.first { $0.id == "tensionCords" }?.properties["pitchTrajectory"] == .boolean(true))
+    #expect(shekere.profile == StandardInstruments.shakenPercussion.id)
+    #expect(shekere.geometry.first { $0.id == "beadNet" }?.properties["surroundsBody"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

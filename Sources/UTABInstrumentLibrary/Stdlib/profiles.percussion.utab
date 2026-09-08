@@ -135,3 +135,23 @@ profile ClayPotPercussion {
     interaction cover { targets opening; effectors hand, body }
     technique pitchBend { target opening }
 }
+
+profile StrappedDoubleHeadedDrum {
+    id "profile:percussion:strapped-double-headed-drum"
+    version "1"
+    actuator membranes { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator damping { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors hand, straightStick, curvedStick }
+    interaction damp { targets damping; effectors hand }
+    technique roll { target membranes }
+}
+
+profile PressureCordDrum {
+    id "profile:percussion:pressure-cord-drum"
+    version "1"
+    actuator membranes { count 2; control continuous; minimum 0.0; maximum 1.0 }
+    actuator tensionCords { minimumCount 8; maximumCount 32; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets membranes; effectors curvedStick, hand }
+    interaction squeeze { targets tensionCords; effectors arm, body }
+    technique pitchBend { target tensionCords }
+}
