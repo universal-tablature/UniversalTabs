@@ -995,9 +995,9 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 33)
-    #expect(catalog.profiles.count == 74)
-    #expect(catalog.models.count == 141)
+    #expect(catalog.tunings.count == 35)
+    #expect(catalog.profiles.count == 78)
+    #expect(catalog.models.count == 149)
     #expect(catalog.chordShapes.count == 3)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
@@ -1677,6 +1677,36 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(sheng.profile == StandardInstruments.freeReedPipeMouthOrgan.id)
     #expect(sheng.geometry.first { $0.id == "pipeArray" }?.properties["mutePipes"] == .integer(3))
     #expect(suona.profile == StandardInstruments.folkDoubleReed.id)
+    #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
+}
+
+@Test func japaneseKoreanExpansionPreservesBridgesBreathAngleMembranesAndCaptiveBows() throws {
+    let catalog = StandardInstruments.catalog
+    let koto = StandardInstruments.japaneseThirteenStringKoto
+    let shamisen = StandardInstruments.japaneseHosozaoShamisen
+    let shakuhachi = StandardInstruments.kinkoShakuhachiOneEight
+    let sho = StandardInstruments.japaneseGagakuSho
+    let gayageum = StandardInstruments.koreanJeongakGayageum
+    let geomungo = StandardInstruments.koreanGeomungo
+    let daegeum = StandardInstruments.koreanJeongakDaegeum
+    let haegeum = StandardInstruments.koreanHaegeum
+
+    #expect(koto.profile == StandardInstruments.movableBridgeLongZither.id)
+    #expect(koto.defaultTuning?.rawValue == "tuning:koto:hirajoshi-d")
+    #expect(shamisen.profile == StandardInstruments.skinSoundboardSpikeLute.id)
+    #expect(shamisen.geometry.first { $0.id == "plectrum" }?.properties["strikesStringAndMembrane"] == .boolean(true))
+    #expect(shakuhachi.profile == StandardInstruments.breathAngleEndBlownFlute.id)
+    #expect(shakuhachi.geometry.first { $0.id == "toneHoles" }?.properties["count"] == .integer(5))
+    #expect(sho.profile == StandardInstruments.freeReedPipeMouthOrgan.id)
+    #expect(sho.geometry.first { $0.id == "pipeArray" }?.properties["mutePipes"] == .integer(2))
+    #expect(gayageum.profile == StandardInstruments.movableBridgeLongZither.id)
+    #expect(gayageum.geometry.first { $0.id == "playing" }?.properties["widePitchBend"] == .boolean(true))
+    #expect(geomungo.profile == StandardInstruments.frettedAndBridgedStickZither.id)
+    #expect(geomungo.geometry.first { $0.id == "beater" }?.properties["name"] == .text("suldae"))
+    #expect(daegeum.profile == StandardInstruments.membraneTransverseFlute.id)
+    #expect(daegeum.geometry.first { $0.id == "membrane" }?.properties["name"] == .text("cheong"))
+    #expect(haegeum.profile == StandardInstruments.bowBetweenStringsFiddle.id)
+    #expect(haegeum.geometry.first { $0.id == "bridge" }?.properties["controlsToneAndVolume"] == .boolean(true))
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 

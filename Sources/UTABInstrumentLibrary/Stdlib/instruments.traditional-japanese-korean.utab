@@ -1,0 +1,128 @@
+module instruments.traditional-japanese-korean
+import profiles.traditional-japanese-korean
+import profiles.traditional-chinese
+import std.midi
+
+model JapaneseThirteenStringKoto : MovableBridgeLongZither {
+    id "instrument:koto:japanese-13-string-hirajoshi"
+    name "Japanese Thirteen-string Koto"
+    midiProgram = midi.koto
+    geometry strings { count 13; material silkOrNylon; equalLength true; fingerPicks thumbIndexMiddle }
+    geometry movableBridges { count 13; name ji; shape invertedY; onePerString true }
+    geometry body { material paulownia; type convexLongBox; symbolicForm dragon }
+    geometry playing { rightHandPlucks true; leftHandPressesBeyondBridge true; retuningByBridge true }
+    geometry pitchExpression { pitchBend true; vibrato true; midiFidelity approximate }
+}
+
+extension JapaneseThirteenStringKoto {
+    tuning hirajoshi default {
+        id "tuning:koto:hirajoshi-d"
+        name "Koto Hira-joshi in D"
+        tags koto, japanese, hirajoshi
+        course D4
+        course G3
+        course A3
+        course Bb3
+        course D4
+        course Eb4
+        course G4
+        course A4
+        course Bb4
+        course D5
+        course Eb5
+        course G5
+        course A5
+    }
+}
+
+model JapaneseHosozaoShamisen : SkinSoundboardSpikeLute {
+    id "instrument:shamisen:japanese-hosozao-honchoshi"
+    name "Japanese Hosozao Shamisen"
+    midiProgram = midi.shamisen
+    geometry strings { count 3; fretted false; lowestSawari true }
+    geometry soundboard { count 1; membranesBothFaces true; material skin; struckWithBachi true }
+    geometry body { type squareFrame; material hardwood; spikeNeckThroughBody true }
+    geometry neck { profile slender; segments 3; disassemblable true }
+    geometry plectrum { name bachi; shape triangular; strikesStringAndMembrane true }
+    geometry tuningBehavior { vocalRangeDeterminesAbsolutePitch true; alternatePatterns niagariAndSansagari }
+}
+
+extension JapaneseHosozaoShamisen {
+    tuning honchoshi default {
+        id "tuning:shamisen:honchoshi-c4-f4-c5"
+        name "Shamisen Honchōshi in C"
+        tags shamisen, japanese, honchoshi
+        course C4
+        course F4
+        course C5
+    }
+}
+
+model KinkoShakuhachiOneEight : BreathAngleEndBlownFlute {
+    id "instrument:shakuhachi:kinko-1.8-d4"
+    name "Kinko-ryū 1.8 Shakuhachi in D"
+    midiProgram = midi.shakuhachi
+    geometry airColumn { body madakeBamboo; lengthShaku 1.8; bore tapered; rootEnd distal }
+    geometry toneHoles { count 5; front 4; thumb 1; halfHole true }
+    geometry breathAngle { count 1; jawAndHeadControlled true; pitchAndTimbreCoupled true }
+    geometry utaguchi { notchAngleDegrees 30; edgeInsert true; type kinko }
+    geometry pitchSystem { openScale "D4 F4 G4 A4 C5"; rangeOctaves maximum3; chromaticByMeriKari true; midiFidelity approximate }
+}
+
+model JapaneseGagakuSho : FreeReedPipeMouthOrgan {
+    id "instrument:sho:japanese-gagaku-17-pipe"
+    name "Japanese Gagaku Shō"
+    midiProgram = midi.reedOrgan
+    geometry soundingPipes { count 15; material bamboo; metalFreeReeds true; fingerHoles selectPipes }
+    geometry breathDirection { count 1; inhaledAndExhaled true; continuousTransitions true }
+    geometry pipeArray { totalPipes 17; mutePipes 2; symbolicShape phoenixWings }
+    geometry windchest { material wood; lacquered true; bowlShaped true }
+    geometry harmony { technique aitake; chordSizes "5-6"; namedChordMap requiredAtConfiguration }
+    geometry maintenance { warmToPreventCondensation true; midiFidelity approximate }
+}
+
+model KoreanJeongakGayageum : MovableBridgeLongZither {
+    id "instrument:gayageum:korean-jeongak-12-string"
+    name "Korean Jeongak Twelve-string Gayageum"
+    midiProgram = midi.koto
+    geometry strings { count 12; material rawSilk; bareFingerPlucking true }
+    geometry movableBridges { count 12; onePerString true; material hardwood }
+    geometry body { type halfTubeZither; material paulownia; lengthCm 160; horns anchorCords }
+    geometry tuning { tradition jeongak; exactPitchMap requiredAtConfiguration; movableBridgeRetuning true }
+    geometry playing { rightHandPlucks true; leftHandPressesAndPulls true; widePitchBend true; midiFidelity approximate }
+}
+
+model KoreanGeomungo : FrettedAndBridgedStickZither {
+    id "instrument:geomungo:korean-six-string"
+    name "Korean Six-string Geomungo"
+    midiProgram = midi.koto
+    geometry strings { count 6; material twistedSilk; directlyStruckAndPlucked true }
+    geometry fixedFrets { count 16; stringsUsingFrets "2-4"; material wood }
+    geometry movableBridges { count 3; stringsUsingBridges "1,5,6"; independentlyPositioned true }
+    geometry body { type longBoardZither; soundboard paulownia; back chestnut }
+    geometry beater { name suldae; material bamboo; rightHand true }
+    geometry tuning { tradition jeongakOrSanjo; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}
+
+model KoreanJeongakDaegeum : MembraneTransverseFlute {
+    id "instrument:daegeum:korean-jeongak-six-hole"
+    name "Korean Jeongak Daegeum"
+    midiProgram = midi.flute
+    geometry airColumn { body thickBamboo; transverse true; bore cylindrical; familyRegister lowest }
+    geometry toneHoles { count 6; front 6; halfHole true }
+    geometry membrane { count 1; name cheong; hole cheonggong; material reedInnerSkin }
+    geometry holes { blowHole 1; membraneHole 1; fingerHoles 6; tuningHole 1 }
+    geometry pitchSystem { tradition jeongak; fingeringMap requiredAtConfiguration; overblownRegisters true; midiFidelity approximate }
+}
+
+model KoreanHaegeum : BowBetweenStringsFiddle {
+    id "instrument:haegeum:korean-traditional-two-string"
+    name "Korean Traditional Haegeum"
+    midiProgram = midi.fiddle
+    geometry strings { count 2; material silk; names junghyeonAndYuhyeon; noFingerboard true }
+    geometry captiveBow { count 1; hairBetweenStrings true; material horsehair; frame bamboo }
+    geometry body { resonator bambooTube; soundtable paulownia; endpin brass }
+    geometry bridge { name wonsan; movable true; controlsToneAndVolume true }
+    geometry posture { vertical true; supportedOnKnee true }
+    geometry tuning { interval perfectFifth; absolutePitch contextDependent; exactPitchMap requiredAtConfiguration; midiFidelity approximate }
+}

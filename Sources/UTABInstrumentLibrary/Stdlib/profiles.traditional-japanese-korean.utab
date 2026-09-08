@@ -1,0 +1,51 @@
+module profiles.traditional-japanese-korean
+
+profile MovableBridgeLongZither {
+    id "profile:zither:movable-bridge-long"
+    version "1"
+    actuator strings { minimumCount 12; maximumCount 13; control continuous; minimum 0.0; maximum 1.0 }
+    actuator movableBridges { minimumCount 12; maximumCount 13; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets strings; effectors finger, fingerPick }
+    interaction press { targets strings; effectors hand }
+    interaction position { targets movableBridges; effectors hand }
+    technique pitchBend { target strings }
+    technique vibrato { target strings }
+}
+
+profile SkinSoundboardSpikeLute {
+    id "profile:strings:skin-soundboard-spike-lute"
+    version "1"
+    actuator strings { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    actuator soundboard { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    interaction pluck { targets strings; effectors bachi }
+    interaction strike { targets soundboard; effectors bachi }
+    interaction stop { targets strings; effectors finger }
+    technique sawari { target strings }
+    technique slide { target strings }
+}
+
+profile BreathAngleEndBlownFlute {
+    id "profile:wind:breath-angle-end-blown-flute"
+    version "1"
+    actuator airColumn { count 1; control continuous; minimum 0.0; maximum 1.0 }
+    actuator toneHoles { count 5; control orderedBitset; width 5 }
+    actuator breathAngle { count 1; control continuous; minimum -1.0; maximum 1.0 }
+    interaction blow { targets airColumn, breathAngle; effectors breath, lip, jaw }
+    interaction cover { targets toneHoles; effectors finger }
+    technique meri { target breathAngle }
+    technique kari { target breathAngle }
+    technique overblow { target airColumn }
+}
+
+profile FrettedAndBridgedStickZither {
+    id "profile:zither:fretted-and-bridged-stick"
+    version "1"
+    actuator strings { count 6; control continuous; minimum 0.0; maximum 1.0 }
+    actuator fixedFrets { count 16; control discrete }
+    actuator movableBridges { count 3; control continuous; minimum 0.0; maximum 1.0 }
+    interaction strike { targets strings; effectors bambooStick }
+    interaction stop { targets fixedFrets; effectors finger }
+    interaction position { targets movableBridges; effectors hand }
+    technique suldaeStroke { target strings }
+    technique pitchBend { target strings }
+}
