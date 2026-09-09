@@ -478,6 +478,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
 }
 
 @Test func minimalLowererProducesValidDeterministicUTabDocument() throws {
+    let firstDegreeLine = #line + 3
     let melody = Phrase("melody") {
         Bar {
             Degree(1, octave: 4, .quarter)
@@ -520,7 +521,9 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     #expect(document.tracks.first?.parts?.first?.events[0].at.musical?.beat == 1)
     #expect(document.tracks.first?.parts?.first?.events[1].at.musical?.beat == 2)
     #expect(document.tracks.first?.parts?.first?.source == nil)
-    #expect(document.tracks.first?.parts?.first?.events[0].source.map { $0.file == #fileID && $0.line == 469 } == true)
+    #expect(document.tracks.first?.parts?.first?.events[0].source.map {
+        $0.file == #fileID && $0.line == firstDegreeLine
+    } == true)
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
@@ -762,7 +765,7 @@ private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String?
     let canonical = try encoder.encode(document)
     let repeatedCanonical = try encoder.encode(repeatedDocument)
     #expect(canonical == repeatedCanonical)
-    #expect(stableFingerprint(canonical) == "4c5756bea97d4628")
+    #expect(stableFingerprint(canonical) == "456355bd96a05892")
 }
 
 private func stableFingerprint(_ data: Data) -> String {
