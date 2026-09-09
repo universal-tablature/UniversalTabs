@@ -100,7 +100,10 @@ public struct TextDiagnosticVerifier: Sendable {
     private func parseExpectations(_ source: TextSource) -> (expectations: [ExpectedTextDiagnostic], issues: [TextDiagnosticVerificationIssue]) {
         var expectations: [ExpectedTextDiagnostic] = []
         var issues: [TextDiagnosticVerificationIssue] = []
-        for (zeroBasedLine, lineSlice) in source.text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+        for (zeroBasedLine, lineSlice) in source.text.split(
+            omittingEmptySubsequences: false,
+            whereSeparator: { $0.isNewline }
+        ).enumerated() {
             let lineNumber = zeroBasedLine + 1
             let line = String(lineSlice)
             var searchStart = line.startIndex

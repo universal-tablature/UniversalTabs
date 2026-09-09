@@ -2469,6 +2469,8 @@ private func stableFingerprint(_ data: Data) -> String {
         .deletingLastPathComponent()
         .appendingPathComponent("LanguageFixtures/self-validation.utab")
     let text = try String(contentsOf: testFile, encoding: .utf8)
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .replacingOccurrences(of: "\n", with: "\r\n")
     let result = TextDiagnosticVerifier().verify(.init(text, fileID: testFile.lastPathComponent))
 
     #expect(UTabComposerLanguage.fileExtension == "utab")
