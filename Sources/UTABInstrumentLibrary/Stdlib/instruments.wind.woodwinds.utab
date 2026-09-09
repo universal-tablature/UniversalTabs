@@ -1,9 +1,11 @@
 module instruments.wind.woodwinds
 import profiles.wind
+import std.midi
 
 model SopranoRecorder : AirColumnWind {
     id "instrument:recorder:soprano"
     name "Soprano Recorder"
+    midiProgram = midi.recorder
     geometry bore { shape conical; material woodOrPlastic }
     geometry toneHoles { count 8; lowestPitch C5; typicalRange "C5-D7" }
 }
@@ -11,6 +13,7 @@ model SopranoRecorder : AirColumnWind {
 model AltoRecorder : AirColumnWind {
     id "instrument:recorder:alto"
     name "Alto Recorder"
+    midiProgram = midi.recorder
     geometry bore { shape conical; material woodOrPlastic }
     geometry toneHoles { count 8; lowestPitch F4; typicalRange "F4-G6" }
 }
@@ -18,6 +21,7 @@ model AltoRecorder : AirColumnWind {
 model TenorRecorder : AirColumnWind {
     id "instrument:recorder:tenor"
     name "Tenor Recorder"
+    midiProgram = midi.recorder
     geometry bore { shape conical; material woodOrPlastic }
     geometry toneHoles { count 8; lowestPitch C4; typicalRange "C4-D6" }
 }
@@ -25,6 +29,7 @@ model TenorRecorder : AirColumnWind {
 model BassRecorder : AirColumnWind {
     id "instrument:recorder:bass"
     name "Bass Recorder"
+    midiProgram = midi.recorder
     geometry bore { shape foldedOrStraight; material woodOrPlastic }
     geometry toneHoles { lowestPitch F3; typicalRange "F3-G5"; keyed true }
 }
@@ -32,6 +37,7 @@ model BassRecorder : AirColumnWind {
 model ConcertFlute : KeyedAirColumnWind {
     id "instrument:flute:concert-c"
     name "Concert Flute"
+    midiProgram = midi.flute
     geometry bore { shape cylindrical; material metal; edgeBlown true }
     geometry toneHoles { keyed true; system Boehm; closedHoleAvailable true; openHoleKeys 5; plugsSupported true; typicalRange "C4-D7" }
 }
@@ -39,6 +45,7 @@ model ConcertFlute : KeyedAirColumnWind {
 model Piccolo : KeyedAirColumnWind {
     id "instrument:piccolo:concert-c"
     name "Piccolo"
+    midiProgram = midi.piccolo
     geometry bore { shape cylindrical; material woodOrMetal; edgeBlown true; transposition C; writtenMiddleCSounds C5 }
     geometry toneHoles { keyed true; system Boehm; typicalWrittenRange "D4-C7" }
 }
@@ -47,6 +54,7 @@ model Piccolo : KeyedAirColumnWind {
 model BbClarinet : SingleReedWind {
     id "instrument:clarinet:b-flat"
     name "B-flat Clarinet"
+    midiProgram = midi.clarinet
     geometry bore { shape cylindrical; transposition "Bb"; writtenMiddleCSounds Bb3 }
     geometry keys { system Boehm; keyCount 17; rings 6; registerInterval "twelfth"; typicalRange "E3-C7" }
 }
@@ -54,6 +62,7 @@ model BbClarinet : SingleReedWind {
 model BassClarinet : SingleReedWind {
     id "instrument:clarinet:bass-b-flat"
     name "B-flat Bass Clarinet"
+    midiProgram = midi.clarinet
     geometry bore { shape cylindrical; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
     geometry keys { system Boehm; keyCount 24; registerInterval "twelfth"; typicalWrittenRange "C3-G6"; lowC true }
 }
@@ -61,6 +70,7 @@ model BassClarinet : SingleReedWind {
 model SopranoSaxophone : Saxophone {
     id "instrument:saxophone:soprano-b-flat"
     name "B-flat Soprano Saxophone"
+    midiProgram = midi.sopranoSax
     geometry bore { shape conical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
@@ -68,6 +78,7 @@ model SopranoSaxophone : Saxophone {
 model AltoSaxophone : Saxophone {
     id "instrument:saxophone:alto-e-flat"
     name "E-flat Alto Saxophone"
+    midiProgram = midi.altoSax
     geometry bore { shape conical; material brass; transposition "Eb"; writtenMiddleCSounds Eb3 }
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
@@ -75,6 +86,7 @@ model AltoSaxophone : Saxophone {
 model TenorSaxophone : Saxophone {
     id "instrument:saxophone:tenor-b-flat"
     name "B-flat Tenor Saxophone"
+    midiProgram = midi.tenorSax
     geometry bore { shape conical; material brass; transposition "Bb"; soundsOctaveLower true; writtenMiddleCSounds Bb2 }
     geometry keys { system Boehm; frontF true; highFSharp true; typicalWrittenRange "Bb3-F#6" }
 }
@@ -82,6 +94,7 @@ model TenorSaxophone : Saxophone {
 model BaritoneSaxophone : Saxophone {
     id "instrument:saxophone:baritone-e-flat"
     name "E-flat Baritone Saxophone"
+    midiProgram = midi.baritoneSax
     geometry bore { shape conical; material brass; transposition "Eb"; soundsOctaveLower true; writtenMiddleCSounds Eb2 }
     geometry keys { system Boehm; lowA true; frontF true; highFSharp true; typicalWrittenRange "A3-F#6" }
 }
@@ -89,6 +102,7 @@ model BaritoneSaxophone : Saxophone {
 model Oboe : DoubleReedWind {
     id "instrument:oboe:standard"
     name "Oboe"
+    midiProgram = midi.oboe
     geometry bore { shape conical; transposition C }
     geometry keys { typicalRange "Bb3-A6" }
 }
@@ -96,6 +110,7 @@ model Oboe : DoubleReedWind {
 model EnglishHorn : DoubleReedWind {
     id "instrument:english-horn:f"
     name "English Horn in F"
+    midiProgram = midi.englishHorn
     geometry bore { shape conical; transposition F; writtenMiddleCSounds F3 }
     geometry keys { system conservatory; bell bulbous; typicalWrittenRange "B3-G6" }
 }
@@ -103,6 +118,7 @@ model EnglishHorn : DoubleReedWind {
 model Bassoon : DoubleReedWind {
     id "instrument:bassoon:standard"
     name "Bassoon"
+    midiProgram = midi.basson
     geometry bore { shape foldedConical; transposition C }
     geometry keys { typicalRange "Bb1-Eb5" }
 }
@@ -110,6 +126,7 @@ model Bassoon : DoubleReedWind {
 model Contrabassoon : DoubleReedWind {
     id "instrument:contrabassoon:standard"
     name "Contrabassoon"
+    midiProgram = midi.basson
     geometry bore { shape foldedConical; transposition C; soundsOctaveLower true; writtenMiddleCSounds C3 }
     geometry keys { typicalWrittenRange "Bb1-Bb4"; lowBFlat true }
 }
@@ -493,4 +510,3 @@ extension BaritoneSaxophone {
         D5 1111111000000000000000 register 2 preferred
     }
 }
-

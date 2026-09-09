@@ -1,9 +1,11 @@
 module instruments.guitarlele
 import profiles.core
+import std.midi
 
 model Guitarlele : FrettedStrings {
     id "instrument:guitarlele:standard"
     name "Six-string Guitarlele"
+    midiProgram = midi.nylonStringGuitar
     geometry strings { count 6 }
     geometry frets { count 18; movable false }
 }

@@ -1,9 +1,11 @@
 module instruments.guitar.twelve-string
 import profiles.core
+import std.midi
 
 model TwelveStringGuitar : PluckedCourses {
     id "instrument:guitar:twelve-string"
     name "12-string Guitar"
+    midiProgram = midi.steelStringGuitar
     geometry courses { count 6; doubled true }
     geometry strings { count 12 }
     geometry frets { count 20; movable false }

@@ -5,25 +5,29 @@ import std.midi
 model SnareDrum : UnpitchedPercussion {
     id "instrument:percussion:snare-drum"
     name "Snare Drum"
-    geometry playingSurfaces { count 1; membrane true; snares true }
+    midiPercussion true
+    geometry playingSurfaces { count 1; membrane true; snares true; midiNote midi.acousticSnareNote }
 }
 
 model BassDrum : UnpitchedPercussion {
     id "instrument:percussion:bass-drum"
     name "Bass Drum"
-    geometry playingSurfaces { count 2; membrane true }
+    midiPercussion true
+    geometry playingSurfaces { count 2; membrane true; midiNote midi.acousticBassDrumNote }
 }
 
 model Tambourine : UnpitchedPercussion {
     id "instrument:percussion:tambourine"
     name "Tambourine"
-    geometry playingSurfaces { count 1; membrane true; jingles true }
+    midiPercussion true
+    geometry playingSurfaces { count 1; membrane true; jingles true; midiNote midi.tambourineNote }
 }
 
 model Triangle : UnpitchedPercussion {
     id "instrument:percussion:triangle"
     name "Triangle"
-    geometry playingSurfaces { count 1; material metal }
+    midiPercussion true
+    geometry playingSurfaces { count 1; material metal; midiNote midi.openTriangleNote }
 }
 
 model DrumKit : UnpitchedPercussion {
@@ -31,6 +35,10 @@ model DrumKit : UnpitchedPercussion {
     name "Drum Kit"
     midiPercussion true
     geometry playingSurfaces { minimumCount 5; collection true; drums true; cymbals true }
+    geometry kick { target playingSurfaces; member "kick"; midiNote midi.electricBassDrumNote }
+    geometry snareHead { target playingSurfaces; member "snare-head"; midiNote midi.acousticSnareNote }
+    geometry closedHiHat { target playingSurfaces; member "closed-hi-hat"; midiNote midi.closedHiHatNote }
+    geometry crash { target playingSurfaces; member "crash"; midiNote midi.crashCymbal1Note }
 }
 
 model Xylophone : PitchedPercussion {
@@ -43,18 +51,21 @@ model Xylophone : PitchedPercussion {
 model Marimba : PitchedPercussion {
     id "instrument:percussion:marimba"
     name "Marimba"
+    midiProgram = midi.marimba
     geometry bars { material wood; chromatic true; resonators true; typicalRange "C2-C7" }
 }
 
 model Glockenspiel : PitchedPercussion {
     id "instrument:percussion:glockenspiel"
     name "Glockenspiel"
+    midiProgram = midi.glockenspiel
     geometry bars { material metal; chromatic true; typicalRange "G5-C8" }
 }
 
 model Vibraphone : PitchedPercussion {
     id "instrument:percussion:vibraphone"
     name "Vibraphone"
+    midiProgram = midi.vibraphone
     geometry bars { material metal; chromatic true; motorizedResonators true; typicalRange "F3-F6" }
     geometry pedal { damper true }
 }
@@ -62,6 +73,7 @@ model Vibraphone : PitchedPercussion {
 model Timpani : TunableDrums {
     id "instrument:percussion:timpani"
     name "Timpani"
+    midiProgram = midi.timpani
     geometry membranes { typicalCount 4; definitePitch true; typicalRange "D2-A3" }
     geometry tuningControls { count 4; pedal true; continuous true; statePersistsUntilRetuned true }
     geometry drum32 { diameterInches 32; stateKey "drum32"; minimum D2; maximum A2; initial D2 }

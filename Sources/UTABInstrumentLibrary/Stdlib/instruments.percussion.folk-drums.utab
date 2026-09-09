@@ -50,7 +50,7 @@ model YorubaTalkingDrum : PressureCordDrum {
     geometry shell { shape hourglass; material wood; held underArm }
     geometry membranes { count 2; connected true; material skin }
     geometry tensionCords { continuousPressure true; pitchTrajectory true; squeezedByArm true }
-    geometry stroke { target membrane; effector curvedStick; midiNote midi.melodicTom; midiFidelity approximate }
+    geometry stroke { target membrane; effector curvedStick; midiNote midi.lowTomNote; midiFidelity approximate }
 }
 
 model BeadedGourdShekere : ShakenPercussion {

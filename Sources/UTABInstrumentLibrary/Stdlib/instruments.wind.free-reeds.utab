@@ -1,9 +1,11 @@
 module instruments.wind.free-reeds
 import profiles.wind
+import std.midi
 
 model C10DiatonicHarmonica : MouthOrgan {
     id "instrument:harmonica:diatonic-10-hole:c"
     name "10-hole Diatonic Harmonica in C"
+    midiProgram = midi.harmonica
     geometry reedPlate { holes 10; tuning Richter; key C }
     geometry reedState1Blow { hole 1; direction blow; technique normal; pitch C4 }
     geometry reedState1Draw { hole 1; direction draw; technique normal; pitch D4 }
@@ -51,6 +53,7 @@ model C10DiatonicHarmonica : MouthOrgan {
 model PianoAccordion : BellowsFreeReed {
     id "instrument:accordion:piano"
     name "Piano Accordion"
+    midiProgram = midi.accordion
     geometry treble { layout pianoKeyboard; bisonoric false }
     geometry bass { layout stradella; bisonoric false }
     geometry buttonStateC4 { button "C4"; direction push, pull; pitch C4 }
@@ -70,6 +73,7 @@ model PianoAccordion : BellowsFreeReed {
 model AngloConcertina : BellowsFreeReed {
     id "instrument:concertina:anglo"
     name "Anglo Concertina"
+    midiProgram = midi.accordion
     geometry buttons { count 20; rows 2; bisonoric true; layout common20Button; commonKeys "C/G" }
     geometry buttonStateC1Push { button "C1"; direction push; pitch C3 }
     geometry buttonStateC1Pull { button "C1"; direction pull; pitch G3 }
@@ -112,5 +116,4 @@ model AngloConcertina : BellowsFreeReed {
     geometry buttonStateG10Push { button "G10"; direction push; pitch B6 }
     geometry buttonStateG10Pull { button "G10"; direction pull; pitch F#6 }
 }
-
 

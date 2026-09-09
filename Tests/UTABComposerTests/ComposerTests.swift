@@ -1203,6 +1203,27 @@ private func stableFingerprint(_ data: Data) -> String {
     }
 }
 
+@Test func everyStandardInstrumentPublishesExplicitMIDIRealization() {
+    let missing = StandardInstruments.catalog.models.compactMap { model in
+        model.realization?.midi == nil ? model.id.rawValue : nil
+    }.sorted()
+    #expect(missing.isEmpty, "Standard instruments without MIDI realization: \(missing)")
+}
+
+@Test func everyStandardPercussionInstrumentPublishesChannelTenNoteMapping() {
+    let unmapped = StandardInstruments.catalog.models.compactMap { model -> String? in
+        guard model.realization?.midi?.percussion == true else { return nil }
+        let notes = model.geometry.flatMap { geometry in
+            geometry.properties.compactMap { key, value -> Int? in
+                guard key.lowercased().hasPrefix("midi"), case .integer(let note) = value else { return nil }
+                return note
+            }
+        }
+        return notes.contains(where: { (35...81).contains($0) }) ? nil : model.id.rawValue
+    }.sorted()
+    #expect(unmapped.isEmpty, "Channel-10 percussion models without a mapped note: \(unmapped)")
+}
+
 @Test func recorderFingeringMapsAreExplicitExtensibleAndUnknownByDefault() throws {
     let standard = StandardInstruments.catalog
     let recorder = try #require(standard.models.first { $0.id.rawValue == "instrument:recorder:soprano" })

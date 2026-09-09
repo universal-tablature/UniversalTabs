@@ -1,5 +1,6 @@
 module instruments.lute.renaissance
 import profiles.core
+import std.midi
 
 // Reference chromatic fret layouts. A tied straight fret remains a compromise
 // across courses; split frets and tastini provide additional enharmonic positions.
@@ -19,6 +20,7 @@ scale LuteSixthCommaMeantone {
 model RenaissanceLute : PluckedCourses {
     id "instrument:lute:renaissance-six-course"
     name "Six-course Renaissance Lute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 6; doubled true; singleTopCourses 1 }
     geometry frets {
         count 8
@@ -37,6 +39,7 @@ model RenaissanceLute : PluckedCourses {
 model RenaissanceLuteEightCourse : PluckedCourses {
     id "instrument:lute:renaissance-eight-course"
     name "Eight-course Renaissance Lute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 8; doubled true; singleTopCourses 1; openBassCourses 2 }
     geometry frets {
         count 9
@@ -55,6 +58,7 @@ model RenaissanceLuteEightCourse : PluckedCourses {
 model RenaissanceLuteTenCourse : PluckedCourses {
     id "instrument:lute:renaissance-ten-course"
     name "Ten-course Renaissance Lute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 10; doubled true; singleTopCourses 1; openBassCourses 4 }
     geometry frets {
         count 9
@@ -73,6 +77,7 @@ model RenaissanceLuteTenCourse : PluckedCourses {
 model BaroqueLuteElevenCourse : PluckedCourses {
     id "instrument:lute:baroque-eleven-course"
     name "Eleven-course Baroque Lute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 11; doubled true; singleTopCourses 2; openBassCourses 5 }
     geometry frets {
         count 11
@@ -91,6 +96,7 @@ model BaroqueLuteElevenCourse : PluckedCourses {
 model BaroqueLuteThirteenCourse : PluckedCourses {
     id "instrument:lute:baroque-thirteen-course"
     name "Thirteen-course Baroque Lute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 13; doubled true; singleTopCourses 2; openBassCourses 7 }
     geometry frets {
         count 11
@@ -109,6 +115,7 @@ model BaroqueLuteThirteenCourse : PluckedCourses {
 model ArchluteFourteenCourse : PluckedCourses {
     id "instrument:archlute:fourteen-course"
     name "Fourteen-course Archlute"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 14; doubled true; singleTopCourses 1; frettedCourses 6; diapasons 8 }
     geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
     geometry speakingLengths { stoppedCourses "1-6"; diapasonCourses "7-14"; diapasonsLonger true; courseSpecific true }
@@ -130,6 +137,7 @@ model ArchluteFourteenCourse : PluckedCourses {
 model TheorboFourteenCourse : PluckedCourses {
     id "instrument:theorbo:fourteen-course-a"
     name "Fourteen-course Theorbo in A"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 14; doubled false; frettedCourses 6; diapasons 8; reentrantTopCourses 2 }
     geometry neckExtension { pegboxes 2; extendedBassCourses 8 }
     geometry speakingLengths { stoppedCourses "1-6"; diapasonCourses "7-14"; diapasonsLonger true; courseSpecific true }
@@ -151,6 +159,7 @@ model TheorboFourteenCourse : PluckedCourses {
 model RenaissanceVihuela : PluckedCourses {
     id "instrument:vihuela:renaissance-six-course"
     name "Six-course Renaissance Vihuela"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 6; doubled true; singleTopCourses 1 }
     geometry body { construction flatBack }
     geometry frets {

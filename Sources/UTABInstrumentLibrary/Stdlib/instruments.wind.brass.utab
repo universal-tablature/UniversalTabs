@@ -1,9 +1,11 @@
 module instruments.wind.brass
 import profiles.wind
+import std.midi
 
 model BbTrumpet : ValvedBrass {
     id "instrument:trumpet:b-flat"
     name "B-flat Trumpet"
+    midiProgram = midi.trumpet
     geometry bore { shape cylindricalThenConical; material brass; transposition "Bb"; writtenMiddleCSounds Bb3 }
     geometry valves { count 3; type piston; firstValveSemitones 2; secondValveSemitones 1; thirdValveSemitones 3; typicalWrittenRange "F#3-D6" }
     geometry harmonics { lowestPartial 2; highestPartial 10; pedalPartial 1; registerRequired true; seventhPartialOffsetCents -31.17; eleventhPartialOffsetCents -48.68; thirteenthPartialOffsetCents 40.53 }
@@ -13,6 +15,7 @@ model BbTrumpet : ValvedBrass {
 model TenorTrombone : SlideBrass {
     id "instrument:trombone:tenor-b-flat"
     name "Tenor Trombone"
+    midiProgram = midi.trombone
     geometry bore { shape cylindricalThenConical; material brass; fundamental Bb1 }
     geometry slide { positions 7; adjustable true; minimum 1.0; maximum 7.0; positionTolerance 0.18; typicalRange "E2-F5" }
     geometry slidePosition1 { name "First"; value 1.0; semitoneOffset 0.0 }
@@ -28,6 +31,7 @@ model TenorTrombone : SlideBrass {
 model BassTrombone : DoubleValveSlideBrass {
     id "instrument:trombone:bass-b-flat"
     name "B-flat Bass Trombone"
+    midiProgram = midi.trombone
     geometry bore { shape cylindricalThenConical; material brass; fundamental Bb0 }
     geometry slide { positions 7; adjustable true; minimum 1.0; maximum 7.0; positionTolerance 0.18; typicalRange "Bb0-F5" }
     geometry valves { count 2; type rotary; firstAttachment F; secondAttachment Gb; configuration independent }
@@ -37,6 +41,7 @@ model BassTrombone : DoubleValveSlideBrass {
 model DoubleHorn : FourValveBrass {
     id "instrument:horn:double-f-b-flat"
     name "Double Horn in F/B-flat"
+    midiProgram = midi.frenchHorn
     geometry bore { shape conical; material brass; transposition F; writtenMiddleCSounds F3 }
     geometry valves { count 4; type rotary; sides F, Bb; changeValve 4 }
     geometry harmonics { lowestPartial 2; highestPartial 16; typicalWrittenRange "F#3-C6"; handStopping true }
@@ -45,6 +50,7 @@ model DoubleHorn : FourValveBrass {
 model Euphonium : FourValveBrass {
     id "instrument:euphonium:b-flat-four-valve"
     name "Four-valve B-flat Euphonium"
+    midiProgram = midi.trombone
     geometry bore { shape conical; material brass; fundamental Bb1 }
     geometry valves { count 4; type piston; compensating true }
     geometry harmonics { lowestPartial 1; highestPartial 12; typicalRange "E2-Bb4" }
@@ -53,6 +59,7 @@ model Euphonium : FourValveBrass {
 model Tuba : FourValveBrass {
     id "instrument:tuba:cc-four-valve"
     name "Four-valve CC Tuba"
+    midiProgram = midi.tuba
     geometry bore { shape conical; material brass; fundamental C1 }
     geometry valves { count 4; type pistonOrRotary; compensating false }
     geometry harmonics { lowestPartial 1; highestPartial 12; typicalRange "D1-F4" }
@@ -177,4 +184,3 @@ extension BassTrombone {
         effect combinedAttachments 11 preferred
     }
 }
-

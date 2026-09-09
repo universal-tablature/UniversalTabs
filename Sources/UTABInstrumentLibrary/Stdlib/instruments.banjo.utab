@@ -1,9 +1,11 @@
 module instruments.banjo
 import profiles.core
+import std.midi
 
 model FiveStringBanjo : FrettedStrings {
     id "instrument:banjo:five-string"
     name "Five-string Banjo"
+    midiProgram = midi.banjo
     geometry strings { count 5; reentrant true }
     geometry frets { count 22; movable false; appliesToStrings "2-5" }
     geometry fifthStringNut { name pip; startsAtFret 5; string 1; playableFrets 17 }
