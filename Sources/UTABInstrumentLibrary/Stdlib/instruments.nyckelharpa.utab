@@ -1,9 +1,11 @@
 module instruments.nyckelharpa
 import profiles.nyckelharpa
+import std.midi
 
 model KromatiskNyckelharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:kromatisk"
     name "Kromatisk nyckelharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { count 4; keyedCount 3; droneCount 1 }
     geometry keys { rows 3; count 37; tangents true }
     geometry sympatheticStrings { count 12; directlyActuated false; chromatic true }
@@ -24,6 +26,7 @@ extension KromatiskNyckelharpa {
 model Kontrabasharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:kontrabasharpa"
     name "Kontrabasharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { count 3; keyedCount 2; droneCount 1; droneBetweenMelodyStrings true }
     geometry keys { rows 1; doubleTangents true }
     geometry sympatheticStrings { count 10; directlyActuated false }
@@ -33,6 +36,7 @@ model Kontrabasharpa : KeyedBowedStrings {
 model Silverbasharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:silverbasharpa"
     name "Silverbasharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { count 4; keyedCount 2; bassCount 2 }
     geometry keys { rows 2; coupledTangents true }
     geometry sympatheticStrings { count 9; directlyActuated false }
@@ -42,6 +46,7 @@ model Silverbasharpa : KeyedBowedStrings {
 model Oktavharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:oktavharpa"
     name "Oktavharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { count 4; keyedCount 4 }
     geometry keys { rows 4; tangents true }
     geometry sympatheticStrings { count 12; directlyActuated false; chromatic true }
@@ -63,6 +68,7 @@ extension Oktavharpa {
 model Moraharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:moraharpa"
     name "Moraharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { count 3; keyedCount 1; droneCount 2 }
     geometry keys { rows 1; count 11; tangents true }
     geometry sympatheticStrings { count 0 }
@@ -73,6 +79,7 @@ model Moraharpa : KeyedBowedStrings {
 model Esseharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:esseharpa"
     name "Esseharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { keyedCount 1 }
     geometry keys { rows 1; count 12; tangents true }
     geometry sympatheticStrings { count 0 }
@@ -83,6 +90,7 @@ model Esseharpa : KeyedBowedStrings {
 model Vefsenharpa : KeyedBowedStrings {
     id "instrument:nyckelharpa:vefsenharpa"
     name "Vefsenharpa"
+    midiProgram = midi.fiddle
     geometry bowedStrings { keyedCount 1 }
     geometry keys { rows 1; count 11; tangents true }
     geometry sympatheticStrings { count 0 }

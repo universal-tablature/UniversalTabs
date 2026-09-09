@@ -1,5 +1,6 @@
 module instruments.lyre.sammu
 import profiles.core
+import std.midi
 
 // Nine-string sammûm/lyre used by the late Bronze Age Mesopotamian tuning texts.
 // String numbers follow the ancient convention used in modern reconstructions:
@@ -7,6 +8,7 @@ import profiles.core
 model NineStringSammu : PluckedOpenStrings {
     id "instrument:lyre:sammu:nine-string"
     name "Nine-string Sammûm / Lyre"
+    midiProgram = midi.orchestralHarp
     geometry strings {
         count 9
         numbering highToLow

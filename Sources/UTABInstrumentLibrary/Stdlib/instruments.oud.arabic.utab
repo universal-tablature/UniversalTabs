@@ -1,5 +1,6 @@
 module instruments.oud.arabic
 import profiles.core
+import std.midi
 
 scale MaqamRast { cents 0, 200, 350, 500, 700, 900, 1050 }
 scale MaqamBayati { cents 0, 150, 300, 500, 700, 800, 1000 }
@@ -12,6 +13,7 @@ scale MaqamSaba { cents 0, 150, 300, 400, 700, 800, 1000 }
 model ArabicOud : PluckedCourses {
     id "instrument:oud:arabic-six-course"
     name "Six-course Arabic Oud"
+    midiProgram = midi.nylonStringGuitar
     geometry courses { count 6; doubled true }
     geometry fingerboard { fretted false }
     geometry pitchSystem {

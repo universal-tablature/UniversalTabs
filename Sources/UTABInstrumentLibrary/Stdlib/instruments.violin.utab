@@ -1,9 +1,11 @@
 module instruments.violin
 import profiles.core
+import std.midi
 
 model Violin : FretlessBowedStrings {
     id "instrument:violin:four-string"
     name "Four-string Violin"
+    midiProgram = midi.violin
     geometry strings { count 4 }
 }
 
