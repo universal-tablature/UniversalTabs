@@ -18,11 +18,8 @@ let package = Package(
         .library(name: "UTABEditing", targets: ["UTABEditing"]),
         .library(name: "UTABInstrumentLibrary", targets: ["UTABInstrumentLibrary"]),
         .library(name: "UTABLowering", targets: ["UTABLowering"]),
-        .library(name: "UTABAudio", targets: ["UTABAudio"]),
-        .library(name: "UTABPitchDetection", targets: ["UTABPitchDetection"]),
         .library(name: "UTABNotation", targets: ["UTABNotation"]),
         .library(name: "UTABEngraving", targets: ["UTABEngraving"]),
-        .library(name: "UTABScoreUI", targets: ["UTABScoreUI"]),
         .library(name: "UTABLanguageServer", targets: ["UTABLanguageServer"]),
         .executable(name: "utabc", targets: ["UTabCompiler"]),
         .executable(name: "utab-lsp", targets: ["UTabLanguageServerCommand"]),
@@ -47,14 +44,8 @@ let package = Package(
             resources: [.copy("Stdlib")]
         ),
         .target(name: "UTABLowering", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstruments"]),
-        .target(
-            name: "UTABAudio",
-            linkerSettings: [.linkedFramework("AVFAudio", .when(platforms: [.iOS, .macOS]))]
-        ),
-        .target(name: "UTABPitchDetection", dependencies: ["UTABAudio"]),
         .target(name: "UTABNotation", dependencies: ["UniversalTabs"]),
         .target(name: "UTABEngraving", dependencies: ["UTABNotation"]),
-        .target(name: "UTABScoreUI", dependencies: ["UniversalTabs", "UTABEditing", "UTABNotation", "UTABEngraving"]),
         .target(
             name: "UTABLanguageServer",
             dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]
@@ -73,13 +64,11 @@ let package = Package(
         ]),
         .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
         .testTarget(name: "UTABEditingTests", dependencies: ["UTABEditing", "UTABComposerCore"]),
-        .testTarget(name: "UTABScoreUITests", dependencies: ["UTABScoreUI", "UTABNotation", "UTABEngraving", "UniversalTabs"]),
         .testTarget(
             name: "UTABComposerTests",
             dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
         ),
         .testTarget(name: "UTabCompilerIntegrationTests", dependencies: ["UTabCompiler"]),
         .testTarget(name: "UTABLanguageServerTests", dependencies: ["UTABLanguageServer"]),
-        .testTarget(name: "UTABAudioTests", dependencies: ["UTABAudio", "UTABPitchDetection"])
     ]
 )
