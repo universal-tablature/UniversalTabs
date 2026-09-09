@@ -1,17 +1,22 @@
 import Foundation
+#if canImport(Network)
 import Network
+#endif
 
 public enum EmbeddedUTABLanguageServerError: Error {
     case listenerStopped
     case unavailablePort
+    case networkFrameworkUnavailable
 }
 
 /// Hosts the LSP actor on a loopback WebSocket for an embedded Monaco client.
 public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
     private let server: UTABLanguageServer
+#if canImport(Network)
     private let queue = DispatchQueue(label: "UniversalTabs.UTABLanguageServer")
     private var listener: NWListener?
     private var connections: [UUID: NWConnection] = [:]
+#endif
 
     public init(configuration: UTABLanguageServerConfiguration = .init()) {
         server = UTABLanguageServer(configuration: configuration)
@@ -24,6 +29,7 @@ public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
     }
 
     public func start() async throws -> URL {
+#if canImport(Network)
         if let listener, let port = listener.port {
             return URL(string: "ws://127.0.0.1:\(port.rawValue)/lsp")!
         }
@@ -60,9 +66,13 @@ public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
             }
             listener.start(queue: queue)
         }
+#else
+        throw EmbeddedUTABLanguageServerError.networkFrameworkUnavailable
+#endif
     }
 
     public func stop() {
+#if canImport(Network)
         queue.async { [weak self] in
             guard let self else { return }
             listener?.cancel()
@@ -72,8 +82,10 @@ public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
             }
             connections.removeAll()
         }
+#endif
     }
 
+#if canImport(Network)
     private func accept(_ connection: NWConnection) {
         let id = UUID()
         connections[id] = connection
@@ -123,8 +135,10 @@ public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
             completion: .contentProcessed { _ in }
         )
     }
+#endif
 }
 
+#if canImport(Network)
 private final class ListenerStartup: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<URL, any Error>?
@@ -149,3 +163,4 @@ private final class ListenerStartup: @unchecked Sendable {
         continuation?.resume(with: result)
     }
 }
+#endif
