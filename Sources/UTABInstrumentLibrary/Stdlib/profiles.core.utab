@@ -18,6 +18,11 @@ profile FrettedStrings {
     technique slide { target strings }
     technique bend { target strings }
     technique vibrato { target strings }
+    technique hammerOn { target strings }
+    technique pullOff { target strings }
+    technique tapping { target strings }
+    technique harmonic { target strings }
+    technique palmMute { target strings }
 }
 
 profile PluckedCourses {

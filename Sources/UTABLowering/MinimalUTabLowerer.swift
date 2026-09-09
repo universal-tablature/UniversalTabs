@@ -786,6 +786,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
             instrument: String,
             meter: TimeSignature,
             inheritedTechniques: [String],
+            inheritedTechniqueParameters: [String: JSONValue] = [:],
             into events: inout [PerformanceEvent]
         ) {
             if expression.annotations.metadata["tieContinuation"] == .boolean(true) { return }
@@ -810,10 +811,11 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                        case .integer(let d)? = prior.parameters["graceBudgetDenominator"] {
                         childTechniques.append("__graceDelay:\(n),\(d)")
                     }
-                    lower(child, instrument: instrument, meter: meter, inheritedTechniques: childTechniques, into: &events)
+                    lower(child, instrument: instrument, meter: meter, inheritedTechniques: childTechniques, inheritedTechniqueParameters: inheritedTechniqueParameters, into: &events)
                 }
             case .technique(let application):
                 var techniques = inheritedTechniques
+                var techniqueParameters = inheritedTechniqueParameters
                 if application.technique == "__dynamic",
                    case .decimal(let intensity)? = application.parameters["intensity"] {
                     techniques.removeAll { $0.hasPrefix("__dynamic:") }
@@ -837,7 +839,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     }
                     techniques.append("__sustainPedal")
                     application.operands.forEach {
-                        lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
+                        lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, inheritedTechniqueParameters: techniqueParameters, into: &events)
                     }
                     // The matching release is appended after the scoped operands.
                     if !alreadyDown && expression.duration != .zero { events.append(makePedalEvent(expression, meter: meter, down: false)) }
@@ -846,7 +848,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                           case .string(let policy)? = application.parameters["policy"] {
                     guard let operand = application.operands.first else { return }
                     if policy == "measured" {
-                        lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques + ["grace"], into: &events)
+                        lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques + ["grace"], inheritedTechniqueParameters: techniqueParameters, into: &events)
                         return
                     }
                     guard case .integer(let n)? = application.parameters["graceBudgetNumerator"],
@@ -859,7 +861,7 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     let anchor = expression.offset.wholeNotes
                     let source = operand.duration.wholeNotes
                     techniques.append("__grace:\(policy),\(n),\(d),\(anchor.numerator),\(anchor.denominator),\(source.numerator),\(source.denominator)")
-                    lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
+                    lower(operand, instrument: instrument, meter: meter, inheritedTechniques: techniques, inheritedTechniqueParameters: techniqueParameters, into: &events)
                     return
                 } else if application.technique == "__ornament",
                           case .string(let name)? = application.parameters["name"],
@@ -872,9 +874,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                 } else {
                     techniques.append(application.technique)
                     capabilities[instrument, default: .init()].techniques.insert(application.technique)
+                    if application.technique == "bend", let value = application.parameters["semitones"] {
+                        techniqueParameters["bendSemitones"] = jsonValue(value)
+                    } else if application.technique == "slide", let value = application.parameters["to"] {
+                        techniqueParameters["slideTo"] = jsonValue(value)
+                    }
                 }
                 application.operands.forEach {
-                    lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, into: &events)
+                    lower($0, instrument: instrument, meter: meter, inheritedTechniques: techniques, inheritedTechniqueParameters: techniqueParameters, into: &events)
                 }
             case .rest:
                 if expression.annotations.metadata["damp"] == .boolean(true) {
@@ -898,13 +905,14 @@ public struct MinimalUTabLoweringStage: CompilerStage {
                     meter: meter,
                     action: "play",
                     target: "notes",
-                    parameters: ["pitch": pitchValue(pitch.absolute), "spelling": .string(format(pitch.absolute.spelling))],
+                    parameters: inheritedTechniqueParameters.merging(["pitch": pitchValue(pitch.absolute), "spelling": .string(format(pitch.absolute.spelling))]) { _, leaf in leaf },
                     techniques: inheritedTechniques
                 ))
             case .actuator(let actuator):
                 capabilities[instrument, default: .init()].actions.insert(actuator.action)
                 register(actuator.target, for: instrument)
                 var parameters = actuator.parameters.mapValues(jsonValue)
+                parameters.merge(inheritedTechniqueParameters) { leaf, _ in leaf }
                 if let position = actuator.target.position { parameters["position"] = .number(Double(position)) }
                 if let soundingPitch = actuator.soundingPitch {
                     switch soundingPitch {

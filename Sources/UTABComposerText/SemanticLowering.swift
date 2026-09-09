@@ -556,14 +556,71 @@ public struct TextSemanticLowerer: Sendable {
         }
 
         mutating func lowerTechniqueExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
-            guard case .technique(let name, let expressions) = expression.kind else {
+            guard case .technique(let name, let arguments, let expressions) = expression.kind else {
                 preconditionFailure("Mismatched expression dispatch")
             }
+            let technique = String(name.lexeme)
+            var parameters: [String: MetadataValue] = [:]
+            for argument in arguments {
+                let label = String(argument.label.lexeme)
+                let source = argument.value.map { String($0.lexeme) }.joined()
+                if argument.value.count == 1, let value = Double(source) { parameters[label] = .decimal(value) }
+                else if label == "to", let coordinates = slideCoordinates(source) { parameters[label] = coordinates }
+                else { parameters[label] = .string(source) }
+            }
+            if technique == "bend" {
+                guard case .decimal(let semitones)? = parameters["semitones"], semitones > 0, semitones <= 12 else {
+                    error("bend requires semitones: with a positive value no greater than 12", at: name.range)
+                    return expressionSequence(expressions, range: expression.range)
+                }
+            }
+            if technique == "slide", parameters["to"] == nil {
+                error("slide requires a destination pitch or string coordinate, for example slide(to: A3)", at: name.range)
+                return expressionSequence(expressions, range: expression.range)
+            }
+            if technique == "hammerOn" || technique == "pullOff" {
+                var operands: [MusicalExpression] = []
+                for operand in expressions { operands.append(lowerExpression(operand)) }
+                return .technique(.init(
+                    technique,
+                    form: .transition,
+                    operands: operands,
+                    parameters: parameters
+                ), id: id("technique:\(name.lexeme)", expression.range))
+            }
             return .technique(.init(
-                String(name.lexeme),
-                form: .scoped,
-                operands: [expressionSequence(expressions, range: expression.range)]
+                technique,
+                form: technique == "bend" || technique == "slide" ? .transition : .scoped,
+                operands: [expressionSequence(expressions, range: expression.range)],
+                parameters: parameters
             ), id: id("technique:\(name.lexeme)", expression.range))
+        }
+
+        func slideCoordinates(_ source: String) -> MetadataValue? {
+            let coordinateSources: [String]
+            if source.hasPrefix("[") && source.hasSuffix("]") {
+                coordinateSources = String(source.dropFirst().dropLast()).split(separator: ",").map(String.init)
+            } else {
+                coordinateSources = [source]
+            }
+            guard !coordinateSources.isEmpty else { return nil }
+            let coordinates = coordinateSources.compactMap { source -> MetadataValue? in
+                let prefix = "strings["
+                let separator = "].frets["
+                guard source.hasPrefix(prefix), source.hasSuffix("]"),
+                      let split = source.range(of: separator),
+                      let stringNumber = Int(source[source.index(source.startIndex, offsetBy: prefix.count)..<split.lowerBound]),
+                      let fret = Int(source[split.upperBound..<source.index(before: source.endIndex)]),
+                      stringNumber > 0, fret >= 0 else { return nil }
+                return .object([
+                    "group": .string("strings"),
+                    "member": .integer(stringNumber),
+                    "positionGroup": .string("frets"),
+                    "position": .integer(fret),
+                ])
+            }
+            guard coordinates.count == coordinateSources.count else { return nil }
+            return coordinates.count == 1 ? coordinates[0] : .list(coordinates)
         }
 
         mutating func lowerDynamicExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
@@ -1079,7 +1136,7 @@ public struct TextSemanticLowerer: Sendable {
             case .meter, .scale, .tempo, .tempoRamp: return true
             case .sequence(let children), .parallel(let children), .bar(let children), .pickup(let children), .finalBar(let children),
                  .repeated(_, let children), .dynamic(_, let children), .dynamicEnvelope(_, _, let children), .pedal(let children),
-                 .grace(_, _, let children), .ornament(_, _, let children), .voiceLeading(_, let children), .technique(_, let children),
+                 .grace(_, _, let children), .ornament(_, _, let children), .voiceLeading(_, let children), .technique(_, _, let children),
                  .transposePitch(_, let children), .transposeDegree(_, let children), .rhythmicTransform(_, _, _, let children):
                 return children.contains(where: containsContextDirective)
             case .proportional(_, _, _, let children): return children.contains(where: containsContextDirective)

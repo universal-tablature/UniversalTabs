@@ -719,7 +719,7 @@ public struct TextParser: Sendable {
                 guard let first = result.first, let last = result.last else { continue }
                 let kind: TextExpressionSyntax.Kind
                 switch policy {
-                case .technique(let technique): kind = .technique(name: technique, expressions: result)
+                case .technique(let technique): kind = .technique(name: technique, arguments: [], expressions: result)
                 case .dynamic(let level): kind = .dynamic(level: level, expressions: result)
                 case .voiceLeading(let policy): kind = .voiceLeading(policy: policy, expressions: result)
                 }
@@ -793,7 +793,24 @@ public struct TextParser: Sendable {
                 return true
             case "legato", "slur":
                 return tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace
+            case "bar", "pickup", "final", "repeat", "perform":
+                return false
             default:
+                guard current.kind == .identifier else { return false }
+                if tokens[min(index + 1, tokens.count - 1)].kind == .leftBrace { return true }
+                guard tokens[min(index + 1, tokens.count - 1)].kind == .leftParen else { return false }
+                var cursor = index + 1
+                var depth = 0
+                while cursor < tokens.count {
+                    if tokens[cursor].kind == .leftParen { depth += 1 }
+                    else if tokens[cursor].kind == .rightParen {
+                        depth -= 1
+                        if depth == 0 {
+                            return cursor + 1 < tokens.count && tokens[cursor + 1].kind == .leftBrace
+                        }
+                    }
+                    cursor += 1
+                }
                 return false
             }
         }
@@ -955,7 +972,38 @@ public struct TextParser: Sendable {
                 _ = advance()
                 let children = parseExpressions(until: .rightBrace)
                 let close = expect(.rightBrace, "Expected '}' after \(technique.lexeme)") ?? current
-                return .init(kind: .technique(name: technique, expressions: children), range: spanning(technique, close))
+                return .init(kind: .technique(name: technique, arguments: [], expressions: children), range: spanning(technique, close))
+            }
+            if current.kind == .identifier {
+                let technique = advance()
+                var arguments: [TextTechniqueArgumentSyntax] = []
+                if take(.leftParen) {
+                    while current.kind != .rightParen && current.kind != .endOfFile {
+                        guard let label = expect(.identifier, "Expected technique argument label"),
+                              expect(.colon, "Expected ':' after technique argument label") != nil else {
+                            return nil
+                        }
+                        var value: [TextToken] = []
+                        var bracketDepth = 0
+                        while current.kind != .endOfFile {
+                            if bracketDepth == 0 && (current.kind == .comma || current.kind == .rightParen) { break }
+                            if current.kind == .leftBracket { bracketDepth += 1 }
+                            if current.kind == .rightBracket { bracketDepth -= 1 }
+                            value.append(advance())
+                        }
+                        guard !value.isEmpty, bracketDepth == 0 else {
+                            diagnose("Expected a complete technique argument value")
+                            return nil
+                        }
+                        arguments.append(.init(label: label, value: value))
+                        if !take(.comma) { break }
+                    }
+                    guard expect(.rightParen, "Expected ')' after technique arguments") != nil else { return nil }
+                }
+                guard expect(.leftBrace, "Expected '{' after technique") != nil else { return nil }
+                let children = parseExpressions(until: .rightBrace)
+                let close = expect(.rightBrace, "Expected '}' after \(technique.lexeme)") ?? current
+                return .init(kind: .technique(name: technique, arguments: arguments, expressions: children), range: spanning(technique, close))
             }
 
             return nil

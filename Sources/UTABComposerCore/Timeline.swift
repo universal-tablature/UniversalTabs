@@ -134,11 +134,14 @@ public struct TemporalResolutionStage: CompilerStage {
                 }
                 operands = application.operands.map { schedule($0, at: offset, diagnostics: &diagnostics) }
             case .transition:
-                if application.operands.count != 2 {
+                let hasArgumentDestination = application.operands.count == 1
+                    && ((application.technique == "bend" && application.parameters["semitones"] != nil)
+                        || (application.technique == "slide" && application.parameters["to"] != nil))
+                if application.operands.count != 2 && !hasArgumentDestination {
                     diagnostics.append(.init(
                         .error,
                         path: expression.provenance.expansionPath.joined(separator: "."),
-                        message: "Transition technique '\(application.technique)' requires exactly two operands"
+                        message: "Transition technique '\(application.technique)' requires two performed operands or one operand with a destination argument"
                     ))
                 }
                 var cursor = offset

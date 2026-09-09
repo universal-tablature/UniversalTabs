@@ -327,7 +327,7 @@ public struct TextExpressionSyntax: Sendable, Hashable {
         case ornament(name: TextToken, subdivision: TextDurationSyntax, expressions: [TextExpressionSyntax])
         case bass(pattern: TextToken, subdivision: TextDurationSyntax, octave: TextToken, chords: [TextExpressionSyntax])
         case voiceLeading(policy: TextToken, expressions: [TextExpressionSyntax])
-        case technique(name: TextToken, expressions: [TextExpressionSyntax])
+        case technique(name: TextToken, arguments: [TextTechniqueArgumentSyntax], expressions: [TextExpressionSyntax])
         case sequence([TextExpressionSyntax])
         case parallel([TextExpressionSyntax])
         case proportional(numerator: TextToken, denominator: TextToken, tuplet: Bool, expressions: [TextExpressionSyntax])
@@ -342,6 +342,11 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public var notation: TextQualifiedNameSyntax? = nil
     public var tieToNext = false
     public var modifiers: [TextToken] = []
+}
+
+public struct TextTechniqueArgumentSyntax: Sendable, Hashable {
+    public let label: TextToken
+    public let value: [TextToken]
 }
 
 public struct TextPitchRangeSyntax: Sendable, Hashable {

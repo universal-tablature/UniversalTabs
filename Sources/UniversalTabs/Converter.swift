@@ -274,9 +274,30 @@ public final class UTabMIDIConverter {
                         velocity: accentedVelocity
                     )
                 }
+            } else if action == "press" {
+                if let pitch = pitchValue(parameters["pitch"]), let note = midiNote(pitch) {
+                    addNote(&output, tick: tick, duration: durationTicks(event), channel: midiChannel, note: note, velocity: velocity(parameters))
+                } else {
+                    diagnostics.append("\(name): press event at tick \(tick) has no supported pitch")
+                }
+            } else if action == "play" {
+                if let pitch = pitchValue(parameters["pitch"]), let midiPitch = continuousMIDIPitch(pitch) {
+                    addContinuousPitchNote(
+                        &output,
+                        tick: tick,
+                        duration: durationTicks(event),
+                        channel: midiChannel,
+                        midiPitch: midiPitch,
+                        velocity: velocity(parameters)
+                    )
+                } else {
+                    diagnostics.append("\(name): play event at tick \(tick) has no supported pitch")
+                }
             } else if action == "pluck" || action == "bow" {
                 for target in eventTargets {
-                    let group = target.hasPrefix("melodyStrings") ? "melodyStrings" : "strings"
+                    let group = target.hasPrefix("melodyStrings") ? "melodyStrings"
+                        : target.hasPrefix("bowedStrings") ? "bowedStrings"
+                        : "strings"
                     let stringIndex = targetIndex(target, group: group)
                     let note = pitchValue(parameters["pitch"]).flatMap(midiNote)
                         ?? pitchesFromBitsets[target]
@@ -494,6 +515,30 @@ public final class UTabMIDIConverter {
         ))
     }
 
+    private func addContinuousPitchNote(
+        _ output: inout [MIDIMessage],
+        tick: Int,
+        duration: Int,
+        channel: Int,
+        midiPitch: Double,
+        velocity: Int
+    ) {
+        let note = Int(midiPitch.rounded())
+        let bend = Int((8192 + (midiPitch - Double(note)) / 2 * 8192).rounded())
+        let safeBend = min(16383, max(0, bend))
+        output.append(MIDIMessage(
+            tick: tick,
+            priority: 0,
+            bytes: [UInt8(0xE0 | channel), UInt8(safeBend & 0x7F), UInt8((safeBend >> 7) & 0x7F)]
+        ))
+        addNote(&output, tick: tick, duration: duration, channel: channel, note: note, velocity: velocity)
+        output.append(MIDIMessage(
+            tick: tick + max(1, duration),
+            priority: 2,
+            bytes: [UInt8(0xE0 | channel), 0, 64]
+        ))
+    }
+
     private func stringNote(
         index: Int,
         tuning: [PitchValue],
@@ -575,7 +620,7 @@ public final class UTabMIDIConverter {
     private func drumNote(_ target: String) -> Int? {
         guard let parsed = try? ActuatorTarget(parsing: target),
               case .member(let member) = parsed.selector,
-              parsed.groupPath == "surfaces" else { return nil }
+              parsed.groupPath == "surfaces" || parsed.groupPath == "playingSurfaces" else { return nil }
         return ["kick": 36, "snare-head": 38, "closed-hi-hat": 42, "crash": 49][member]
     }
 
@@ -647,6 +692,14 @@ public final class UTabMIDIConverter {
             frequency = reference.frequencyHz * currentRatio / referenceRatio * pow(periodRatio, Double(period - reference.pitch.period))
         } else { return nil }
         return quantizeMIDI(69 + 12 * log2(frequency / 440))
+    }
+
+    private func continuousMIDIPitch(_ pitch: PitchValue) -> Double? {
+        if let legacy = pitch.legacyName, let note = Pitch.midiNote(legacy) { return Double(note) }
+        if let frequency = pitch.frequencyHz, frequency > 0 {
+            return 69 + 12 * log2(frequency / 440)
+        }
+        return midiNote(pitch).map(Double.init)
     }
 
     private func quantizeMIDI(_ value: Double) -> Int {

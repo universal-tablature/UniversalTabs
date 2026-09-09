@@ -130,6 +130,50 @@ import UniversalTabs
     #expect(application.operands.map(\.id) == [source.id, destination.id])
 }
 
+@Test func profileTechniqueBlocksPreserveScopedAndTransitionForms() throws {
+    let loaded = TextModuleLoader().load(
+        root: .init(
+            """
+            meter 4/4
+            tempo 92
+            phrase study {
+                hammerOn { E3 e; F#3 e }
+                pullOff { G3 e; F#3 e }
+                bend(semitones: 2) { A3 q }
+                tapping { E4 q }
+                slide(to: A3) { F#3 q }
+                slide(to: [strings[1].frets[5], strings[2].frets[7]]) {
+                    F#3 q, B3 q
+                }
+            }
+            """,
+            fileID: "technique-blocks.utab"
+        ),
+        provider: StandardTextModuleProvider()
+    )
+    let composition = try #require(TextSemanticLowerer().lower(loaded.modules).composition)
+    let phrase = try #require(composition.phrases.first { $0.name == "study" })
+    guard case .sequence(let expressions) = phrase.expression.kind else {
+        Issue.record("Expected technique sequence")
+        return
+    }
+
+    let applications = expressions.compactMap { expression -> TechniqueApplication? in
+        guard case .technique(let application) = expression.kind else { return nil }
+        return application
+    }
+    #expect(applications.map(\.technique) == ["hammerOn", "pullOff", "bend", "tapping", "slide", "slide"])
+    #expect(applications.map(\.form) == [.transition, .transition, .transition, .scoped, .transition, .transition])
+    #expect(applications[0].operands.count == 2)
+    #expect(applications[1].operands.count == 2)
+    #expect(applications[2].parameters["semitones"] == .decimal(2))
+    #expect(applications[4].parameters["to"] == .string("A3"))
+    #expect(applications[5].parameters["to"] == .list([
+        .object(["group": .string("strings"), "member": .integer(1), "positionGroup": .string("frets"), "position": .integer(5)]),
+        .object(["group": .string("strings"), "member": .integer(2), "positionGroup": .string("frets"), "position": .integer(7)]),
+    ]))
+}
+
 @Test func nameResolutionProducesTypedReferencesWithoutMutatingSemanticInput() {
     let phrase = Phrase("opening", bars: [
         .init(MusicalExpression.rest(.whole, id: "expression:opening")),
@@ -462,7 +506,7 @@ private func pitchResolvedLeafProvenances(in expression: PitchResolvedExpression
     #expect(document.tracks.first?.parts?.first?.events[0].at.musical?.beat == 1)
     #expect(document.tracks.first?.parts?.first?.events[1].at.musical?.beat == 2)
     #expect(document.tracks.first?.parts?.first?.source == nil)
-    #expect(document.tracks.first?.parts?.first?.events[0].source.map { $0.file == #fileID && $0.line == 425 } == true)
+    #expect(document.tracks.first?.parts?.first?.events[0].source.map { $0.file == #fileID && $0.line == 469 } == true)
 
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
@@ -704,7 +748,7 @@ private func testInstance(_ id: InstrumentID, model: InstrumentID, name: String?
     let canonical = try encoder.encode(document)
     let repeatedCanonical = try encoder.encode(repeatedDocument)
     #expect(canonical == repeatedCanonical)
-    #expect(stableFingerprint(canonical) == "f9005a62415127e8")
+    #expect(stableFingerprint(canonical) == "4c5756bea97d4628")
 }
 
 private func stableFingerprint(_ data: Data) -> String {

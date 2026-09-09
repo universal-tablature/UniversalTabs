@@ -377,13 +377,13 @@ public struct InstrumentRealizationStage: CompilerStage {
 
         func resolveSoundingPitch(for actuator: ActuatorExpression, context: Context) -> ActuatorExpression {
             guard actuator.soundingPitch == nil,
-                  actuator.target.group == "strings",
+                  ["strings", "melodyStrings", "bowedStrings"].contains(actuator.target.group),
                   let member = actuator.target.member,
                   let stringNumber = Int(member), stringNumber > 0,
                   let tuning = context.tuning,
                   stringNumber <= tuning.courses.count else { return actuator }
 
-            let stringsGeometry = context.model.geometry.first { $0.id == "strings" }
+            let stringsGeometry = context.model.geometry.first { $0.id == actuator.target.group }
             let isHighToLow: Bool
             if case .text("highToLow")? = stringsGeometry?.properties["numbering"] {
                 isHighToLow = true

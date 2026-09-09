@@ -41,6 +41,38 @@ import Testing
     #expect(bytes.indices.dropLast().contains { bytes[$0] == 0xC0 && bytes[$0 + 1] == 40 })
 }
 
+@Test func convertsCanonicalDrumKitPlayingSurfaceTargets() throws {
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"profiles":[{"id":"drums","actuators":{"playingSurfaces":{"members":[{"id":"kick"},{"id":"snare-head"}]}},"interactions":{"strike":{"targets":["playingSurfaces"]}}}],"instruments":[{"id":"kit","profile":"drums","realization":{"midi":{"percussion":true}}}]},"tracks":[{"id":"groove","instrument":"kit","events":[{"at":{"musical":{"measure":1,"beat":1}},"action":"strike","target":"playingSurfaces[\"kick\"]"},{"at":{"musical":{"measure":1,"beat":2}},"action":"strike","target":"playingSurfaces[\"snare-head\"]"}]}]}"#
+    let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
+
+    #expect(result.diagnostics.isEmpty)
+    let bytes = Array(result.midi)
+    #expect(bytes.contains(36))
+    #expect(bytes.contains(38))
+}
+
+@Test func convertsGenericFrequencyBasedPlayEvents() throws {
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"time":{"tempo":{"quarterNotesPerMinute":60}},"profiles":[{"id":"fretless","actuators":{"notes":{"minimumCount":1}},"interactions":{"play":{"targets":["notes"]}}}],"instruments":[{"id":"oud","profile":"fretless"}]},"tracks":[{"id":"melody","instrument":"oud","events":[{"at":{"musical":{"measure":1,"beat":1}},"duration":{"quarterNotes":"4/1"},"action":"play","target":"notes","parameters":{"pitch":{"frequencyHz":452.892984}}}]}]}"#
+    let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
+
+    #expect(result.diagnostics.isEmpty)
+    let bytes = Array(result.midi)
+    #expect(bytes.contains(69) || bytes.contains(70))
+    #expect(bytes.contains { $0 & 0xF0 == 0xE0 })
+    #expect(result.midi.count > 60)
+}
+
+@Test func convertsKeyboardPressEventsWithTheirAuthoredDuration() throws {
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"time":{"tempo":{"quarterNotesPerMinute":60}},"profiles":[{"id":"keyboard","actuators":{"keys":{"count":88}},"interactions":{"press":{"targets":["keys"]}}}],"instruments":[{"id":"piano","profile":"keyboard"}]},"tracks":[{"id":"melody","instrument":"piano","events":[{"at":{"musical":{"measure":1,"beat":1}},"duration":{"quarterNotes":"4/1"},"action":"press","target":"keys[40]","parameters":{"pitch":"C4"}}]}]}"#
+    let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
+
+    #expect(result.diagnostics.isEmpty)
+    let bytes = Array(result.midi)
+    #expect(bytes.contains { $0 & 0xF0 == 0x90 })
+    #expect(bytes.contains { $0 & 0xF0 == 0x80 })
+    #expect(result.midi.count > 60)
+}
+
 @Test func decodesAllDraftExamplesIntoTypedModels() throws {
     let repositoryRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
