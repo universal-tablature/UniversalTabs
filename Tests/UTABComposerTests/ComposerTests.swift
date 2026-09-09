@@ -2256,6 +2256,15 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(tempo.range.end == SourcePosition(line: 2, column: 14))
 }
 
+@Test func textLexerTreatsWindowsLineEndingsAsNewlines() throws {
+    let source = TextSource("title \"Song\"\r\ntempo 120\r\n", fileID: "windows.utab")
+    let result = TextLexer().lex(source)
+    let tempo = try #require(result.tokens.first { $0.lexeme == "tempo" })
+
+    #expect(result.diagnostics.isEmpty)
+    #expect(tempo.range.start == SourcePosition(line: 2, column: 1))
+}
+
 @Test func textLexerRecognizesSignedNumericProperties() throws {
     let source = TextSource("actuator pitch { minimum -3.0; maximum +1 }", fileID: "signed.utablang")
     let result = TextLexer().lex(source)

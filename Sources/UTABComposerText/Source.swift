@@ -138,7 +138,7 @@ public struct TextLexer: Sendable {
                 let start = index
                 let position = SourcePosition(line: line, column: column)
                 let character = source.text[index]
-                if character == "\n" {
+                if character.isNewline {
                     advance()
                     append(.newline, from: start, position: position)
                 } else if isIdentifierStart(character) { scanIdentifier(from: start, position: position) }
@@ -163,10 +163,10 @@ public struct TextLexer: Sendable {
 
         mutating func skipTrivia() {
             while index < source.text.endIndex {
-                if source.text[index] == " " || source.text[index] == "\t" || source.text[index] == "\r" { advance(); continue }
+                if source.text[index] == " " || source.text[index] == "\t" { advance(); continue }
                 let next = source.text.index(after: index)
                 if source.text[index] == "/", next < source.text.endIndex, source.text[next] == "/" {
-                    while index < source.text.endIndex, source.text[index] != "\n" { advance() }
+                    while index < source.text.endIndex, !source.text[index].isNewline { advance() }
                     continue
                 }
                 break
@@ -204,7 +204,7 @@ public struct TextLexer: Sendable {
             var escaped = false
             while index < source.text.endIndex {
                 let character = source.text[index]
-                if character == "\n" && !escaped { break }
+                if character.isNewline && !escaped { break }
                 advance()
                 if character == "\"" && !escaped {
                     append(.stringLiteral, from: start, position: position)
@@ -225,7 +225,7 @@ public struct TextLexer: Sendable {
         mutating func advance() {
             let character = source.text[index]
             index = source.text.index(after: index)
-            if character == "\n" { line += 1; column = 1 } else { column += 1 }
+            if character.isNewline { line += 1; column = 1 } else { column += 1 }
         }
 
         func isIdentifierStart(_ character: Character) -> Bool { character == "_" || character.isLetter }
