@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Swift
         uses: SwiftyLab/setup-swift@latest
@@ -30,4 +30,3 @@ jobs:
 
       - name: Test package
         run: swift test
-
