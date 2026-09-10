@@ -189,14 +189,27 @@ public struct TextParser: Sendable {
                     guard let degree = expect(.integerLiteral, "Expected scale degree after '@'") else { return nil }
                     let alteration = parseAlteration()
                     guard let quality = expect(.identifier, "Expected chord quality") else { return nil }
-                    return (.chordRelative(degree: degree, alteration: alteration, quality: quality), quality)
+                    let selection = parseConstantChordShapeSelection()
+                    return (.chordRelative(degree: degree, alteration: alteration, quality: quality, shape: selection.shape, shapeRootString: selection.rootString), selection.end ?? quality)
                 }
                 guard let root = expect(.identifier, "Expected chord root"),
                       let quality = expect(.identifier, "Expected chord quality") else { return nil }
-                return (.chordAbsolute(root: root, quality: quality), quality)
+                let selection = parseConstantChordShapeSelection()
+                return (.chordAbsolute(root: root, quality: quality, shape: selection.shape, shapeRootString: selection.rootString), selection.end ?? quality)
             }
             guard let pitch = expect(.identifier, "Expected integer, pitch, scale degree, or chord value") else { return nil }
             return (.pitchClass(pitch), pitch)
+        }
+
+        mutating func parseConstantChordShapeSelection() -> (shape: TextToken?, rootString: TextToken?, end: TextToken?) {
+            guard takeKeyword("using") else { return (nil, nil, nil) }
+            let shape = expect(.identifier, "Expected chord shape name")
+            var rootString: TextToken?
+            if takeKeyword("on") {
+                _ = expectKeyword("string", "Expected 'string' after 'on'")
+                rootString = expect(.integerLiteral, "Expected root string number")
+            }
+            return (shape, rootString, rootString ?? shape)
         }
 
         mutating func parseAlteration() -> Int {
@@ -439,9 +452,13 @@ public struct TextParser: Sendable {
             guard let symbol = expect(.identifier, "Expected chord shape name"),
                   expect(.colon, "Expected ':' after chord shape name") != nil else { return nil }
             let root = movable ? nil : expect(.identifier, "Expected chord root")
-            guard (movable || root != nil),
-                  let quality = expect(.identifier, "Expected chord quality"),
-                  let open = expect(.leftBrace, "Expected '{' after chord shape") else { return nil }
+            guard (movable || root != nil), let quality = expect(.identifier, "Expected chord quality") else { return nil }
+            var tuning: TextToken?
+            if takeKeyword("for") {
+                guard expectKeyword("tuning", "Expected 'tuning' after 'for'") != nil else { return nil }
+                tuning = expect(.identifier, "Expected tuning name")
+            }
+            guard let open = expect(.leftBrace, "Expected '{' after chord shape") else { return nil }
             var strings: [TextChordShapeStringSyntax] = []
             var rootString: TextToken?
             while current.kind != .rightBrace && current.kind != .endOfFile {
@@ -467,7 +484,7 @@ public struct TextParser: Sendable {
             }
             let close = expect(.rightBrace, "Expected '}' after chord shape") ?? current
             if movable && rootString == nil { diagnose("Movable chord shape requires a root string") }
-            return .init(symbol: symbol, root: root, quality: quality, strings: strings, rootString: rootString, range: spanning(open, close))
+            return .init(symbol: symbol, root: root, quality: quality, strings: strings, rootString: rootString, tuning: tuning, range: spanning(open, close))
         }
 
         mutating func parseFingering() -> TextFingeringSyntax? {

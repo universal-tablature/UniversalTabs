@@ -297,6 +297,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 }
                 var model = models[index]
                 var tuningIDs = model.tunings
+                var localTuningSymbols: [String: InstrumentID] = [:]
                 var defaultTuning = model.defaultTuning
                 var fingeringIDs = model.fingerings
                 var defaultFingering = model.defaultFingering
@@ -326,6 +327,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                         tags: Set(tuningSyntax.tags.map { String($0.lexeme) })
                     ))
                     tuningIDs.append(tuningID)
+                    localTuningSymbols[symbol] = tuningID
                     if tuningSyntax.isDefault { defaultTuning = tuningID }
                 }
                 for fingeringSyntax in syntax.fingerings {
@@ -364,8 +366,21 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                 }
                 for shapeSyntax in syntax.chordShapes {
                     let symbol = String(shapeSyntax.symbol.lexeme)
-                    let id = InstrumentID(rawValue: "chord-shape:\(module.name):\(model.id.rawValue):\(symbol)")
-                    guard !chordShapes.contains(where: { $0.id == id || ($0.model == model.id && $0.name == symbol) }) else {
+                    let shapeTuning: InstrumentID?
+                    if let token = shapeSyntax.tuning {
+                        let name = String(token.lexeme)
+                        guard let resolved = localTuningSymbols[name]
+                            ?? tuningIDs.compactMap({ id in tunings.first(where: { $0.id == id && ($0.name == name || $0.id.rawValue == name) })?.id }).first else {
+                            error("Unknown tuning '\(name)' for chord shape '\(symbol)'", at: token.range)
+                            continue
+                        }
+                        shapeTuning = resolved
+                    } else {
+                        shapeTuning = nil
+                    }
+                    let tuningSuffix = shapeTuning.map { ":\($0.rawValue)" } ?? ":any-tuning"
+                    let id = InstrumentID(rawValue: "chord-shape:\(module.name):\(model.id.rawValue):\(symbol)\(tuningSuffix)")
+                    guard !chordShapes.contains(where: { $0.id == id || ($0.model == model.id && $0.name == symbol && $0.tuning == shapeTuning) }) else {
                         error("Duplicate chord shape '\(symbol)' for instrument '\(target)'", at: shapeSyntax.range)
                         continue
                     }
@@ -387,10 +402,10 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                         continue
                     }
                     if let root {
-                        chordShapes.append(.init(id: id, name: symbol, model: model.id, root: root, quality: quality, strings: positions))
+                        chordShapes.append(.init(id: id, name: symbol, model: model.id, root: root, quality: quality, strings: positions, tuning: shapeTuning))
                     } else if let rootString = shapeSyntax.rootString?.integerValue, rootString > 0,
                               positions.contains(where: { $0.stringNumber == rootString }) {
-                        chordShapes.append(.init(id: id, name: symbol, model: model.id, quality: quality, rootString: rootString, strings: positions))
+                        chordShapes.append(.init(id: id, name: symbol, model: model.id, quality: quality, rootString: rootString, strings: positions, tuning: shapeTuning))
                     } else {
                         error("Movable chord shape '\(symbol)' requires a positive root string present in the shape", at: shapeSyntax.range)
                     }

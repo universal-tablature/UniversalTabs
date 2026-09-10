@@ -59,8 +59,8 @@ public struct TextConstantSyntax: Sendable, Hashable {
         case integer(TextToken)
         case pitchClass(TextToken)
         case scaleDegree(degree: TextToken, alteration: Int)
-        case chordAbsolute(root: TextToken, quality: TextToken)
-        case chordRelative(degree: TextToken, alteration: Int, quality: TextToken)
+        case chordAbsolute(root: TextToken, quality: TextToken, shape: TextToken?, shapeRootString: TextToken?)
+        case chordRelative(degree: TextToken, alteration: Int, quality: TextToken, shape: TextToken?, shapeRootString: TextToken?)
     }
 
     public let name: TextToken
@@ -174,6 +174,7 @@ public struct TextChordShapeSyntax: Sendable, Hashable {
     public let quality: TextToken
     public let strings: [TextChordShapeStringSyntax]
     public let rootString: TextToken?
+    public let tuning: TextToken?
     public let range: SourceRange
 }
 

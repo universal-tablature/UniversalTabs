@@ -995,8 +995,17 @@ public struct InstrumentRealizationStage: CompilerStage {
         }
 
         mutating func explicitChordShapeAssignments(named name: String, rootString requestedRootString: Int?, chord: ResolvedTimelineChord, context: Context, path: String) -> [StringAssignment]? {
-            guard let shape = request.catalog.chordShapes.first(where: { $0.model == context.model.id && ($0.name == name || $0.id.rawValue == name) }) else {
-                diagnostics.append(.init(.error, path: path, message: "Unknown chord shape '\(name)' for '\(context.model.name)'"))
+            let namedShapes = request.catalog.chordShapes.filter { $0.model == context.model.id && ($0.name == name || $0.id.rawValue == name) }
+            let shape = namedShapes.first(where: { $0.tuning == context.tuning?.id })
+                ?? namedShapes.first(where: { $0.tuning == nil })
+            guard let shape else {
+                let message: String
+                if !namedShapes.isEmpty, let tuning = context.tuning {
+                    message = "Chord shape '\(name)' has no overload for tuning '\(tuning.name)'"
+                } else {
+                    message = "Unknown chord shape '\(name)' for '\(context.model.name)'"
+                }
+                diagnostics.append(.init(.error, path: path, message: message))
                 return nil
             }
             guard shape.quality == chord.authored.quality else {

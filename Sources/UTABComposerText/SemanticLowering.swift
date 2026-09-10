@@ -519,14 +519,15 @@ public struct TextSemanticLowerer: Sendable {
                     result = expressionSequence(chords, range: expression.range)
                     break
                 }
-                if !chords.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
+                let loweredChords = chords.map { lowerExpression($0) }
+                if !loweredChords.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
                     error("A bass pattern requires a chord progression", at: expression.range)
                 }
                 let subdivision = duration(subdivisionSyntax).wholeNotes
                 result = .technique(.init(
                     "__bassPattern",
                     form: .scoped,
-                    operands: [.sequence(chords.map { lowerExpression($0) }, id: id("bass-chords", expression.range))],
+                    operands: [.sequence(loweredChords, id: id("bass-chords", expression.range))],
                     parameters: [
                         "pattern": .string(String(pattern.lexeme)),
                         "degrees": .list(degrees.map(MetadataValue.integer)),
@@ -860,18 +861,18 @@ public struct TextSemanticLowerer: Sendable {
                         return .rest(.zero, id: id("invalid", expression.range))
                     }
                     return .init(id: id("symbolic-relative-note", expression.range), kind: .note(.scaleDegree(degree.integerValue ?? 0, octave: octave.integerValue ?? 0, alteration: bindingAlteration + useAlteration), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
-                case .chordAbsolute(let root, let quality):
+                case .chordAbsolute(let root, let quality, let shape, let shapeRootString):
                     guard octave == nil, useAlteration == 0, let spelling = parsePitchClass(String(root.lexeme)), let chordQuality = chordQuality(quality) else {
                         error("Invalid chord symbol '\(name.lexeme)'", at: expression.range)
                         return .rest(.zero, id: id("invalid", expression.range))
                     }
-                    return .init(id: id("symbolic-chord", expression.range), kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
-                case .chordRelative(let degree, let bindingAlteration, let quality):
+                    return .init(id: id("symbolic-chord", expression.range), kind: .chord(.init(spelling, chordQuality), duration: duration(durationToken), constraints: chordShapeConstraints(shape, rootString: shapeRootString)), annotations: .init(source: expression.range))
+                case .chordRelative(let degree, let bindingAlteration, let quality, let shape, let shapeRootString):
                     guard octave == nil, let chordQuality = chordQuality(quality) else {
                         error("Invalid relative chord symbol '\(name.lexeme)'", at: expression.range)
                         return .rest(.zero, id: id("invalid", expression.range))
                     }
-                    return .init(id: id("symbolic-relative-chord", expression.range), kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: bindingAlteration + useAlteration, chordQuality), duration: duration(durationToken), constraints: []), annotations: .init(source: expression.range))
+                    return .init(id: id("symbolic-relative-chord", expression.range), kind: .chord(.init(scaleDegree: degree.integerValue ?? 0, alteration: bindingAlteration + useAlteration, chordQuality), duration: duration(durationToken), constraints: chordShapeConstraints(shape, rootString: shapeRootString)), annotations: .init(source: expression.range))
                 case .integer:
                     error("Integer constant '\(name.lexeme)' is not a musical value", at: expression.range)
                     return .rest(.zero, id: id("invalid", expression.range))
@@ -1185,7 +1186,7 @@ public struct TextSemanticLowerer: Sendable {
                     return expressionSequence(chords, range: expression.range)
                 }
                 let operands = chords.map { lowerExpression($0) }
-                if !chords.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
+                if !operands.allSatisfy({ if case .chord = $0.kind { true } else { false } }) {
                     error("A performance pattern currently requires a chord progression", at: expression.range)
                 }
                 let subdivision = duration(pattern.subdivision).wholeNotes
@@ -1215,7 +1216,7 @@ public struct TextSemanticLowerer: Sendable {
                         let quality: TextToken?
                         switch value {
                         case .pitchClass(let pitch): token = pitch; quality = nil
-                        case .chordAbsolute(let root, let q): token = root; quality = q
+                        case .chordAbsolute(let root, let q, _, _): token = root; quality = q
                         default: token = nil; quality = nil
                         }
                         if let token, let entry = namingEntry(String(token.lexeme), notation: notation, at: token.range) {
@@ -1224,10 +1225,14 @@ public struct TextSemanticLowerer: Sendable {
                                 let letterName = ["C", "D", "E", "F", "G", "A", "B"][NoteLetter.allCases.firstIndex(of: letter)!]
                                 let text = letterName + String(repeating: steps < 0 ? "b" : "#", count: abs(steps))
                                 let canonical = TextToken(kind: .identifier, lexeme: Substring(text), range: token.range)
-                                value = quality.map { .chordAbsolute(root: canonical, quality: $0) } ?? .pitchClass(canonical)
+                                if case .chordAbsolute(_, _, let shape, let rootString) = value, let quality {
+                                    value = .chordAbsolute(root: canonical, quality: quality, shape: shape, shapeRootString: rootString)
+                                } else { value = .pitchClass(canonical) }
                             case .degree(let degree, let steps):
                                 let canonical = TextToken(kind: .integerLiteral, lexeme: Substring(String(degree)), range: token.range)
-                                value = quality.map { .chordRelative(degree: canonical, alteration: steps, quality: $0) } ?? .scaleDegree(degree: canonical, alteration: steps)
+                                if case .chordAbsolute(_, _, let shape, let rootString) = value, let quality {
+                                    value = .chordRelative(degree: canonical, alteration: steps, quality: quality, shape: shape, shapeRootString: rootString)
+                                } else { value = .scaleDegree(degree: canonical, alteration: steps) }
                             }
                         }
                     }
@@ -1458,6 +1463,16 @@ public struct TextSemanticLowerer: Sendable {
 
         func chordQuality(_ token: TextToken) -> ChordQuality? {
             chordQualities[String(token.lexeme)]
+        }
+
+        mutating func chordShapeConstraints(_ shape: TextToken?, rootString: TextToken?) -> [PerformanceConstraint] {
+            var result: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+            if let token = rootString {
+                if shape == nil { error("A chord root-string override requires a chord shape", at: token.range) }
+                else if let string = token.integerValue, string > 0 { result.append(.chordShapeRootString(string)) }
+                else { error("Chord root string must be positive", at: token.range) }
+            }
+            return result
         }
 
         mutating func chordMemberConstraints(_ tokens: [TextToken], kind: String, availableDegrees: Set<Int>) -> [PerformanceConstraint] {

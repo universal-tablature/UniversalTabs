@@ -13,4 +13,10 @@ extension Guitar {
         course B3
         course E4
     }
+
+    movableChordShape compactPower : power for tuning dropD {
+        root string 6
+        string 6 fret 0
+        string 5 fret 0
+    }
 }

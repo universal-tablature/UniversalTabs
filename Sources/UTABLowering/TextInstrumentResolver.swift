@@ -52,10 +52,14 @@ public struct TextInstrumentResolver: Sendable {
             }
             let tuning: InstrumentID?
             if let requested = declaration.tuning {
+                func normalized(_ value: String) -> String {
+                    value.lowercased().filter(\.isLetter)
+                }
                 let candidates = catalog.tunings.filter {
                     model.tunings.contains($0.id) && (
                         $0.id.rawValue == requested
                             || $0.id.rawValue.split(separator: ":").last.map(String.init) == requested
+                            || $0.id.rawValue.split(separator: ":").last.map { normalized(String($0)) == normalized(requested) } == true
                             || $0.name.caseInsensitiveCompare(requested) == .orderedSame
                     )
                 }

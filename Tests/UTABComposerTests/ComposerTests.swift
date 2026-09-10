@@ -1060,7 +1060,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.profiles.count == 89)
     #expect(catalog.models.count == 164)
     #expect(catalog.fingerings.count == 24)
-    #expect(catalog.chordShapes.count == 42)
+    #expect(catalog.chordShapes.count == 44)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -2914,6 +2914,40 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(positions(strums[1]).map { [$0.0, $0.1] } == [[6, 3], [5, 5], [4, 5]])
     #expect(positions(strums[2]).map { [$0.0, $0.1] } == [[5, 3], [4, 5], [3, 5]])
     #expect(positions(strums[3]).map { [$0.0, $0.1] } == [[6, 5], [5, 7]])
+}
+
+@Test func namedChordsDeferTuningSpecificShapeOverloadResolution() throws {
+    func compile(tuning: String) throws -> [(Int, Int)] {
+        let source = TextSource(
+            """
+            module examples.named-overloaded-chord
+            import instruments.guitar
+            import tunings.guitar.drop
+
+            let myE = chord E power using compactPower
+            instrument guitar : Guitar tuning \(tuning)
+            meter 4/4
+            tempo 100
+            performancePattern hit { subdivision q; steps { strum down } }
+            section verse { guitar { voice chords { perform hit { myE q } } } }
+            main { verse }
+            """,
+            fileID: "named-overloaded-chord.utab"
+        )
+        let result = UTabTextCompiler().compile(source, modules: StandardTextModuleProvider())
+        #expect(result.succeeded, "\(result.diagnostics)")
+        let event = try #require(result.document?.tracks.first?.parts?.first?.events.first { $0.action == "strum" })
+        guard case .array(let members)? = event.parameters?["members"] else { return [] }
+        return members.compactMap { member in
+            guard case .object(let fields) = member,
+                  case .number(let string)? = fields["string"],
+                  case .number(let fret)? = fields["position"] else { return nil }
+            return (Int(string), Int(fret))
+        }
+    }
+
+    #expect(try compile(tuning: "standard").map { [$0.0, $0.1] } == [[6, 0], [5, 2]])
+    #expect(try compile(tuning: "dropD").map { [$0.0, $0.1] } == [[6, 2], [5, 2]])
 }
 
 @Test func filesystemModuleProviderSupportsNestedFlatAndLayeredLookup() throws {
