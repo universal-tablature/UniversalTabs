@@ -369,7 +369,8 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                         error("Duplicate chord shape '\(symbol)' for instrument '\(target)'", at: shapeSyntax.range)
                         continue
                     }
-                    guard let root = parsePitchClass(String(shapeSyntax.root.lexeme)),
+                    let root = shapeSyntax.root.flatMap { parsePitchClass(String($0.lexeme)) }
+                    guard (shapeSyntax.root == nil || root != nil),
                           let quality = parseChordQuality(String(shapeSyntax.quality.lexeme)) else {
                         error("Chord shape '\(symbol)' has an unsupported chord", at: shapeSyntax.range)
                         continue
@@ -385,7 +386,14 @@ public struct TextInstrumentCatalogCompiler: Sendable {
                         error("Chord shape '\(symbol)' requires unique string positions", at: shapeSyntax.range)
                         continue
                     }
-                    chordShapes.append(.init(id: id, name: symbol, model: model.id, root: root, quality: quality, strings: positions))
+                    if let root {
+                        chordShapes.append(.init(id: id, name: symbol, model: model.id, root: root, quality: quality, strings: positions))
+                    } else if let rootString = shapeSyntax.rootString?.integerValue, rootString > 0,
+                              positions.contains(where: { $0.stringNumber == rootString }) {
+                        chordShapes.append(.init(id: id, name: symbol, model: model.id, quality: quality, rootString: rootString, strings: positions))
+                    } else {
+                        error("Movable chord shape '\(symbol)' requires a positive root string present in the shape", at: shapeSyntax.range)
+                    }
                 }
                 model = .init(id: model.id, name: model.name, profile: model.profile, geometry: model.geometry, tunings: tuningIDs, defaultTuning: defaultTuning, fingerings: fingeringIDs, defaultFingering: defaultFingering, defaults: model.defaults, realization: model.realization)
                 models[index] = model
@@ -533,6 +541,7 @@ public struct TextInstrumentCatalogCompiler: Sendable {
             case "major7", "majorSeventh": .majorSeventh
             case "minor7", "minorSeventh": .minorSeventh
             case "dominant7", "dominantSeventh": .dominantSeventh
+            case "power", "fifth", "powerChord": .power
             default: nil
             }
         }

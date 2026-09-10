@@ -139,12 +139,18 @@ public struct ChordShapeDefinition: Sendable, Hashable {
     public let id: InstrumentID
     public let name: String
     public let model: InstrumentID
-    public let root: PitchClass
+    public let root: PitchClass?
     public let quality: ChordQuality
     public let strings: [ChordShapeString]
+    /// The string carrying the root in a movable shape. `nil` denotes a concrete shape.
+    public let rootString: Int?
 
     public init(id: InstrumentID, name: String, model: InstrumentID, root: PitchClass, quality: ChordQuality, strings: [ChordShapeString]) {
-        self.id = id; self.name = name; self.model = model; self.root = root; self.quality = quality; self.strings = strings
+        self.id = id; self.name = name; self.model = model; self.root = root; self.quality = quality; self.strings = strings; self.rootString = nil
+    }
+
+    public init(id: InstrumentID, name: String, model: InstrumentID, quality: ChordQuality, rootString: Int, strings: [ChordShapeString]) {
+        self.id = id; self.name = name; self.model = model; self.root = nil; self.quality = quality; self.strings = strings; self.rootString = rootString
     }
 }
 

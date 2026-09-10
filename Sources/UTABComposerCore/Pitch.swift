@@ -227,6 +227,7 @@ public struct ChordQuality: Sendable, Hashable {
     public static let majorSeventh = Self(name: "major7", degrees: [1, 3, 5, 7], intervals: [0, 4, 7, 11])
     public static let minorSeventh = Self(name: "minor7", degrees: [1, 3, 5, 7], intervals: [0, 3, 7, 10])
     public static let dominantSeventh = Self(name: "dominant7", degrees: [1, 3, 5, 7], intervals: [0, 4, 7, 10])
+    public static let power = Self(name: "power", degrees: [1, 5], intervals: [0, 7])
 }
 
 public struct ChordSymbol: Sendable, Hashable {
@@ -281,6 +282,7 @@ public enum PerformanceConstraint: Sendable, Hashable {
     case actuator(group: String, position: Int)
     case fingering(Int)
     case chordShape(String)
+    case chordShapeRootString(Int)
     case chordOmit(Int)
     case chordDouble(Int)
     case chordAdd(degree: Int, alteration: Int)

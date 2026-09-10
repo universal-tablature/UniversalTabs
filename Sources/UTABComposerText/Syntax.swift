@@ -170,9 +170,10 @@ public struct TextInstrumentExtensionSyntax: Sendable, Hashable {
 
 public struct TextChordShapeSyntax: Sendable, Hashable {
     public let symbol: TextToken
-    public let root: TextToken
+    public let root: TextToken?
     public let quality: TextToken
     public let strings: [TextChordShapeStringSyntax]
+    public let rootString: TextToken?
     public let range: SourceRange
 }
 
@@ -317,8 +318,8 @@ public struct TextExpressionSyntax: Sendable, Hashable {
     public indirect enum Kind: Sendable, Hashable {
         case note(pitch: TextToken, duration: TextDurationSyntax)
         case relativeNote(degree: TextToken, alteration: Int, octave: TextToken, duration: TextDurationSyntax)
-        case chord(root: TextToken, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
-        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
+        case chord(root: TextToken, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, shapeRootString: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
+        case relativeChord(degree: TextToken, alteration: Int, quality: TextToken, duration: TextDurationSyntax, shape: TextToken?, shapeRootString: TextToken?, bass: TextToken?, inversion: TextToken?, omissions: [TextToken], doublings: [TextToken], additions: [TextChordToneSyntax], alterations: [TextChordToneSyntax], range: TextPitchRangeSyntax?)
         case symbol(name: TextToken, alteration: Int, octave: TextToken?, duration: TextDurationSyntax)
         case actuator(action: TextToken, target: TextQualifiedNameSyntax, member: TextToken?, duration: TextDurationSyntax)
         case rest(duration: TextDurationSyntax)

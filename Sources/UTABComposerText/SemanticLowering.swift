@@ -89,6 +89,7 @@ public struct TextSemanticLowerer: Sendable {
         var result: [String: ChordQuality] = [
             "major": .major, "minor": .minor, "diminished": .diminished, "sus4": .suspendedFourth,
             "major7": .majorSeventh, "minor7": .minorSeventh, "dominant7": .dominantSeventh,
+            "power": .power, "fifth": .power, "powerChord": .power,
         ]
         var declared: Set<String> = []
         var diagnostics: [TextDiagnostic] = []
@@ -690,7 +691,7 @@ public struct TextSemanticLowerer: Sendable {
                         return lowerSymbolExpression(expression)
                     }
                     return namedNote(name, octave: octave, alteration: alteration, duration: duration, notation: notation, expression: expression)
-                case .chord(let root, let quality, let durationToken, let shape, let bass, let inversion, _, _, _, _, _):
+                case .chord(let root, let quality, let durationToken, let shape, let shapeRootString, let bass, let inversion, _, _, _, _, _):
                     guard let entry = namingEntry(String(root.lexeme), notation: notation, at: root.range),
                           let quality = chordQuality(quality) else { return .rest(.zero) }
                     let chord: ChordSymbol
@@ -698,7 +699,13 @@ public struct TextSemanticLowerer: Sendable {
                     case .letter(let letter, let alteration): chord = .init(.init(letter, accidental: alteration), quality, bass: bass.flatMap { parsePitchClass(String($0.lexeme)) }, inversion: inversion?.integerValue)
                     case .degree(let degree, let alteration): chord = .init(scaleDegree: degree, alteration: alteration, quality)
                     }
-                    return .init(id: id("named-chord", expression.range), kind: .chord(chord, duration: duration(durationToken), constraints: shape.map { [.chordShape(String($0.lexeme))] } ?? []), annotations: namingAnnotations(root, system: entry.system, range: expression.range))
+                    var constraints: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+                    if let token = shapeRootString {
+                        if shape == nil { error("A chord root-string override requires a chord shape", at: token.range) }
+                        else if let string = token.integerValue, string > 0 { constraints.append(.chordShapeRootString(string)) }
+                        else { error("Chord root string must be positive", at: token.range) }
+                    }
+                    return .init(id: id("named-chord", expression.range), kind: .chord(chord, duration: duration(durationToken), constraints: constraints), annotations: namingAnnotations(root, system: entry.system, range: expression.range))
                 default: break
                 }
             }
@@ -739,7 +746,7 @@ public struct TextSemanticLowerer: Sendable {
 
         mutating func lowerChordExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
-            case .chord(let root, let quality, let durationToken, let shape, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
+            case .chord(let root, let quality, let durationToken, let shape, let shapeRootString, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
                 guard let spelling = parsePitchClass(String(root.lexeme)) else {
                     error("Invalid chord root '\(root.lexeme)'", at: root.range)
                     return .rest(.zero, id: id("invalid", expression.range))
@@ -759,6 +766,11 @@ public struct TextSemanticLowerer: Sendable {
                     error("Explicit chord bass and inversion disagree", at: bass!.range)
                 }
                 var constraints: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+                if let token = shapeRootString {
+                    if shape == nil { error("A chord root-string override requires a chord shape", at: token.range) }
+                    else if let string = token.integerValue, string > 0 { constraints.append(.chordShapeRootString(string)) }
+                    else { error("Chord root string must be positive", at: token.range) }
+                }
                 let availableDegrees = Set(chordQuality.degrees).union(additions.compactMap { $0.degree.integerValue })
                 constraints.append(contentsOf: chordMemberConstraints(omissions, kind: "omit", availableDegrees: availableDegrees))
                 constraints.append(contentsOf: chordMemberConstraints(doublings, kind: "double", availableDegrees: availableDegrees))
@@ -778,7 +790,7 @@ public struct TextSemanticLowerer: Sendable {
 
         mutating func lowerRelativechordExpression(_ expression: TextExpressionSyntax) -> MusicalExpression {
             switch expression.kind {
-            case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
+            case .relativeChord(let degree, let alteration, let quality, let durationToken, let shape, let shapeRootString, let bass, let inversion, let omissions, let doublings, let additions, let alterations, let range):
                 if (degree.integerValue ?? 0) <= 0 {
                     error("Scale-relative chord degrees must be positive", at: degree.range)
                 }
@@ -793,6 +805,11 @@ public struct TextSemanticLowerer: Sendable {
                     error("Chord inversion must be in 0...\(chordQuality.intervals.count - 1)", at: inversion!.range)
                 }
                 var constraints: [PerformanceConstraint] = shape.map { [.chordShape(String($0.lexeme))] } ?? []
+                if let token = shapeRootString {
+                    if shape == nil { error("A chord root-string override requires a chord shape", at: token.range) }
+                    else if let string = token.integerValue, string > 0 { constraints.append(.chordShapeRootString(string)) }
+                    else { error("Chord root string must be positive", at: token.range) }
+                }
                 let availableDegrees = Set(chordQuality.degrees).union(additions.compactMap { $0.degree.integerValue })
                 constraints.append(contentsOf: chordMemberConstraints(omissions, kind: "omit", availableDegrees: availableDegrees))
                 constraints.append(contentsOf: chordMemberConstraints(doublings, kind: "double", availableDegrees: availableDegrees))

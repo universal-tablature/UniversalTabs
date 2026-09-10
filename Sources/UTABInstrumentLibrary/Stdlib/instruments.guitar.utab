@@ -23,6 +23,96 @@ extension Guitar {
         course E4
     }
 
+    movableChordShape cagedEMajor : major {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+        string 3 fret 1
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    movableChordShape cagedEMinor : minor {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+        string 3 fret 0
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    movableChordShape cagedE7 : dominant7 {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 0
+        string 3 fret 1
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    movableChordShape cagedAMajor : major {
+        root string 5
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 2
+        string 2 fret 2
+        string 1 fret 0
+    }
+
+    movableChordShape cagedAMinor : minor {
+        root string 5
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 2
+        string 2 fret 1
+        string 1 fret 0
+    }
+
+    movableChordShape cagedA7 : dominant7 {
+        root string 5
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 0
+        string 2 fret 2
+        string 1 fret 0
+    }
+
+    movableChordShape powerChord : power {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+    }
+
+    chordShape cagedEBarreF : F major {
+        string 6 fret 1
+        string 5 fret 3
+        string 4 fret 3
+        string 3 fret 2
+        string 2 fret 1
+        string 1 fret 1
+    }
+
+    chordShape cagedEMinorBarreF : F minor {
+        string 6 fret 1
+        string 5 fret 3
+        string 4 fret 3
+        string 3 fret 1
+        string 2 fret 1
+        string 1 fret 1
+    }
+
+    chordShape cagedAMinorBarreB : B minor {
+        string 5 fret 2
+        string 4 fret 4
+        string 3 fret 4
+        string 2 fret 3
+        string 1 fret 2
+    }
+
     chordShape openA : A major {
         string 5 fret 0
         string 4 fret 2

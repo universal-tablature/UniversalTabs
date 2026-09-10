@@ -1060,7 +1060,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.profiles.count == 89)
     #expect(catalog.models.count == 164)
     #expect(catalog.fingerings.count == 24)
-    #expect(catalog.chordShapes.count == 32)
+    #expect(catalog.chordShapes.count == 42)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -2861,6 +2861,59 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(plucks[0].at.musical?.beat == plucks[1].at.musical?.beat)
     #expect(plucks[0].at.musical?.offset == plucks[1].at.musical?.offset)
     #expect(plucks[0].target != plucks[1].target)
+}
+
+@Test func movableGuitarShapesTransposeAndAllowRootStringOverrides() throws {
+    let source = TextSource(
+        """
+        module examples.movable-chords
+        import instruments.guitar
+
+        extension Guitar {
+            movableChordShape compactPower : power {
+                root string 6
+                string 6 fret 0
+                string 5 fret 2
+            }
+        }
+
+        instrument guitar : Guitar
+        meter 4/4
+        tempo 100
+        performancePattern hit { subdivision q; steps { strum down } }
+
+        section verse {
+            guitar { voice chords {
+                perform hit {
+                    chord G major q using cagedEMajor
+                    chord G power q using powerChord
+                    chord C power q using powerChord on string 5
+                    chord A power q using compactPower
+                }
+            } }
+        }
+        main { verse }
+        """,
+        fileID: "movable-chords.utab"
+    )
+
+    let result = UTabTextCompiler().compile(source, modules: StandardTextModuleProvider())
+    #expect(result.succeeded, "\(result.diagnostics)")
+    let strums = try #require(result.document?.tracks.first?.parts?.first?.events.filter { $0.action == "strum" })
+    #expect(strums.count == 4)
+    func positions(_ event: PerformanceEvent) -> [(Int, Int)] {
+        guard case .array(let members)? = event.parameters?["members"] else { return [] }
+        return members.compactMap { member in
+            guard case .object(let fields) = member,
+                  case .number(let string)? = fields["string"],
+                  case .number(let fret)? = fields["position"] else { return nil }
+            return (Int(string), Int(fret))
+        }
+    }
+    #expect(positions(strums[0]).map { [$0.0, $0.1] } == [[6, 3], [5, 5], [4, 5], [3, 4], [2, 3], [1, 3]])
+    #expect(positions(strums[1]).map { [$0.0, $0.1] } == [[6, 3], [5, 5], [4, 5]])
+    #expect(positions(strums[2]).map { [$0.0, $0.1] } == [[5, 3], [4, 5], [3, 5]])
+    #expect(positions(strums[3]).map { [$0.0, $0.1] } == [[6, 5], [5, 7]])
 }
 
 @Test func filesystemModuleProviderSupportsNestedFlatAndLayeredLookup() throws {

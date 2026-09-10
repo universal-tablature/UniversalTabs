@@ -985,36 +985,66 @@ public struct InstrumentRealizationStage: CompilerStage {
                 guard case .chordShape(let name) = constraint else { return nil }
                 return name
             }).first {
-                return explicitChordShapeAssignments(named: shapeName, chord: chord, context: context, path: path)
+                let rootString = constraints.compactMap { constraint -> Int? in
+                    guard case .chordShapeRootString(let number) = constraint else { return nil }
+                    return number
+                }.first
+                return explicitChordShapeAssignments(named: shapeName, rootString: rootString, chord: chord, context: context, path: path)
             }
             return automaticChordStringAssignments(chord, constraints: constraints, context: context, voiceLeadingFrom: reference)
         }
 
-        mutating func explicitChordShapeAssignments(named name: String, chord: ResolvedTimelineChord, context: Context, path: String) -> [StringAssignment]? {
+        mutating func explicitChordShapeAssignments(named name: String, rootString requestedRootString: Int?, chord: ResolvedTimelineChord, context: Context, path: String) -> [StringAssignment]? {
             guard let shape = request.catalog.chordShapes.first(where: { $0.model == context.model.id && ($0.name == name || $0.id.rawValue == name) }) else {
                 diagnostics.append(.init(.error, path: path, message: "Unknown chord shape '\(name)' for '\(context.model.name)'"))
                 return nil
             }
-            guard shape.root == chord.rootPitchClass, shape.quality == chord.authored.quality else {
+            guard shape.quality == chord.authored.quality else {
                 diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' does not realize the requested chord"))
                 return nil
             }
             guard let tuning = context.tuning, let fretCount = context.fretCount else { return nil }
-            let chordTones = Set(shape.quality.intervals.map { (shape.root.rawValue + $0) % 12 })
+            let chordTones = Set(shape.quality.intervals.map { (chord.rootPitchClass.rawValue + $0) % 12 })
+            let stringShift: Int
+            let fretShift: Int
+            if let templateRootString = shape.rootString {
+                let actualRootString = requestedRootString ?? templateRootString
+                stringShift = actualRootString - templateRootString
+                guard let rootPosition = shape.strings.first(where: { $0.stringNumber == templateRootString }) else { return nil }
+                let rootCourse = tuning.courses.count - actualRootString
+                guard tuning.courses.indices.contains(rootCourse), let open = tuning.courses[rootCourse].pitches.first else {
+                    diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' root string is outside the configured strings"))
+                    return nil
+                }
+                fretShift = (chord.rootPitchClass.rawValue - open.pitchClass.rawValue - rootPosition.fret + 24) % 12
+            } else {
+                guard requestedRootString == nil else {
+                    diagnostics.append(.init(.error, path: path, message: "Concrete chord shape '\(name)' does not accept a root-string override"))
+                    return nil
+                }
+                guard shape.root == chord.rootPitchClass else {
+                    diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' does not realize the requested chord"))
+                    return nil
+                }
+                stringShift = 0
+                fretShift = 0
+            }
             var assignments: [StringAssignment] = []
             for position in shape.strings {
-                let course = tuning.courses.count - position.stringNumber
-                guard tuning.courses.indices.contains(course), position.fret <= fretCount,
+                let stringNumber = position.stringNumber + stringShift
+                let fret = position.fret + fretShift
+                let course = tuning.courses.count - stringNumber
+                guard tuning.courses.indices.contains(course), fret <= fretCount,
                       let open = tuning.courses[course].pitches.first else {
                     diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' is outside the configured strings or fret range"))
                     return nil
                 }
-                let pitch = open.transposed(cents: position.fret * 100)
+                let pitch = open.transposed(cents: fret * 100)
                 guard chordTones.contains(pitch.pitchClass.rawValue) else {
                     diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' contains a pitch outside the requested chord"))
                     return nil
                 }
-                assignments.append(.init(course: course, stringNumber: position.stringNumber, fret: position.fret, pitch: pitch, chordShape: shape.name))
+                assignments.append(.init(course: course, stringNumber: stringNumber, fret: fret, pitch: pitch, chordShape: shape.name))
             }
             guard Set(assignments.map { $0.pitch.pitchClass.rawValue }).isSuperset(of: chordTones) else {
                 diagnostics.append(.init(.error, path: path, message: "Chord shape '\(name)' does not contain every chord tone"))
