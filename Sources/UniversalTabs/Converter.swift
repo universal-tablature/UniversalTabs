@@ -221,7 +221,7 @@ public final class UTabMIDIConverter {
                 continue
             }
 
-            if action == "strum" || gesture == "strum", let target {
+            if (action == "strum" || gesture == "strum"), parameters["members"] == nil, let target {
                 let indices = targetRange(target, group: "strings")
                 let spread = object(parameters["spread"])
                 let spreadMS = double(spread?["value"]) ?? 30

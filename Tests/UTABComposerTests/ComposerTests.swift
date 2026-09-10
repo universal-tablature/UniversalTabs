@@ -1056,11 +1056,11 @@ private func stableFingerprint(_ data: Data) -> String {
 @Test func standardInstrumentLibraryIsInternallyValid() {
     let catalog = StandardInstruments.catalog
     #expect(catalog.scales.count == 11)
-    #expect(catalog.tunings.count == 62)
+    #expect(catalog.tunings.count == 63)
     #expect(catalog.profiles.count == 89)
     #expect(catalog.models.count == 164)
     #expect(catalog.fingerings.count == 24)
-    #expect(catalog.chordShapes.count == 44)
+    #expect(catalog.chordShapes.count == 47)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -2608,7 +2608,7 @@ private func stableFingerprint(_ data: Data) -> String {
     let bowedStrings = try #require(bowedProfile.actuators.first { $0.id == "strings" })
 
     #expect(loaded.succeeded)
-    #expect(loaded.modules.map(\.name) == ["profiles.core", "std.midi", "instruments.guitar", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
+    #expect(loaded.modules.map(\.name) == ["profiles.core", "std.midi", "instruments.guitar", "instruments.guitar.electric", "tunings.guitar.drop", "instruments.guitar.twelve-string", "examples.catalogue"])
     #expect(compiled.succeeded)
     #expect(compiled.catalog.profiles.count == 7)
     #expect(compiled.profileBindings["profiles.core.FrettedStrings"]?.rawValue == "profile:fretted-strings")

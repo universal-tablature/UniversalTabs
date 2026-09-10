@@ -28,4 +28,17 @@ extension ElectricGuitar {
         course B3
         course E4
     }
+
+    movableChordShape powerChord : power {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+    }
+
+    movableChordShape compactPower : power for tuning standard {
+        root string 6
+        string 6 fret 0
+        string 5 fret 2
+    }
 }

@@ -87,6 +87,17 @@ import Testing
     #expect(result.midi.count > 60)
 }
 
+@Test func convertsRealizedStrumMembersToMIDINotes() throws {
+    let json = #"{"utab":{"version":"0.1-draft"},"setup":{"profiles":[{"id":"strings","actuators":{"strings":{"count":6}},"interactions":{"strum":{"targets":["strings"]}}}],"instruments":[{"id":"guitar","profile":"strings","realization":{"midi":{"program":28}}}]},"tracks":[{"id":"rhythm","instrument":"guitar","events":[{"at":{"musical":{"measure":1,"beat":1}},"duration":{"quarterNotes":"1/4"},"action":"strum","target":"strings","parameters":{"spread":"24ms","members":[{"string":6,"position":2,"pitch":"E2"},{"string":5,"position":2,"pitch":"B2"}]}}]}]}"#
+    let result = try UTabMIDIConverter().convert(data: Data(json.utf8))
+
+    #expect(result.diagnostics.isEmpty)
+    let bytes = Array(result.midi)
+    #expect(bytes.filter { $0 & 0xF0 == 0x90 }.count == 2)
+    #expect(bytes.contains(40))
+    #expect(bytes.contains(47))
+}
+
 @Test func decodesAllDraftExamplesIntoTypedModels() throws {
     let repositoryRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()

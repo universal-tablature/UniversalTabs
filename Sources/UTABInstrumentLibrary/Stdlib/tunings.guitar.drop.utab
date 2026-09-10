@@ -1,11 +1,32 @@
 module tunings.guitar.drop
 import instruments.guitar
+import instruments.guitar.electric
 
 extension Guitar {
     tuning dropD {
         id "tuning:guitar:drop-d"
         name "Guitar Drop D"
         tags guitar, alternate
+        course D2
+        course A2
+        course D3
+        course G3
+        course B3
+        course E4
+    }
+
+    movableChordShape compactPower : power for tuning dropD {
+        root string 6
+        string 6 fret 0
+        string 5 fret 0
+    }
+}
+
+extension ElectricGuitar {
+    tuning dropD {
+        id "tuning:electric-guitar:drop-d"
+        name "Electric Guitar Drop D"
+        tags guitar, electric, alternate
         course D2
         course A2
         course D3
