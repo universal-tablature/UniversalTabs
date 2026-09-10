@@ -343,7 +343,7 @@ private func absolutePitches(_ expressions: [TimedExpression]) -> [AbsolutePitch
             instrument guitar : Guitar
             performancePattern pattern { subdivision \(subdivision); steps { strum down } }
             section s { guitar { voice v {
-                stretch 2/1 { perform pattern { chord G major q. using cowboyG } }
+                stretch 2/1 { perform pattern { chord G major q. using openG } }
             } } }
             main { s }
             """), modules: StandardTextModuleProvider())

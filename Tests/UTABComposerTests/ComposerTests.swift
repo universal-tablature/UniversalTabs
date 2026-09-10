@@ -1060,7 +1060,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(catalog.profiles.count == 89)
     #expect(catalog.models.count == 164)
     #expect(catalog.fingerings.count == 24)
-    #expect(catalog.chordShapes.count == 3)
+    #expect(catalog.chordShapes.count == 32)
     #expect(InstrumentCatalogValidator().validate(catalog).isEmpty)
 }
 
@@ -2823,7 +2823,7 @@ private func stableFingerprint(_ data: Data) -> String {
             guitar {
                 voice chords {
                     perform folk {
-                        chord G major w using cowboyG
+                        chord G major w using openG
                     }
                 }
             }
@@ -2844,7 +2844,7 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(plucks.count == 4)
     #expect(strums.first?.parameters?["direction"] == .string("down"))
     #expect(strums.first?.parameters?["accent"] == .boolean(true))
-    #expect(strums.first?.parameters?["chordShape"] == .string("cowboyG"))
+    #expect(strums.first?.parameters?["chordShape"] == .string("openG"))
     if case .array(let members)? = strums.first?.parameters?["members"] {
         let positions = members.compactMap { member -> (Int, Int)? in
             guard case .object(let fields) = member,
@@ -2855,7 +2855,7 @@ private func stableFingerprint(_ data: Data) -> String {
         #expect(positions.map(\.0) == [6, 5, 4, 3, 2, 1])
         #expect(positions.map(\.1) == [3, 2, 0, 0, 0, 3])
     } else {
-        Issue.record("Expected explicit cowboyG strum members")
+        Issue.record("Expected explicit openG strum members")
     }
     #expect(plucks[0].at.musical?.measure == plucks[1].at.musical?.measure)
     #expect(plucks[0].at.musical?.beat == plucks[1].at.musical?.beat)

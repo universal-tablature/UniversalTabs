@@ -23,13 +23,127 @@ extension Guitar {
         course E4
     }
 
-    chordShape cowboyG : G major {
+    chordShape openA : A major {
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 2
+        string 2 fret 2
+        string 1 fret 0
+    }
+
+    chordShape openAMinor : A minor {
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 2
+        string 2 fret 1
+        string 1 fret 0
+    }
+
+    chordShape openA7 : A dominant7 {
+        string 5 fret 0
+        string 4 fret 2
+        string 3 fret 0
+        string 2 fret 2
+        string 1 fret 0
+    }
+
+    chordShape openB7 : B dominant7 {
+        string 5 fret 2
+        string 4 fret 1
+        string 3 fret 2
+        string 2 fret 0
+        string 1 fret 2
+    }
+
+    chordShape openC : C major {
+        string 5 fret 3
+        string 4 fret 2
+        string 3 fret 0
+        string 2 fret 1
+        string 1 fret 0
+    }
+
+    chordShape openC7 : C dominant7 {
+        string 5 fret 3
+        string 4 fret 2
+        string 3 fret 3
+        string 2 fret 1
+        string 1 fret 0
+    }
+
+    chordShape openD : D major {
+        string 4 fret 0
+        string 3 fret 2
+        string 2 fret 3
+        string 1 fret 2
+    }
+
+    chordShape openDMinor : D minor {
+        string 4 fret 0
+        string 3 fret 2
+        string 2 fret 3
+        string 1 fret 1
+    }
+
+    chordShape openD7 : D dominant7 {
+        string 4 fret 0
+        string 3 fret 2
+        string 2 fret 1
+        string 1 fret 2
+    }
+
+    chordShape openE : E major {
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+        string 3 fret 1
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    chordShape openEMinor : E minor {
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 2
+        string 3 fret 0
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    chordShape openE7 : E dominant7 {
+        string 6 fret 0
+        string 5 fret 2
+        string 4 fret 0
+        string 3 fret 1
+        string 2 fret 0
+        string 1 fret 0
+    }
+
+    chordShape openG : G major {
         string 6 fret 3
         string 5 fret 2
         string 4 fret 0
         string 3 fret 0
         string 2 fret 0
         string 1 fret 3
+    }
+
+    chordShape openGHighD : G major {
+        string 6 fret 3
+        string 5 fret 2
+        string 4 fret 0
+        string 3 fret 0
+        string 2 fret 3
+        string 1 fret 3
+    }
+
+    chordShape openG7 : G dominant7 {
+        string 6 fret 3
+        string 5 fret 2
+        string 4 fret 0
+        string 3 fret 0
+        string 2 fret 0
+        string 1 fret 1
     }
 
     chordShape cagedEBarreG : G major {
