@@ -13,6 +13,9 @@
 // limitations under the License.
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Testing
 @testable import UTABLanguageServer
 
@@ -194,7 +197,6 @@ struct UTABLanguageServerTests {
         #expect(start?["line"]?.intValue == 8)
     }
 
-#if canImport(Network)
     @Test("Embedded WebSocket carries standard JSON-RPC")
     func embeddedWebSocket() async throws {
         let embedded = EmbeddedUTABLanguageServer()
@@ -218,8 +220,6 @@ struct UTABLanguageServerTests {
         #expect(response?["id"]?.intValue == 7)
         #expect(response?["result"]?.objectValue?["capabilities"] != nil)
     }
-#endif
-
     @Test("Scoped naming and rational durations use compiler diagnostics")
     func scopedNamingDiagnostics() async throws {
         let server = UTABLanguageServer()

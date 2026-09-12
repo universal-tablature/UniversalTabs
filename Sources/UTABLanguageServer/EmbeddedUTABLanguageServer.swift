@@ -13,24 +13,22 @@
 // limitations under the License.
 
 import Foundation
-#if canImport(Network)
-import Network
-#endif
+import NIOCore
+import NIOHTTP1
+import NIOPosix
+import NIOWebSocket
 
 public enum EmbeddedUTABLanguageServerError: Error {
     case listenerStopped
     case unavailablePort
-    case networkFrameworkUnavailable
 }
 
-/// Hosts the LSP actor on a loopback WebSocket for an embedded Monaco client.
+/// Hosts the LSP service on a cross-platform loopback WebSocket for Monaco.
 public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
     private let server: UTABLanguageServer
-#if canImport(Network)
-    private let queue = DispatchQueue(label: "UniversalTabs.UTABLanguageServer")
-    private var listener: NWListener?
-    private var connections: [UUID: NWConnection] = [:]
-#endif
+    private let lock = NSLock()
+    private var eventLoopGroup: MultiThreadedEventLoopGroup?
+    private var channel: Channel?
 
     public init(configuration: UTABLanguageServerConfiguration = .init()) {
         server = UTABLanguageServer(configuration: configuration)
@@ -43,138 +41,139 @@ public final class EmbeddedUTABLanguageServer: @unchecked Sendable {
     }
 
     public func start() async throws -> URL {
-#if canImport(Network)
-        if let listener, let port = listener.port {
-            return URL(string: "ws://127.0.0.1:\(port.rawValue)/lsp")!
+        if let port = lock.withLock({ channel?.localAddress?.port }) {
+            return try webSocketURL(port: port)
         }
 
-        let webSocketOptions = NWProtocolWebSocket.Options()
-        webSocketOptions.autoReplyPing = true
-        let parameters = NWParameters(tls: nil, tcp: NWProtocolTCP.Options())
-        parameters.defaultProtocolStack.applicationProtocols.insert(webSocketOptions, at: 0)
-        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
-
-        let listener = try NWListener(using: parameters)
-        self.listener = listener
-        listener.newConnectionHandler = { [weak self] connection in
-            self?.accept(connection)
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let startup = ListenerStartup(continuation)
-            listener.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    guard let port = listener.port else {
-                        startup.fail(EmbeddedUTABLanguageServerError.unavailablePort)
-                        return
-                    }
-                    startup.succeed(URL(string: "ws://127.0.0.1:\(port.rawValue)/lsp")!)
-                case .failed(let error):
-                    startup.fail(error)
-                case .cancelled:
-                    startup.fail(EmbeddedUTABLanguageServerError.listenerStopped)
-                default:
-                    break
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        do {
+            let server = self.server
+            let bootstrap = ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.backlog, value: 16)
+                .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+                .childChannelInitializer { channel in
+                    let upgrader = NIOWebSocketServerUpgrader(
+                        shouldUpgrade: { channel, request in
+                            guard request.uri == "/lsp" else {
+                                return channel.eventLoop.makeSucceededFuture(nil)
+                            }
+                            return channel.eventLoop.makeSucceededFuture(HTTPHeaders())
+                        },
+                        upgradePipelineHandler: { channel, _ in
+                            channel.pipeline.addHandler(UTABWebSocketHandler(server: server))
+                        }
+                    )
+                    return channel.pipeline.configureHTTPServerPipeline(
+                        withServerUpgrade: (
+                            upgraders: [upgrader],
+                            completionHandler: { _ in }
+                        )
+                    )
                 }
+                .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+
+            let channel = try await bootstrap.bind(host: "127.0.0.1", port: 0).get()
+            guard let port = channel.localAddress?.port else {
+                try await channel.close().get()
+                throw EmbeddedUTABLanguageServerError.unavailablePort
             }
-            listener.start(queue: queue)
+            lock.withLock {
+                eventLoopGroup = group
+                self.channel = channel
+            }
+            return try webSocketURL(port: port)
+        } catch {
+            try? await group.shutdownGracefully()
+            throw error
         }
-#else
-        throw EmbeddedUTABLanguageServerError.networkFrameworkUnavailable
-#endif
     }
 
     public func stop() {
-#if canImport(Network)
-        queue.async { [weak self] in
-            guard let self else { return }
-            listener?.cancel()
-            listener = nil
-            for connection in connections.values {
-                connection.cancel()
+        let resources = lock.withLock { () -> (Channel?, MultiThreadedEventLoopGroup?) in
+            defer {
+                channel = nil
+                eventLoopGroup = nil
             }
-            connections.removeAll()
+            return (channel, eventLoopGroup)
         }
-#endif
+        resources.0?.close(promise: nil)
+        resources.1?.shutdownGracefully { _ in }
     }
 
-#if canImport(Network)
-    private func accept(_ connection: NWConnection) {
-        let id = UUID()
-        connections[id] = connection
-        connection.stateUpdateHandler = { [weak self, weak connection] state in
-            guard let self else { return }
-            switch state {
-            case .ready:
-                if let connection { receive(on: connection, id: id) }
-            case .failed, .cancelled:
-                connections[id] = nil
-            default:
-                break
-            }
+    private func webSocketURL(port: Int) throws -> URL {
+        guard let url = URL(string: "ws://127.0.0.1:\(port)/lsp") else {
+            throw EmbeddedUTABLanguageServerError.unavailablePort
         }
-        connection.start(queue: queue)
+        return url
+    }
+}
+
+private final class UTABWebSocketHandler: ChannelInboundHandler, @unchecked Sendable {
+    typealias InboundIn = WebSocketFrame
+    typealias OutboundOut = WebSocketFrame
+
+    private let server: UTABLanguageServer
+    private var fragmentedMessage: ByteBuffer?
+
+    init(server: UTABLanguageServer) {
+        self.server = server
     }
 
-    private func receive(on connection: NWConnection, id: UUID) {
-        connection.receiveMessage { [weak self, weak connection] data, _, _, error in
-            guard let self, let connection else { return }
-            if let data, !data.isEmpty {
-                Task {
-                    let responses = await server.handle(data)
-                    for response in responses {
-                        send(response, on: connection)
-                    }
-                }
-            }
-            if error == nil {
-                receive(on: connection, id: id)
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        var frame = unwrapInboundIn(data)
+        switch frame.opcode {
+        case .text, .binary:
+            if frame.fin {
+                dispatch(frame.unmaskedData, context: context)
             } else {
-                connections[id] = nil
+                fragmentedMessage = frame.unmaskedData
+            }
+        case .continuation:
+            var continuationData = frame.unmaskedData
+            if fragmentedMessage == nil {
+                fragmentedMessage = context.channel.allocator.buffer(capacity: continuationData.readableBytes)
+            }
+            fragmentedMessage?.writeBuffer(&continuationData)
+            if frame.fin, let message = fragmentedMessage {
+                fragmentedMessage = nil
+                dispatch(message, context: context)
+            }
+        case .ping:
+            context.writeAndFlush(wrapOutboundOut(WebSocketFrame(fin: true, opcode: .pong, data: frame.unmaskedData)), promise: nil)
+        case .connectionClose:
+            context.close(promise: nil)
+        default:
+            break
+        }
+    }
+
+    private func dispatch(_ buffer: ByteBuffer, context: ChannelHandlerContext) {
+        let payload = Data(buffer.readableBytesView)
+        let contextBox = SendableContext(context)
+        Task {
+            let responses = await server.handle(payload)
+            contextBox.value.eventLoop.execute {
+                let context = contextBox.value
+                for response in responses {
+                    var buffer = context.channel.allocator.buffer(capacity: response.count)
+                    buffer.writeBytes(response)
+                    let frame = WebSocketFrame(fin: true, opcode: .text, data: buffer)
+                    context.write(self.wrapOutboundOut(frame), promise: nil)
+                }
+                context.flush()
             }
         }
     }
 
-    private func send(_ data: Data, on connection: NWConnection) {
-        let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
-        let context = NWConnection.ContentContext(
-            identifier: "utab-lsp",
-            metadata: [metadata]
-        )
-        connection.send(
-            content: data,
-            contentContext: context,
-            isComplete: true,
-            completion: .contentProcessed { _ in }
-        )
-    }
-#endif
-}
-
-#if canImport(Network)
-private final class ListenerStartup: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<URL, any Error>?
-
-    init(_ continuation: CheckedContinuation<URL, any Error>) {
-        self.continuation = continuation
-    }
-
-    func succeed(_ url: URL) {
-        finish(with: .success(url))
-    }
-
-    func fail(_ error: any Error) {
-        finish(with: .failure(error))
-    }
-
-    private func finish(with result: Result<URL, any Error>) {
-        lock.lock()
-        let continuation = self.continuation
-        self.continuation = nil
-        lock.unlock()
-        continuation?.resume(with: result)
+    func errorCaught(context: ChannelHandlerContext, error: any Error) {
+        context.close(promise: nil)
     }
 }
-#endif
+
+private final class SendableContext: @unchecked Sendable {
+    let value: ChannelHandlerContext
+
+    init(_ value: ChannelHandlerContext) {
+        self.value = value
+    }
+}

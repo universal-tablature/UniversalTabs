@@ -41,6 +41,8 @@ var products: [Product] = [
 
 var dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.8.2")),
+    .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.3"),
+    .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", branch: "main"),
 ]
 
 var targets: [Target] = [
@@ -60,7 +62,19 @@ var targets: [Target] = [
     .target(name: "UTABEngraving", dependencies: ["UTABNotation"]),
     .target(
         name: "UTABLanguageServer",
-        dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]
+        dependencies: [
+            "UniversalTabs",
+            "UTABComposerCore",
+            "UTABComposerText",
+            "UTABInstrumentLibrary",
+            "UTABLowering",
+            .product(name: "LanguageServerProtocol", package: "swift-tools-protocols"),
+            .product(name: "LanguageServerProtocolTransport", package: "swift-tools-protocols"),
+            .product(name: "NIOCore", package: "swift-nio"),
+            .product(name: "NIOHTTP1", package: "swift-nio"),
+            .product(name: "NIOPosix", package: "swift-nio"),
+            .product(name: "NIOWebSocket", package: "swift-nio"),
+        ]
     ),
     .target(name: "UTABConversion", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
     .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),

@@ -25,15 +25,7 @@ struct UTabLanguageServerCommand {
                 return
             }
             let configuration = try parse(arguments)
-            let server = UTABLanguageServer(configuration: configuration)
-            var reader = StdioMessageReader()
-
-            while let message = try reader.nextMessage() {
-                let responses = await server.handle(message)
-                for response in responses {
-                    try write(response)
-                }
-            }
+            await UTABStdioLanguageServer.run(configuration: configuration)
         } catch {
             FileHandle.standardError.write(Data("utab-lsp: \(error)\n".utf8))
             Foundation.exit(EXIT_FAILURE)
@@ -63,12 +55,6 @@ struct UTabLanguageServerCommand {
         return UTABLanguageServerConfiguration(moduleSearchPaths: searchPaths)
     }
 
-    private static func write(_ message: Data) throws {
-        var framed = Data("Content-Length: \(message.count)\r\n\r\n".utf8)
-        framed.append(message)
-        try FileHandle.standardOutput.write(contentsOf: framed)
-    }
-
     private static let usage = """
     Usage: utab-lsp [options]
 
@@ -84,41 +70,5 @@ private struct CommandError: Error, CustomStringConvertible {
 
     init(_ description: String) {
         self.description = description
-    }
-}
-
-private struct StdioMessageReader {
-    private var buffer = Data()
-    private let separator = Data("\r\n\r\n".utf8)
-
-    mutating func nextMessage() throws -> Data? {
-        while true {
-            if let message = extractMessage() {
-                return message
-            }
-            guard let chunk = try FileHandle.standardInput.read(upToCount: 16_384),
-                  !chunk.isEmpty else {
-                return nil
-            }
-            buffer.append(chunk)
-        }
-    }
-
-    private mutating func extractMessage() -> Data? {
-        guard let headerRange = buffer.range(of: separator) else { return nil }
-        let headerData = buffer.subdata(in: buffer.startIndex..<headerRange.lowerBound)
-        guard let headers = String(data: headerData, encoding: .utf8),
-              let contentLength = headers
-                .split(separator: "\r\n")
-                .first(where: { $0.lowercased().hasPrefix("content-length:") })
-                .flatMap({ Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) })
-        else { return nil }
-
-        let bodyStart = headerRange.upperBound
-        let bodyEnd = bodyStart + contentLength
-        guard bodyEnd <= buffer.endIndex else { return nil }
-        let message = buffer.subdata(in: bodyStart..<bodyEnd)
-        buffer.removeSubrange(buffer.startIndex..<bodyEnd)
-        return message
     }
 }
