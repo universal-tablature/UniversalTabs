@@ -1,3 +1,6 @@
 [submodule "Vendor/NeuralAmpModelerPlugin"]
 	path = Vendor/NeuralAmpModelerPlugin
 	url = https://github.com/sdatkinson/NeuralAmpModelerPlugin.git
+[submodule "Vendor/mei-sample-encodings"]
+	path = Vendor/mei-sample-encodings
+	url = https://github.com/music-encoding/sample-encodings.git

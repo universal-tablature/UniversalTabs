@@ -22,12 +22,16 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
     case uTabJSON
     case midi
     case musicXML
+    case lilyPond
+    case mei
 
     public var fileExtension: String {
         switch self {
         case .uTabJSON: "utab.json"
         case .midi: "mid"
         case .musicXML: "musicxml"
+        case .lilyPond: "ly"
+        case .mei: "mei"
         }
     }
 
@@ -36,6 +40,8 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
         case .uTabJSON: "application/json"
         case .midi: "audio/midi"
         case .musicXML: "application/vnd.recordare.musicxml+xml"
+        case .lilyPond: "text/x-lilypond"
+        case .mei: "application/mei+xml"
         }
     }
 }
@@ -169,6 +175,24 @@ public struct UTabTextCompiler: Sendable {
                 }
             } catch {
                 diagnostics.append(.init(severity: .error, stage: .backend, message: "MusicXML encoding failed: \(error)", range: nil, path: nil))
+            }
+        }
+        if options.outputs.contains(.lilyPond) {
+            do {
+                let converted = try LilyPondInterchange.exportDocument(JSONEncoder().encode(document))
+                artifacts.append(artifact(.lilyPond, data: converted.data))
+                diagnostics += converted.diagnostics.map { .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil) }
+            } catch {
+                diagnostics.append(.init(severity: .error, stage: .backend, message: "LilyPond encoding failed: \(error)", range: nil, path: nil))
+            }
+        }
+        if options.outputs.contains(.mei) {
+            do {
+                let converted = try MEIInterchange.exportDocument(JSONEncoder().encode(document))
+                artifacts.append(artifact(.mei, data: converted.data))
+                diagnostics += converted.diagnostics.map { .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil) }
+            } catch {
+                diagnostics.append(.init(severity: .error, stage: .backend, message: "MEI encoding failed: \(error)", range: nil, path: nil))
             }
         }
 

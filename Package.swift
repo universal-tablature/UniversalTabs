@@ -31,9 +31,13 @@ var products: [Product] = [
     .executable(name: "utab-lsp", targets: ["UTabLanguageServerCommand"]),
     .executable(name: "utab-midi", targets: ["UTabMIDI"]),
     .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
+    .executable(name: "utab-lilypond", targets: ["UTabLilyPond"]),
+    .executable(name: "utab-mei", targets: ["UTabMEI"]),
 ]
 
-var dependencies: [Package.Dependency] = []
+var dependencies: [Package.Dependency] = [
+    .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.8.2")),
+]
 
 var targets: [Target] = [
     .target(name: "UniversalTabs"),
@@ -58,6 +62,14 @@ var targets: [Target] = [
     .executableTarget(name: "UTabLanguageServerCommand", dependencies: ["UTABLanguageServer"]),
     .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
     .executableTarget(name: "UTabMusicXML", dependencies: ["UniversalTabs"]),
+    .executableTarget(name: "UTabLilyPond", dependencies: [
+        "UniversalTabs",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+    ]),
+    .executableTarget(name: "UTabMEI", dependencies: [
+        "UniversalTabs",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+    ]),
     .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
     .testTarget(name: "UTABEditingTests", dependencies: ["UTABEditing", "UTABComposerCore"]),
     .testTarget(

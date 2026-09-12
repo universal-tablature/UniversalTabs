@@ -166,7 +166,7 @@ public enum MusicXMLInterchange {
     private static func targetIndex(_ target: String) -> Int? {
         guard let parsed = try? ActuatorTarget(parsing: target), case .index(let value) = parsed.selector, parsed.groupPath == "strings" else { return nil }; return value
     }
-    private static func expandedEvents(for track: EventTrack, setup: PerformanceSetup) -> [PerformanceEvent] {
+    static func expandedEvents(for track: EventTrack, setup: PerformanceSetup) -> [PerformanceEvent] {
         if let events = track.events { return events }
         guard let parts = track.parts, let arrangement = setup.arrangement, let sections = setup.sections else { return [] }
         let sectionsByID = Dictionary(sections.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })

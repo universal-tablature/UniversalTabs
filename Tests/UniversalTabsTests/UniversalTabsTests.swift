@@ -164,6 +164,10 @@ import Testing
     #expect(xml?.contains("<creator type=\"composer\">Example Composer</creator>") == true)
     #expect(xml?.contains("<work-title>Tab Studies</work-title>") == true)
     #expect(xml?.contains("<miscellaneous-field name=\"difficulty\">1</miscellaneous-field>") == true)
+    let lilyPond = try LilyPondInterchange.exportDocument(imported.data)
+    let lilyPondSource = try #require(String(data: lilyPond.data, encoding: .utf8))
+    #expect(lilyPondSource.contains("\\version \"2.24.0\""))
+    #expect(lilyPondSource.contains("g4"))
 }
 
 @Test func importsPitchedMusicXMLWithoutTablature() throws {
@@ -253,4 +257,63 @@ import Testing
     let roundTrip = try MusicXMLInterchange.importDocument(exported.data)
     let roundTripDocument = try JSONDecoder().decode(UTabDocument.self, from: roundTrip.data)
     #expect(roundTripDocument.tracks.first?.events?.first?.parameters?["unpitched"] == event.parameters?["unpitched"])
+}
+
+@Test func importsAndExportsMEI51NotesRestsAndChords() throws {
+    let mei = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.1"><meiHead><fileDesc><titleStmt><title>MEI Study</title></titleStmt><pubStmt/></fileDesc></meiHead><music><body><mdiv><score><scoreDef meter.count="4" meter.unit="4"><staffGrp><staffDef n="1" lines="5"/></staffGrp></scoreDef><section><measure n="1"><staff n="1"><layer n="1"><note pname="c" oct="4" dur="4"/><rest dur="4"/><chord dur="2"><note pname="e" oct="4"/><note pname="g" oct="4"/></chord></layer></staff></measure></section></score></mdiv></body></music></mei>
+    """
+    let imported = try MEIInterchange.importDocument(Data(mei.utf8))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    #expect(document.utab.title == "MEI Study")
+    #expect(document.tracks.first?.events?.count == 4)
+    #expect(document.tracks.first?.events?[1].type == "rest")
+    let exported = try MEIInterchange.exportDocument(imported.data)
+    let source = try #require(String(data: exported.data, encoding: .utf8))
+    #expect(source.contains("meiversion=\"5.1\""))
+    #expect(source.contains("<chord"))
+}
+
+@Test func importsVendoredMEI51Corpus() throws {
+    let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let corpusRoot = repositoryRoot.appendingPathComponent("Vendor/mei-sample-encodings/MEI_5.1", isDirectory: true)
+    let enumerator = try #require(FileManager.default.enumerator(
+        at: corpusRoot,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ))
+    let files = enumerator.compactMap { $0 as? URL }
+        .filter { $0.pathExtension.lowercased() == "mei" }
+        .sorted { $0.path < $1.path }
+    #expect(files.count >= 150)
+
+    var importedCount = 0
+    var roundTripCount = 0
+    var fragmentCount = 0
+    for file in files {
+        let relativePath = String(file.path.dropFirst(corpusRoot.path.count + 1))
+        do {
+            let imported = try MEIInterchange.importDocument(Data(contentsOf: file))
+            let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+            importedCount += 1
+            if document.tracks.contains(where: { !($0.events?.isEmpty ?? true) }) {
+                let exported = try MEIInterchange.exportDocument(imported.data)
+                let reimported = try MEIInterchange.importDocument(exported.data)
+                _ = try JSONDecoder().decode(UTabDocument.self, from: reimported.data)
+                roundTripCount += 1
+            }
+        } catch MusicXMLError.unsupported {
+            // The vendored 5.1 corpus also contains `mei-all_anyStart` element fragments.
+            fragmentCount += 1
+        } catch {
+            Issue.record("Failed MEI 5.1 sample \(relativePath): \(error)")
+        }
+    }
+    #expect(importedCount + fragmentCount == files.count)
+    #expect(importedCount > 0)
+    #expect(roundTripCount > 0)
 }

@@ -47,6 +47,7 @@ swift build --configuration release --show-bin-path
 | `utab-lsp` | Run the language server over LSP/JSON-RPC on standard input and output | macOS, Linux, Windows |
 | `utab-midi` | Convert `.utab.json` documents to Standard MIDI files | macOS, Linux, Windows |
 | `utab-musicxml` | Import MusicXML or export Universal Tablature JSON as MusicXML | macOS, Linux, Windows |
+| `utab-lilypond` | Export UTAB JSON to LilyPond, optionally rendering and opening PDF output | macOS, Linux, Windows |
 | `utab-pdmx-index` | Index a PDMX dataset | macOS, Linux |
 | `utab-pdmx-import` | Import indexed PDMX entries | macOS, Linux |
 | `utab-pdmx-validate` | Round-trip indexed PDMX entries through UTAB and MusicXML | macOS, Linux |

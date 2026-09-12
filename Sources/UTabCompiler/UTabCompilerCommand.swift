@@ -155,6 +155,8 @@ struct UTabCompilerCommand {
         case "utab-json", "json": options.formats.insert(.uTabJSON)
         case "midi", "mid": options.formats.insert(.midi)
         case "musicxml", "xml": options.formats.insert(.musicXML)
+        case "lilypond", "ly": options.formats.insert(.lilyPond)
+        case "mei": options.formats.insert(.mei)
         default: throw ArgumentError.message("unknown output format '\(value)'")
         }
     }
@@ -184,7 +186,7 @@ struct UTabCompilerCommand {
 
     Compile Universal Tabs composer source.
 
-      --emit <utab-json|midi|musicxml>
+      --emit <utab-json|midi|musicxml|lilypond|mei>
                                Emit a format; may be repeated (default: utab-json)
       -o <path>                Output path when exactly one format is emitted
       -I <directory>           Add a module search directory; may be repeated
