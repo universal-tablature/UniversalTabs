@@ -108,7 +108,16 @@ var targets: [Target] = [
         dependencies: ["UTABComposerCore", "UTABInstruments", "UTABComposerDSL", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering", "UniversalTabs"]
     ),
     .testTarget(name: "UTabCompilerIntegrationTests", dependencies: ["UTabCompiler"]),
-    .testTarget(name: "UTABLanguageServerTests", dependencies: ["UTABLanguageServer"]),
+    .testTarget(
+        name: "UTABLanguageServerTests",
+        dependencies: [
+            "UTABLanguageServer",
+            .product(name: "NIOCore", package: "swift-nio"),
+            .product(name: "NIOHTTP1", package: "swift-nio"),
+            .product(name: "NIOPosix", package: "swift-nio"),
+            .product(name: "NIOWebSocket", package: "swift-nio"),
+        ]
+    ),
     .testTarget(name: "UTABConversionTests", dependencies: ["UTABConversion", "UniversalTabs"]),
 ]
 

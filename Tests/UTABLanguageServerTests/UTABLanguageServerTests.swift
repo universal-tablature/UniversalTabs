@@ -13,9 +13,10 @@
 // limitations under the License.
 
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
+import NIOCore
+import NIOHTTP1
+import NIOPosix
+import NIOWebSocket
 import Testing
 @testable import UTABLanguageServer
 
@@ -203,18 +204,10 @@ struct UTABLanguageServerTests {
         let url = try await embedded.start()
         defer { embedded.stop() }
 
-        let socket = URLSession(configuration: .ephemeral).webSocketTask(with: url)
-        socket.resume()
-        defer { socket.cancel(with: .normalClosure, reason: nil) }
-
-        try await socket.send(.data(message(method: "initialize", id: 7, params: [:])))
-        let reply = try await socket.receive()
-        let data: Data
-        switch reply {
-        case .data(let value): data = value
-        case .string(let value): data = Data(value.utf8)
-        @unknown default: throw CocoaError(.coderInvalidValue)
-        }
+        let data = try await exchangeWebSocketMessage(
+            message(method: "initialize", id: 7, params: [:]),
+            at: url
+        )
 
         let response = try decode(data).objectValue
         #expect(response?["id"]?.intValue == 7)
@@ -245,6 +238,89 @@ struct UTABLanguageServerTests {
             let diagnostics = response?["params"]?.objectValue?["diagnostics"]?.arrayValue ?? []
             if version == 1 { #expect(diagnostics.isEmpty, "\(diagnostics)") }
             else { #expect(diagnostics.contains { $0.objectValue?["message"]?.stringValue?.contains("Unknown note name 'Z'") == true }) }
+        }
+    }
+
+    private enum WebSocketUpgradeResult: Sendable {
+        case upgraded(NIOAsyncChannel<WebSocketFrame, WebSocketFrame>)
+        case rejected
+    }
+
+    private enum WebSocketTestError: Error {
+        case invalidURL
+        case upgradeRejected
+        case connectionClosed
+    }
+
+    private func exchangeWebSocketMessage(_ message: Data, at url: URL) async throws -> Data {
+        guard let host = url.host, let port = url.port else {
+            throw WebSocketTestError.invalidURL
+        }
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        do {
+            let upgradeFuture: EventLoopFuture<WebSocketUpgradeResult> = try await ClientBootstrap(group: group)
+                .connect(host: host, port: port) { channel in
+                    channel.eventLoop.makeCompletedFuture {
+                        let upgrader = NIOTypedWebSocketClientUpgrader<WebSocketUpgradeResult>(
+                            upgradePipelineHandler: { channel, _ in
+                                channel.eventLoop.makeCompletedFuture {
+                                    let asyncChannel = try NIOAsyncChannel<WebSocketFrame, WebSocketFrame>(
+                                        wrappingChannelSynchronously: channel
+                                    )
+                                    return .upgraded(asyncChannel)
+                                }
+                            }
+                        )
+                        let request = HTTPRequestHead(
+                            version: .http1_1,
+                            method: .GET,
+                            uri: url.path,
+                            headers: ["Host": host]
+                        )
+                        let configuration = NIOTypedHTTPClientUpgradeConfiguration(
+                            upgradeRequestHead: request,
+                            upgraders: [upgrader],
+                            notUpgradingCompletionHandler: { channel in
+                                channel.eventLoop.makeSucceededFuture(.rejected)
+                            }
+                        )
+                        return try channel.pipeline.syncOperations.configureUpgradableHTTPClientPipeline(
+                            configuration: .init(upgradeConfiguration: configuration)
+                        )
+                    }
+                }
+
+            let result: Data
+            switch try await upgradeFuture.get() {
+            case .upgraded(let channel):
+                result = try await channel.executeThenClose { inbound, outbound in
+                    var buffer = ByteBufferAllocator().buffer(capacity: message.count)
+                    buffer.writeBytes(message)
+                    let frame = WebSocketFrame(
+                        fin: true,
+                        opcode: .text,
+                        maskKey: [1, 2, 3, 4],
+                        data: buffer
+                    )
+                    try await outbound.write(frame)
+
+                    guard let reply = try await inbound.first(where: {
+                        $0.opcode == .text || $0.opcode == .binary
+                    }) else {
+                        throw WebSocketTestError.connectionClosed
+                    }
+                    return Data(reply.unmaskedData.readableBytesView)
+                }
+            case .rejected:
+                throw WebSocketTestError.upgradeRejected
+            }
+
+            try await group.shutdownGracefully()
+            return result
+        } catch {
+            try? await group.shutdownGracefully()
+            throw error
         }
     }
 
