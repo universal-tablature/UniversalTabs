@@ -288,7 +288,7 @@
         "id": { "$ref": "#/$defs/identifier" },
         "at": { "$ref": "#/$defs/timePosition" },
         "duration": { "$ref": "#/$defs/duration" },
-        "type": { "enum": ["action", "state", "control", "gesture"] },
+        "type": { "enum": ["action", "state", "control", "gesture", "rest", "grace"] },
         "action": { "type": "string", "minLength": 1 },
         "gesture": { "type": "string", "minLength": 1 },
         "target": { "type": "string", "minLength": 1 },
@@ -320,7 +320,8 @@
         { "required": ["gesture", "target"] },
         { "required": ["gesture", "targets"] },
         { "required": ["changes"] },
-        { "required": ["target", "parameter", "curve"] }
+        { "required": ["target", "parameter", "curve"] },
+        { "properties": { "type": { "const": "rest" } }, "required": ["type", "duration"] }
       ],
       "not": { "required": ["target", "targets"] }
     },

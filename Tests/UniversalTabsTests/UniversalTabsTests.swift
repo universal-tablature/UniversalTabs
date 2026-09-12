@@ -147,6 +147,7 @@ import Testing
     let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
     #expect(document.tracks.count == 1)
     #expect(document.tracks[0].events?.count == 2)
+    #expect(document.tracks[0].events?.last?.parameters?["pitch"] == .string("G3"))
     #expect(document.utab.title == "Prelude")
     #expect(document.utab.work?.title == "Tab Studies")
     #expect(document.utab.work?.number == "Op. 1")
@@ -163,4 +164,93 @@ import Testing
     #expect(xml?.contains("<creator type=\"composer\">Example Composer</creator>") == true)
     #expect(xml?.contains("<work-title>Tab Studies</work-title>") == true)
     #expect(xml?.contains("<miscellaneous-field name=\"difficulty\">1</miscellaneous-field>") == true)
+}
+
+@Test func importsPitchedMusicXMLWithoutTablature() throws {
+    let xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+      <part id="P1"><measure number="1"><attributes><divisions>4</divisions></attributes>
+        <note><pitch><step>C</step><alter>1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    let imported = try MusicXMLInterchange.importDocument(Data(xml.utf8))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    let event = try #require(document.tracks.first?.events?.first)
+
+    #expect(event.action == "play")
+    #expect(event.target == "notes")
+    #expect(event.parameters?["pitch"] == .string("C#4"))
+    #expect(event.duration?.quarterNotes == .string("0.5"))
+    #expect(UTabValidator().validate(document).isEmpty)
+}
+
+@Test func importsMusicXMLRestsAndGraceNotes() throws {
+    let xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
+      <part id="P1"><measure number="1"><attributes><divisions>4</divisions></attributes>
+        <note><rest/><duration>4</duration><voice>1</voice></note>
+        <note><grace steal-time-following="10"/><pitch><step>D</step><octave>5</octave></pitch><voice>1</voice></note>
+        <note><pitch><step>E</step><octave>5</octave></pitch><duration>4</duration><voice>1</voice></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    let imported = try MusicXMLInterchange.importDocument(Data(xml.utf8))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    let events = try #require(document.tracks.first?.events)
+
+    #expect(events.count == 3)
+    #expect(events[0].type == "rest")
+    #expect(events[0].duration?.quarterNotes == .string("1"))
+    #expect(events[1].type == "grace")
+    #expect(events[1].parameters?["pitch"] == .string("D5"))
+    #expect(events[1].parameters?["grace"] == .object([
+        "policy": .string("stealFollowing"),
+        "steal-time-following": .number(10),
+    ]))
+    #expect(events[1].at.musical?.beat == 2)
+    #expect(events[2].at.musical?.beat == 2)
+    #expect(UTabValidator().validate(document).isEmpty)
+
+    let exported = try MusicXMLInterchange.exportDocument(imported.data)
+    let exportedXML = try #require(String(data: exported.data, encoding: .utf8))
+    #expect(exportedXML.contains("<rest/><duration>480</duration>"))
+    #expect(exportedXML.contains("<grace steal-time-following=\"10\"/><pitch><step>D</step><octave>5</octave></pitch>"))
+    #expect(exportedXML.contains("<pitch><step>E</step><octave>5</octave></pitch><duration>480</duration>"))
+}
+
+@Test func importsAndExportsUnpitchedMusicXMLNotes() throws {
+    let xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Drums</part-name></score-part></part-list>
+      <part id="P1"><measure number="1"><attributes><divisions>4</divisions></attributes>
+        <note><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><instrument id="P1-I36"/><duration>1</duration><voice>1</voice></note>
+      </measure></part>
+    </score-partwise>
+    """
+
+    let imported = try MusicXMLInterchange.importDocument(Data(xml.utf8))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    let event = try #require(document.tracks.first?.events?.first)
+    #expect(event.parameters?["unpitched"] == .object([
+        "displayStep": .string("F"),
+        "displayOctave": .number(4),
+        "instrumentID": .string("P1-I36"),
+    ]))
+
+    let exported = try MusicXMLInterchange.exportDocument(imported.data)
+    let exportedXML = try #require(String(data: exported.data, encoding: .utf8))
+    #expect(exportedXML.contains("<unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched>"))
+    #expect(exportedXML.contains("<instrument id=\"P1-I36\"/>"))
+
+    let roundTrip = try MusicXMLInterchange.importDocument(exported.data)
+    let roundTripDocument = try JSONDecoder().decode(UTabDocument.self, from: roundTrip.data)
+    #expect(roundTripDocument.tracks.first?.events?.first?.parameters?["unpitched"] == event.parameters?["unpitched"])
 }

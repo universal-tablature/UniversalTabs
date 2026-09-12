@@ -69,9 +69,10 @@ var targets: [Target] = [
 ]
 
 #if !os(Windows)
-products += [
+    products += [
     .executable(name: "utab-pdmx-index", targets: ["UTabPDMXIndex"]),
-    .executable(name: "utab-pdmx-import", targets: ["UTabPDMXImport"]),
+	    .executable(name: "utab-pdmx-import", targets: ["UTabPDMXImport"]),
+	    .executable(name: "utab-pdmx-validate", targets: ["UTabPDMXValidate"]),
 ]
 dependencies.append(
     .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0"))
@@ -82,6 +83,10 @@ targets += [
         .product(name: "ZIPFoundation", package: "ZIPFoundation"),
     ]),
     .executableTarget(name: "UTabPDMXImport", dependencies: [
+        "UniversalTabs",
+        .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+    ]),
+    .executableTarget(name: "UTabPDMXValidate", dependencies: [
         "UniversalTabs",
         .product(name: "ZIPFoundation", package: "ZIPFoundation"),
     ]),

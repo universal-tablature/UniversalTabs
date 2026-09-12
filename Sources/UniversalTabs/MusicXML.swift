@@ -43,6 +43,10 @@ public enum MusicXMLInterchange {
     public static func exportDocument(_ data: Data) throws -> MusicXMLResult {
         let document = try JSONDecoder().decode(UTabDocument.self, from: data)
         var diagnostics: [String] = []
+        let divisions = 480
+        let meter = document.setup.time?.meter
+        let numerator = meter?.numerator ?? 4
+        let denominator = meter?.denominator ?? 4
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 4.0 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n<score-partwise version=\"4.0\">"
         xml += metadataXML(document.utab)
         xml += "<part-list>"
@@ -52,33 +56,111 @@ public enum MusicXMLInterchange {
         xml += "</part-list>"
         for (index, track) in document.tracks.enumerated() {
             guard let events = track.events else { diagnostics.append("\(track.id): sectioned export is not yet supported"); continue }
-            xml += "<part id=\"P\(index + 1)\"><measure number=\"1\"><attributes><divisions>480</divisions><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>TAB</sign><line>5</line></clef></attributes>"
+            xml += "<part id=\"P\(index + 1)\">"
             var frets: [Int: Int] = [:]
-            var cursor = 0
-            for event in events.sorted(by: { tick($0) < tick($1) }) {
-                let eventTick = tick(event)
-                if eventTick > cursor { xml += "<forward><duration>\(eventTick - cursor)</duration></forward>"; cursor = eventTick }
-                for change in event.changes ?? [] {
-                    if change.parameter == "fret", let string = targetIndex(change.target), case .number(let value) = change.value { frets[string] = Int(value) }
+            let grouped = Dictionary(grouping: events, by: { $0.at.musical?.measure ?? 1 })
+            for measure in grouped.keys.sorted() {
+                xml += "<measure number=\"\(measure)\">"
+                if measure == grouped.keys.min() {
+                    xml += "<attributes><divisions>\(divisions)</divisions><time><beats>\(numerator)</beats><beat-type>\(denominator)</beat-type></time></attributes>"
                 }
-                guard event.action == "pluck", let target = event.target, let string = targetIndex(target) else { continue }
-                let fret = frets[string] ?? 0
-                xml += "<note><pitch><step>C</step><octave>4</octave></pitch><duration>216</duration><voice>1</voice><type>eighth</type><notations><technical><string>\(string)</string><fret>\(fret)</fret></technical></notations></note>"
-                cursor += 216
+                var cursor = 0
+                var lastSoundingTick: Int?
+                let measureEvents = (grouped[measure] ?? []).enumerated().sorted {
+                    let lhs = localTick($0.element, divisions: divisions, denominator: denominator)
+                    let rhs = localTick($1.element, divisions: divisions, denominator: denominator)
+                    if lhs != rhs { return lhs < rhs }
+                    if ($0.element.changes != nil) != ($1.element.changes != nil) { return $0.element.changes != nil }
+                    return $0.offset < $1.offset
+                }.map(\.element)
+                for event in measureEvents {
+                    let eventTick = localTick(event, divisions: divisions, denominator: denominator)
+                    for change in event.changes ?? [] {
+                        if change.parameter == "fret", let string = targetIndex(change.target), case .number(let value) = change.value { frets[string] = Int(value) }
+                    }
+                    guard event.type == "rest" || event.action != nil || event.gesture != nil else { continue }
+                    if eventTick > cursor { xml += "<forward><duration>\(eventTick - cursor)</duration></forward>"; cursor = eventTick }
+                    let duration = durationTicks(event.duration, divisions: divisions)
+                    let isGrace = event.type == "grace"
+                    let isChordTone = !isGrace && lastSoundingTick == eventTick && event.type != "rest"
+                    xml += "<note>"
+                    if isChordTone { xml += "<chord/>" }
+                    if isGrace { xml += graceXML(event.parameters?["grace"]) }
+                    if event.type == "rest" {
+                        xml += "<rest/>"
+                    } else if let unpitched = unpitchedXML(event.parameters?["unpitched"]) {
+                        xml += unpitched
+                    } else if let pitch = pitchXML(event.parameters?["pitch"]) {
+                        xml += pitch
+                    } else {
+                        diagnostics.append("\(track.id): event at measure \(measure) has no exportable pitch; using C4")
+                        xml += "<pitch><step>C</step><octave>4</octave></pitch>"
+                    }
+                    if !isGrace { xml += "<duration>\(max(1, duration))</duration>" }
+                    xml += "<voice>1</voice>"
+                    if event.action == "pluck", let target = event.target, let string = targetIndex(target) {
+                        xml += "<notations><technical><string>\(string)</string><fret>\(frets[string] ?? 0)</fret></technical></notations>"
+                    }
+                    xml += "</note>"
+                    if !isGrace && !isChordTone { cursor = max(cursor, eventTick + max(1, duration)) }
+                    if event.type != "rest" { lastSoundingTick = eventTick }
+                }
+                xml += "</measure>"
             }
-            xml += "</measure></part>"
+            xml += "</part>"
         }
         xml += "</score-partwise>"
         return MusicXMLResult(data: Data(xml.utf8), diagnostics: diagnostics)
     }
 
-    private static func tick(_ event: PerformanceEvent) -> Int {
+    private static func localTick(_ event: PerformanceEvent, divisions: Int, denominator: Int) -> Int {
         guard let position = event.at.musical else { return 0 }
-        let offset: Double
-        if case .string(let text)? = position.offset {
-            let parts = text.split(separator: "/"); offset = parts.count == 2 ? (Double(parts[0])! / Double(parts[1])!) : (Double(text) ?? 0)
-        } else { offset = 0 }
-        return ((position.measure - 1) * 4 + (position.beat ?? 1) - 1) * 480 + Int(offset * 480)
+        let beatLength = 4.0 / Double(denominator)
+        return Int((((Double(position.beat ?? 1) - 1) + rational(position.offset)) * beatLength * Double(divisions)).rounded())
+    }
+    private static func durationTicks(_ duration: EventDuration?, divisions: Int) -> Int {
+        Int((rational(duration?.quarterNotes) * Double(divisions)).rounded())
+    }
+    private static func rational(_ value: JSONValue?) -> Double {
+        switch value {
+        case .number(let number): return number
+        case .string(let text):
+            let parts = text.split(separator: "/")
+            if parts.count == 2, let numerator = Double(parts[0]), let denominator = Double(parts[1]), denominator != 0 { return numerator / denominator }
+            return Double(text) ?? 0
+        default: return 0
+        }
+    }
+    private static func pitchXML(_ value: JSONValue?) -> String? {
+        guard case .string(let pitch)? = value, let first = pitch.first else { return nil }
+        let suffix = pitch.dropFirst()
+        guard let octaveStart = suffix.firstIndex(where: { $0.isNumber || $0 == "-" }),
+              let octave = Int(suffix[octaveStart...]) else { return nil }
+        let accidentals = suffix[..<octaveStart]
+        let alter = accidentals.reduce(0) { result, character in result + (character == "#" ? 1 : character == "b" ? -1 : 0) }
+        let alterXML = alter == 0 ? "" : "<alter>\(alter)</alter>"
+        return "<pitch><step>\(escape(String(first).uppercased()))</step>\(alterXML)<octave>\(octave)</octave></pitch>"
+    }
+    private static func unpitchedXML(_ value: JSONValue?) -> String? {
+        guard case .object(let unpitched)? = value,
+              case .string(let step)? = unpitched["displayStep"] else { return nil }
+        var xml = "<unpitched><display-step>\(escape(step.uppercased()))</display-step>"
+        if case .number(let octave)? = unpitched["displayOctave"] {
+            xml += "<display-octave>\(Int(octave))</display-octave>"
+        }
+        xml += "</unpitched>"
+        if case .string(let instrumentID)? = unpitched["instrumentID"] {
+            xml += "<instrument id=\"\(escape(instrumentID))\"/>"
+        }
+        return xml
+    }
+    private static func graceXML(_ value: JSONValue?) -> String {
+        guard case .object(let grace)? = value else { return "<grace/>" }
+        var attributes = ""
+        for key in ["steal-time-previous", "steal-time-following", "make-time"] {
+            if case .number(let number)? = grace[key] { attributes += " \(key)=\"\(number.formatted(.number.grouping(.never)))\"" }
+        }
+        return "<grace\(attributes)/>"
     }
     private static func targetIndex(_ target: String) -> Int? {
         guard let parsed = try? ActuatorTarget(parsing: target), case .index(let value) = parsed.selector, parsed.groupPath == "strings" else { return nil }; return value
@@ -129,7 +211,36 @@ public enum MusicXMLInterchange {
 }
 
 private final class Reader: NSObject, XMLParserDelegate {
-    struct Note { var measure = 1; var tick = 0; var duration = 0; var voice = 1; var staff = 1; var string: Int?; var fret: Int?; var chord = false; var rest = false; var grace = false }
+    struct Note {
+        var measure = 1
+        var tick = 0
+        var duration = 0
+        var voice = 1
+        var staff = 1
+        var string: Int?
+        var fret: Int?
+        var step: String?
+        var alter: Double = 0
+        var octave: Int?
+        var unpitchedStep: String?
+        var unpitchedOctave: Int?
+        var instrumentID: String?
+        var chord = false
+        var rest = false
+        var grace = false
+        var graceAttributes: [String: String] = [:]
+
+        var pitch: String? {
+            guard let step, let octave else { return nil }
+            let roundedAlter = alter.rounded()
+            guard alter == roundedAlter else { return nil }
+            let accidental: String
+            if roundedAlter > 0 { accidental = String(repeating: "#", count: Int(roundedAlter)) }
+            else if roundedAlter < 0 { accidental = String(repeating: "b", count: Int(-roundedAlter)) }
+            else { accidental = "" }
+            return "\(step.uppercased())\(accidental)\(octave)"
+        }
+    }
     var root = ""; var diagnostics: [String] = []; var divisions = 1; var part = ""; var measure = 1; var measureOrdinal = 0; var cursor = 0; var lastStart = 0
     var notes: [String: [Note]] = [:]; var current: Note?; var text = ""; var stack: [String] = []; var attributeStack: [[String:String]] = []
     var workNumber: String?; var workTitle: String?; var opus: String?; var movementNumber: String?; var movementTitle: String?
@@ -143,7 +254,11 @@ private final class Reader: NSObject, XMLParserDelegate {
         if name == "note" { current = Note(measure: measure, tick: cursor) }
         if name == "chord" { current?.chord = true; current?.tick = lastStart }
         if name == "rest" { current?.rest = true }
-        if name == "grace" { current?.grace = true }
+        if name == "grace" {
+            current?.grace = true
+            current?.graceAttributes = attributeDict
+        }
+        if name == "instrument", current != nil { current?.instrumentID = attributeDict["id"] }
     }
     func parser(_ parser: XMLParser, foundCharacters string: String) { text += string }
     func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
@@ -169,6 +284,11 @@ private final class Reader: NSObject, XMLParserDelegate {
             else if stack.dropLast().last == "backup" { cursor = max(0, cursor - number) }
             else if stack.dropLast().last == "forward" { cursor += number }
         }
+        if name == "step", !value.isEmpty { current?.step = value }
+        if name == "alter", let number = Double(value) { current?.alter = number }
+        if name == "octave", let number = Int(value) { current?.octave = number }
+        if name == "display-step", !value.isEmpty { current?.unpitchedStep = value }
+        if name == "display-octave", let number = Int(value) { current?.unpitchedOctave = number }
         if name == "string", let number = Int(value) { current?.string = number }
         if name == "fret", let number = Int(value) { current?.fret = number }
         if name == "voice", let number = Int(value) { current?.voice = number }
@@ -185,25 +305,56 @@ private final class Reader: NSObject, XMLParserDelegate {
             let groups = Dictionary(grouping: entry.value, by: { "\($0.staff):\($0.voice)" })
             for voiceGroup in groups.sorted(by: { $0.key < $1.key }) {
                 var events: [[String:Any]] = []
-                var skippedWithoutTab = 0
-                var skippedGrace = 0
-                for note in voiceGroup.value where !note.rest {
-                    if note.grace { skippedGrace += 1; continue }
-                    guard let string = note.string, let fret = note.fret else { skippedWithoutTab += 1; continue }
+                var skippedWithoutPitchOrTab = 0
+                for note in voiceGroup.value {
                     let quarters = Double(note.tick) / Double(max(1, divisions)); let beat = Int(quarters.rounded(.down)) + 1; let fraction = quarters - floor(quarters)
                     var musical: [String:Any] = ["measure":note.measure,"beat":beat]; if fraction != 0 { musical["offset"] = String(format:"%.6g",fraction) }
                     let at: [String:Any] = ["musical":musical]
-                    events.append(["at":at,"type":"state","changes":[["target":"strings[\(string)]","parameter":"fret","value":fret]]])
-                    var pluck: [String:Any] = ["at":at,"action":"pluck","target":"strings[\(string)]"]
-                    if note.duration > 0 { pluck["duration"] = ["quarterNotes":String(format:"%.6g",Double(note.duration)/Double(max(1,divisions)))] }
-                    events.append(pluck)
+                    if note.rest {
+                        var restEvent: [String: Any] = ["at": at, "type": "rest"]
+                        if note.duration > 0 { restEvent["duration"] = ["quarterNotes":String(format:"%.6g",Double(note.duration)/Double(max(1,divisions)))] }
+                        events.append(restEvent)
+                        continue
+                    }
+                    guard note.pitch != nil || note.unpitchedStep != nil || (note.string != nil && note.fret != nil) else {
+                        skippedWithoutPitchOrTab += 1
+                        continue
+                    }
+                    var soundingEvent: [String: Any]
+                    if let string = note.string, let fret = note.fret {
+                        events.append(["at":at,"type":"state","changes":[["target":"strings[\(string)]","parameter":"fret","value":fret]]])
+                        soundingEvent = ["at":at,"action":"pluck","target":"strings[\(string)]"]
+                    } else {
+                        soundingEvent = ["at":at,"action":"play","target":"notes"]
+                    }
+                    var parameters: [String: Any] = [:]
+                    if let pitch = note.pitch { parameters["pitch"] = pitch }
+                    if let displayStep = note.unpitchedStep {
+                        var unpitched: [String: Any] = ["displayStep": displayStep]
+                        if let displayOctave = note.unpitchedOctave { unpitched["displayOctave"] = displayOctave }
+                        if let instrumentID = note.instrumentID { unpitched["instrumentID"] = instrumentID }
+                        parameters["unpitched"] = unpitched
+                    }
+                    if note.grace {
+                        var grace: [String: Any] = ["policy": musicXMLGracePolicy(note.graceAttributes)]
+                        for key in ["steal-time-previous", "steal-time-following", "make-time"] {
+                            if let value = note.graceAttributes[key], let number = Double(value) { grace[key] = number }
+                        }
+                        parameters["grace"] = grace
+                        soundingEvent["type"] = "grace"
+                    }
+                    if !parameters.isEmpty { soundingEvent["parameters"] = parameters }
+                    if note.pitch == nil, note.step != nil {
+                        diagnostics.append("\(entry.key) staff/voice \(voiceGroup.key): preserved tablature but omitted unsupported microtonal pitch spelling")
+                    }
+                    if note.duration > 0 { soundingEvent["duration"] = ["quarterNotes":String(format:"%.6g",Double(note.duration)/Double(max(1,divisions)))] }
+                    events.append(soundingEvent)
                 }
-                if skippedWithoutTab > 0 { diagnostics.append("\(entry.key) staff/voice \(voiceGroup.key): skipped \(skippedWithoutTab) notes without tablature string/fret") }
-                if skippedGrace > 0 { diagnostics.append("\(entry.key) staff/voice \(voiceGroup.key): skipped \(skippedGrace) grace notes because grace ordering is not yet defined") }
+                if skippedWithoutPitchOrTab > 0 { diagnostics.append("\(entry.key) staff/voice \(voiceGroup.key): skipped \(skippedWithoutPitchOrTab) notes without pitch or tablature string/fret") }
                 if !events.isEmpty { tracks.append(["id":"track-\(index + 1)-staff-voice-\(voiceGroup.key.replacingOccurrences(of: ":", with: "-"))","instrument":instrument,"events":events]) }
             }
         }
-        guard !tracks.isEmpty else { throw MusicXMLError.unsupported("MusicXML contains no importable string/fret tablature events") }
+        guard !tracks.isEmpty else { throw MusicXMLError.unsupported("MusicXML contains no importable pitched, tablature, or rest events") }
         var metadata: [String:Any] = ["version":"0.1-draft", "title":movementTitle ?? workTitle ?? "MusicXML import"]
         if workNumber != nil || workTitle != nil || opus != nil { metadata["work"] = compact(["number":workNumber,"title":workTitle,"opus":opus]) }
         if movementNumber != nil || movementTitle != nil { metadata["movement"] = compact(["number":movementNumber,"title":movementTitle]) }
@@ -214,10 +365,17 @@ private final class Reader: NSObject, XMLParserDelegate {
         let encoding = compact(["date":encodingDate,"software":software.isEmpty ? nil : software,"encoders":encoders.isEmpty ? nil : encoders,"description":encodingDescription])
         if !encoding.isEmpty { metadata["encoding"] = encoding }
         if !miscellaneous.isEmpty { metadata["miscellaneous"] = miscellaneous }
-        let root: [String:Any] = ["utab":metadata,"setup":["profiles":[["id":"profile:fretted-string","name":"Fretted String","actuators":["strings":["count":stringCount]],"interactions":["pluck":[:]]]],"instruments":instruments],"tracks":tracks]
+        let root: [String:Any] = ["utab":metadata,"setup":["profiles":[["id":"profile:fretted-string","name":"Fretted String","actuators":["strings":["count":stringCount],"notes":[:]],"interactions":["pluck":[:],"play":[:]]]],"instruments":instruments],"tracks":tracks]
         return try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted,.sortedKeys])
     }
     private func compact(_ values: [String: Any?]) -> [String: Any] {
         values.reduce(into: [:]) { result, item in if let value = item.value { result[item.key] = value } }
+    }
+
+    private func musicXMLGracePolicy(_ attributes: [String: String]) -> String {
+        if attributes["steal-time-following"] != nil { return "stealFollowing" }
+        if attributes["steal-time-previous"] != nil { return "stealPrevious" }
+        if attributes["make-time"] != nil { return "makeTime" }
+        return "unspecified"
     }
 }

@@ -49,6 +49,7 @@ swift build --configuration release --show-bin-path
 | `utab-musicxml` | Import MusicXML or export Universal Tablature JSON as MusicXML | macOS, Linux, Windows |
 | `utab-pdmx-index` | Index a PDMX dataset | macOS, Linux |
 | `utab-pdmx-import` | Import indexed PDMX entries | macOS, Linux |
+| `utab-pdmx-validate` | Round-trip indexed PDMX entries through UTAB and MusicXML | macOS, Linux |
 
 For example:
 
