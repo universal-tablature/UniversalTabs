@@ -24,6 +24,7 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
     case musicXML
     case lilyPond
     case mei
+    case mnx
 
     public var fileExtension: String {
         switch self {
@@ -32,6 +33,7 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
         case .musicXML: "musicxml"
         case .lilyPond: "ly"
         case .mei: "mei"
+        case .mnx: "mnx"
         }
     }
 
@@ -42,6 +44,7 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
         case .musicXML: "application/vnd.recordare.musicxml+xml"
         case .lilyPond: "text/x-lilypond"
         case .mei: "application/mei+xml"
+        case .mnx: "application/vnd.mnx+json"
         }
     }
 }
@@ -193,6 +196,15 @@ public struct UTabTextCompiler: Sendable {
                 diagnostics += converted.diagnostics.map { .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil) }
             } catch {
                 diagnostics.append(.init(severity: .error, stage: .backend, message: "MEI encoding failed: \(error)", range: nil, path: nil))
+            }
+        }
+        if options.outputs.contains(.mnx) {
+            do {
+                let converted = try MNXDraft1Interchange.exportDocument(JSONEncoder().encode(document))
+                artifacts.append(artifact(.mnx, data: converted.data))
+                diagnostics += converted.diagnostics.map { .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil) }
+            } catch {
+                diagnostics.append(.init(severity: .error, stage: .backend, message: "MNX draft 1.0 encoding failed: \(error)", range: nil, path: nil))
             }
         }
 

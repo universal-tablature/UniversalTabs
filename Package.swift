@@ -33,6 +33,7 @@ var products: [Product] = [
     .executable(name: "utab-musicxml", targets: ["UTabMusicXML"]),
     .executable(name: "utab-lilypond", targets: ["UTabLilyPond"]),
     .executable(name: "utab-mei", targets: ["UTabMEI"]),
+    .executable(name: "utab-mnx", targets: ["UTabMNX"]),
 ]
 
 var dependencies: [Package.Dependency] = [
@@ -67,6 +68,10 @@ var targets: [Target] = [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
     ]),
     .executableTarget(name: "UTabMEI", dependencies: [
+        "UniversalTabs",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+    ]),
+    .executableTarget(name: "UTabMNX", dependencies: [
         "UniversalTabs",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
     ]),

@@ -23,6 +23,45 @@ import Testing
     #expect(Pitch.midiNote("not-a-pitch") == nil)
 }
 
+@Test func importsAndExportsMNXDraft1NotesRestsChordsAndGrace() throws {
+    let mnx = """
+    {
+      "_c": "MNX draft 1.0 test document",
+      "mnx": { "version": 1 },
+      "global": { "measures": [{ "number": 1, "time": { "count": 4, "unit": 4 } }] },
+      "parts": [{
+        "name": "Piano",
+        "measures": [{ "sequences": [{ "content": [
+          { "type": "grace", "content": [{ "type": "event", "duration": { "base": "eighth" }, "notes": [{ "pitch": { "step": "D", "octave": 4 } }] }] },
+          { "type": "event", "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "C", "octave": 4 } }, { "pitch": { "step": "E", "alter": -1, "octave": 4 } }] },
+          { "type": "event", "duration": { "base": "half", "dots": 1 }, "rest": {} }
+        ] }] }]
+      }]
+    }
+    """
+    let imported = try MNXDraft1Interchange.importDocument(Data(mnx.utf8))
+    let document = try JSONDecoder().decode(UTabDocument.self, from: imported.data)
+    #expect(document.tracks.first?.name == "Piano")
+    #expect(document.tracks.first?.events?.count == 4)
+    #expect(document.tracks.first?.events?.first?.type == "grace")
+    #expect(document.tracks.first?.events?.last?.type == "rest")
+    #expect(imported.diagnostics.contains(MNXDraft1Interchange.notice))
+
+    let exported = try MNXDraft1Interchange.exportDocument(imported.data)
+    let root = try #require(try JSONSerialization.jsonObject(with: exported.data) as? [String: Any])
+    let version = (root["mnx"] as? [String: Any])?["version"] as? Int
+    #expect(version == 1)
+    #expect((root["_c"] as? String)?.contains("not target a final") == true)
+    _ = try MNXDraft1Interchange.importDocument(exported.data)
+}
+
+@Test func rejectsNonDraft1MNXVersion() throws {
+    let mnx = Data(#"{"mnx":{"version":2},"global":{"measures":[]},"parts":[]}"#.utf8)
+    #expect(throws: MusicXMLError.self) {
+        try MNXDraft1Interchange.importDocument(mnx)
+    }
+}
+
 @Test func parsesCanonicalActuatorTargets() throws {
     #expect(try ActuatorTarget(parsing: "strings").selector == nil)
     #expect(try ActuatorTarget(parsing: "strings[2]").selector == .index(2))

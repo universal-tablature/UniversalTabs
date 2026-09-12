@@ -157,6 +157,7 @@ struct UTabCompilerCommand {
         case "musicxml", "xml": options.formats.insert(.musicXML)
         case "lilypond", "ly": options.formats.insert(.lilyPond)
         case "mei": options.formats.insert(.mei)
+        case "mnx": options.formats.insert(.mnx)
         default: throw ArgumentError.message("unknown output format '\(value)'")
         }
     }
@@ -186,7 +187,7 @@ struct UTabCompilerCommand {
 
     Compile Universal Tabs composer source.
 
-      --emit <utab-json|midi|musicxml|lilypond|mei>
+      --emit <utab-json|midi|musicxml|lilypond|mei|mnx>
                                Emit a format; may be repeated (default: utab-json)
       -o <path>                Output path when exactly one format is emitted
       -I <directory>           Add a module search directory; may be repeated
@@ -195,5 +196,6 @@ struct UTabCompilerCommand {
       -h, --help               Show this help
 
     Without -o, outputs are written beside the input using the format's standard extension.
+    MNX output targets the experimental MNX 1.0 draft, not a final specification.
     """
 }
