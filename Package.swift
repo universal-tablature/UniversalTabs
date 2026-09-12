@@ -27,6 +27,7 @@ var products: [Product] = [
     .library(name: "UTABNotation", targets: ["UTABNotation"]),
     .library(name: "UTABEngraving", targets: ["UTABEngraving"]),
     .library(name: "UTABLanguageServer", targets: ["UTABLanguageServer"]),
+    .library(name: "UTABConversion", targets: ["UTABConversion"]),
     .executable(name: "utabc", targets: ["UTabCompiler"]),
     .executable(name: "utab-lsp", targets: ["UTabLanguageServerCommand"]),
     .executable(name: "utab-midi", targets: ["UTabMIDI"]),
@@ -34,6 +35,8 @@ var products: [Product] = [
     .executable(name: "utab-lilypond", targets: ["UTabLilyPond"]),
     .executable(name: "utab-mei", targets: ["UTabMEI"]),
     .executable(name: "utab-mnx", targets: ["UTabMNX"]),
+    .executable(name: "utab-decompile", targets: ["UTabDecompile"]),
+    .executable(name: "utab-convert", targets: ["UTabConvert"]),
 ]
 
 var dependencies: [Package.Dependency] = [
@@ -59,6 +62,7 @@ var targets: [Target] = [
         name: "UTABLanguageServer",
         dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]
     ),
+    .target(name: "UTABConversion", dependencies: ["UniversalTabs", "UTABComposerCore", "UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
     .executableTarget(name: "UTabCompiler", dependencies: ["UTABComposerText", "UTABInstrumentLibrary", "UTABLowering"]),
     .executableTarget(name: "UTabLanguageServerCommand", dependencies: ["UTABLanguageServer"]),
     .executableTarget(name: "UTabMIDI", dependencies: ["UniversalTabs"]),
@@ -75,6 +79,14 @@ var targets: [Target] = [
         "UniversalTabs",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
     ]),
+    .executableTarget(name: "UTabDecompile", dependencies: [
+        "UniversalTabs",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+    ]),
+    .executableTarget(name: "UTabConvert", dependencies: [
+        "UTABConversion",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+    ]),
     .testTarget(name: "UniversalTabsTests", dependencies: ["UniversalTabs"]),
     .testTarget(name: "UTABEditingTests", dependencies: ["UTABEditing", "UTABComposerCore"]),
     .testTarget(
@@ -83,6 +95,7 @@ var targets: [Target] = [
     ),
     .testTarget(name: "UTabCompilerIntegrationTests", dependencies: ["UTabCompiler"]),
     .testTarget(name: "UTABLanguageServerTests", dependencies: ["UTABLanguageServer"]),
+    .testTarget(name: "UTABConversionTests", dependencies: ["UTABConversion", "UniversalTabs"]),
 ]
 
 #if !os(Windows)

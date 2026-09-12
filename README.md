@@ -50,6 +50,8 @@ swift build --configuration release --show-bin-path
 | `utab-lilypond` | Export UTAB JSON to LilyPond, optionally rendering and opening PDF output | macOS, Linux, Windows |
 | `utab-mei` | Import or export MEI 5.1 | macOS, Linux, Windows |
 | `utab-mnx` | Import or export the experimental MNX 1.0 draft (not a final specification) | macOS, Linux, Windows |
+| `utab-decompile` | Decompile UTAB JSON to standalone UTAB composer source | macOS, Linux, Windows |
+| `utab-convert` | Autodetect and convert between UTAB, UTAB JSON, MEI, LilyPond, MusicXML, and MNX | macOS, Linux, Windows |
 | `utab-pdmx-index` | Index a PDMX dataset | macOS, Linux |
 | `utab-pdmx-import` | Import indexed PDMX entries | macOS, Linux |
 | `utab-pdmx-validate` | Round-trip indexed PDMX entries through UTAB and MusicXML | macOS, Linux |

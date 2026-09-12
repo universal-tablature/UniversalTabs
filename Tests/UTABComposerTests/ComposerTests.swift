@@ -3021,3 +3021,36 @@ private func stableFingerprint(_ data: Data) -> String {
     #expect(!result.succeeded)
     #expect(result.diagnostics.contains { $0.message.contains("one-based positive integers") })
 }
+
+@Test func decompilerLowersThroughIRAndProducesCompilableComposerSource() throws {
+    let original = TextSource(
+        """
+        title "Decompiler round trip"
+        meter 4/4
+        tempo 96
+        profile Notes { id "profile:test-notes"; version "1"; actuator notes; interaction play { targets notes } }
+        model Instrument : Notes { id "instrument:test-notes"; name "Notes" }
+        instrument piano : Instrument as "Piano"
+        phrase music { bar { grace measured { D4 e }; C4 q, E4 q; rest q; G4 q. } }
+        section verse : 1 bars { piano { voice melody { music } } }
+        main { verse }
+        """,
+        fileID: "decompiler-input.utab"
+    )
+    let first = UTabTextCompiler().compile(original, modules: StandardTextModuleProvider())
+    let document = try #require(first.document)
+    var diagnostics: [String] = []
+    let ir = UTabComposerDecompiler.lower(document, diagnostics: &diagnostics)
+    let part = try #require(ir.parts.first)
+
+    #expect(first.succeeded, "\(first.diagnostics)")
+    #expect(ir.title == "Decompiler round trip")
+    #expect(part.bars.count == 1)
+    #expect(part.bars[0].expressions.contains { if case .simultaneous = $0 { true } else { false } })
+    #expect(part.bars[0].expressions.contains { if case .grace = $0 { true } else { false } })
+
+    let source = UTabComposerSourceRenderer.render(ir)
+    let recompiled = UTabTextCompiler().compile(.init(source, fileID: "decompiled.utab"), modules: StandardTextModuleProvider())
+    #expect(recompiled.succeeded, "\(recompiled.diagnostics)")
+    #expect(recompiled.document?.tracks.count == 1)
+}
