@@ -29,15 +29,21 @@ import Testing
     let secondJSON = secondDirectory.appendingPathComponent("twinkle.utab.json")
     let firstMIDI = firstDirectory.appendingPathComponent("twinkle.mid")
     let secondMIDI = secondDirectory.appendingPathComponent("twinkle.mid")
+    let musicXML = firstDirectory.appendingPathComponent("twinkle.musicxml")
 
     try UTabCompilerCommand.execute(["--emit", "utab-json", fixture.path, "-o", firstJSON.path])
     try UTabCompilerCommand.execute(["--emit", "utab-json", fixture.path, "-o", secondJSON.path])
     try UTabCompilerCommand.execute(["--emit", "midi", fixture.path, "-o", firstMIDI.path])
     try UTabCompilerCommand.execute(["--emit", "midi", fixture.path, "-o", secondMIDI.path])
+    try UTabCompilerCommand.execute(["--emit", "musicxml", fixture.path, "-o", musicXML.path])
 
     #expect(try Data(contentsOf: firstJSON) == Data(contentsOf: secondJSON))
     #expect(try Data(contentsOf: firstMIDI) == Data(contentsOf: secondMIDI))
     #expect(try Data(contentsOf: firstMIDI).prefix(4) == Data("MThd".utf8))
+    let xml = try String(contentsOf: musicXML, encoding: .utf8)
+    #expect(xml.contains("<score-partwise version=\"4.0\">"))
+    #expect(xml.contains("<measure number=\"1\">"))
+    #expect(xml.contains("<note>"))
     let json = try String(contentsOf: firstJSON, encoding: .utf8)
     let escapedRepositoryPath = fixturesDirectory
         .deletingLastPathComponent()

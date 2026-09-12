@@ -55,7 +55,8 @@ public enum MusicXMLInterchange {
         }
         xml += "</part-list>"
         for (index, track) in document.tracks.enumerated() {
-            guard let events = track.events else { diagnostics.append("\(track.id): sectioned export is not yet supported"); continue }
+            let events = expandedEvents(for: track, setup: document.setup)
+            if events.isEmpty, track.events == nil { diagnostics.append("\(track.id): sectioned track has no resolvable arrangement events") }
             xml += "<part id=\"P\(index + 1)\">"
             var frets: [Int: Int] = [:]
             let grouped = Dictionary(grouping: events, by: { $0.at.musical?.measure ?? 1 })
@@ -164,6 +165,47 @@ public enum MusicXMLInterchange {
     }
     private static func targetIndex(_ target: String) -> Int? {
         guard let parsed = try? ActuatorTarget(parsing: target), case .index(let value) = parsed.selector, parsed.groupPath == "strings" else { return nil }; return value
+    }
+    private static func expandedEvents(for track: EventTrack, setup: PerformanceSetup) -> [PerformanceEvent] {
+        if let events = track.events { return events }
+        guard let parts = track.parts, let arrangement = setup.arrangement, let sections = setup.sections else { return [] }
+        let sectionsByID = Dictionary(sections.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let reusable = Dictionary(parts.compactMap { part in part.section.map { ($0, part) } }, uniquingKeysWith: { first, _ in first })
+        let specific = Dictionary(parts.compactMap { part in part.entry.map { ($0, part) } }, uniquingKeysWith: { first, _ in first })
+        var measureOffset = 0
+        var result: [PerformanceEvent] = []
+        for entry in arrangement {
+            guard let section = sectionsByID[entry.section] else { continue }
+            for _ in 0..<entry.effectivePlayCount {
+                let entryPart = specific[entry.id]
+                let selected: [TrackPart]
+                if let entryPart { selected = entryPart.mode == .overlay ? [reusable[entry.section], entryPart].compactMap { $0 } : [entryPart] }
+                else { selected = reusable[entry.section].map { [$0] } ?? [] }
+                for part in selected {
+                    result += part.events.map { event in
+                        guard let position = event.at.musical else { return event }
+                        return PerformanceEvent(
+                            id: event.id,
+                            at: EventTime(musical: MusicalPosition(measure: position.measure + measureOffset, beat: position.beat, offset: position.offset)),
+                            duration: event.duration,
+                            type: event.type,
+                            action: event.action,
+                            gesture: event.gesture,
+                            target: event.target,
+                            targets: event.targets,
+                            parameter: event.parameter,
+                            parameters: event.parameters,
+                            techniques: event.techniques,
+                            source: event.source,
+                            changes: event.changes,
+                            curve: event.curve
+                        )
+                    }
+                }
+                measureOffset += section.length.measures
+            }
+        }
+        return result
     }
     private static func metadataXML(_ metadata: UTabMetadata) -> String {
         var xml = ""

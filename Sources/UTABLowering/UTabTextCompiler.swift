@@ -21,11 +21,13 @@ import UniversalTabs
 public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
     case uTabJSON
     case midi
+    case musicXML
 
     public var fileExtension: String {
         switch self {
         case .uTabJSON: "utab.json"
         case .midi: "mid"
+        case .musicXML: "musicxml"
         }
     }
 
@@ -33,6 +35,7 @@ public enum UTabTextOutputFormat: String, Sendable, Hashable, CaseIterable {
         switch self {
         case .uTabJSON: "application/json"
         case .midi: "audio/midi"
+        case .musicXML: "application/vnd.recordare.musicxml+xml"
         }
     }
 }
@@ -154,6 +157,18 @@ public struct UTabTextCompiler: Sendable {
             artifacts.append(artifact(.midi, data: converted.midi))
             diagnostics += converted.diagnostics.map {
                 .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil)
+            }
+        }
+        if options.outputs.contains(.musicXML) {
+            do {
+                let encoded = try JSONEncoder().encode(document)
+                let converted = try MusicXMLInterchange.exportDocument(encoded)
+                artifacts.append(artifact(.musicXML, data: converted.data))
+                diagnostics += converted.diagnostics.map {
+                    .init(severity: .warning, stage: .backend, message: $0, range: nil, path: nil)
+                }
+            } catch {
+                diagnostics.append(.init(severity: .error, stage: .backend, message: "MusicXML encoding failed: \(error)", range: nil, path: nil))
             }
         }
 
